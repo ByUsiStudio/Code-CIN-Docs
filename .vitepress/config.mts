@@ -47,6 +47,7 @@ export default defineConfig({
     siteTitle: 'Code CIN',
 
     nav: [
+      { text: '初学者教程', link: '/beginner/', activeMatch: '^/beginner/' },
       { text: '指南', link: '/guide/installation', activeMatch: '^/guide/' },
       { text: 'CIN 语言', link: '/language/', activeMatch: '^/language/' },
       {
