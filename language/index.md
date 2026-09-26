@@ -13,7 +13,8 @@ CIN 是 Code CIN 的高级语言：一门**语法近似 C / Go 的静态类型�
 - 同一份 `.cin` 源码由**解释器 / Python JIT / Go 原生 VM** 三条路径执行，语义一致。
 
 ::: tip 阅读顺序
-完全没接触过 CIN 建议先看 [快速开始](/guide/quickstart)；本页负责给出全局地图，
+完全没接触过 CIN 建议先看 [初学者教程](/beginner/) (13 章、从零开始、每段代码都有实测输出)
+或 [快速开始](/guide/quickstart)；本页负责给出全局地图，
 细节分散在同目录的 `lexical` / `types` / `variables` / `operators` / `control-flow` 等页面。
 :::
 
