@@ -10,6 +10,9 @@ hero:
     alt: Code CIN
   actions:
     - theme: brand
+      text: 初学者教程
+      link: /beginner/
+    - theme: alt
       text: 快速开始
       link: /guide/quickstart
     - theme: alt
@@ -20,6 +23,9 @@ hero:
       link: https://github.com/ByUsiStudio/Code-CIN
 
 features:
+  - icon: 🎓
+    title: 零基础教程 (13 章)
+    details: 从安装与第一个程序讲到函数、数组、字符串、struct、模块、调试与六个综合项目, 每段代码都实机验证过输出。
   - icon: 🧩
     title: 三语言一条工具链
     details: CIN 高级语言、PL 关键字风格汇编、ASM 汇编, 统一编译/汇编为 UCBC 字节码, 共享同一套 ISA 与 VM。

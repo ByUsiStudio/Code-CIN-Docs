@@ -106,6 +106,39 @@ export default defineConfig({
     ],
 
     sidebar: {
+      '/beginner/': [
+        {
+          text: 'CIN 初学者教程',
+          items: [
+            { text: '教程导览', link: '/beginner/' },
+            { text: '第 1 章 环境与第一个程序', link: '/beginner/ch01-hello' },
+            { text: '第 2 章 变量、类型与输入输出', link: '/beginner/ch02-variables' },
+            { text: '第 3 章 运算符与表达式', link: '/beginner/ch03-expressions' },
+            { text: '第 4 章 条件分支', link: '/beginner/ch04-conditions' },
+            { text: '第 5 章 循环', link: '/beginner/ch05-loops' }
+          ]
+        },
+        {
+          text: '数据结构与函数',
+          items: [
+            { text: '第 6 章 函数与递归', link: '/beginner/ch06-functions' },
+            { text: '第 7 章 数组', link: '/beginner/ch07-arrays' },
+            { text: '第 8 章 字符串与文本处理', link: '/beginner/ch08-strings' },
+            { text: '第 9 章 struct 与数据建模', link: '/beginner/ch09-structs' },
+            { text: '第 10 章 模块与标准库', link: '/beginner/ch10-modules' }
+          ]
+        },
+        {
+          text: '实战与速查',
+          items: [
+            { text: '第 11 章 文件、画布与系统交互', link: '/beginner/ch11-io-host' },
+            { text: '第 12 章 调试与排错', link: '/beginner/ch12-debug' },
+            { text: '第 13 章 综合实战 (六个项目)', link: '/beginner/projects' },
+            { text: '习题与答案', link: '/beginner/exercises' },
+            { text: '语法速查表', link: '/beginner/cheatsheet' }
+          ]
+        }
+      ],
       '/guide/': [
         {
           text: '开始使用',
