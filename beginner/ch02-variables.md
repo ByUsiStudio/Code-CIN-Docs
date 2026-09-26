@@ -231,6 +231,7 @@ function main() -> int {
 ```text
 adult = true
 empty = false
+已成年
 ```
 
 在数值环境里 `true` 当 `1`、`false` 当 `0`; 反过来, 数字 `0` 为假、非 `0` 为真。
@@ -292,7 +293,8 @@ codecin read_int.asm
 
 ```c
 function main() -> int {
-    string text = file_read("numbers.txt")   // 文件内容: 42
+    file_write("numbers.txt", "42")          // 先准备一个数据文件
+    string text = file_read("numbers.txt")   // 再把它读回来
     int n = atoi(text)
     println("读到的数字: " + n + ", 两倍: " + (n * 2))
     return 0
