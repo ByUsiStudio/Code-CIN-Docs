@@ -13,16 +13,35 @@ description: "CIN 内建函数完整参考：I/O、数学、随机与时间、�
 |------|------|------|
 | `print(x)` | void | 输出不换行 (自动字符串化) |
 | `println(x)` | void | 输出并换行; **无参调用输出空行** |
-| `input()` | int | 读入一行并解析为整数 (解析失败为 `0`, EOF 也是 `0`) |
+| `input()` | int | **当前版本不读键盘: 恒定返回 `0`** (见下方警告) |
+
+::: danger 5.5.0 的 `input()` 是空实现
+两个编译器 (Python 侧 `codecin/cin.py` 与 Go 侧 `codecin/native/compiler/codegen.go`)
+都把 `input()` 编译成常量 `0`, 因此它**不会**读取标准输入:
 
 ```c
-function main() -> int {
-    print("请输入一个整数: ")
-    int n = input()
-    println("你输入的是 " + int_to_str(n))
-    return 0
-}
+int n = input()      // 永远是 0
 ```
+
+实测 (两种路径一致):
+
+```bash
+echo 42 | codecin prog.cin --log-level ERROR
+```
+
+```text
+你输入的是 0
+```
+
+替代方案:
+
+- **汇编 `IN` 指令** (真的读一行整数): `in x0` + `out x0`, 见
+  [指令语义参考](/asm/instructions);
+- **读文件**: `file_read` / `io.cin`, 见 [宿主能力](/language/host-abilities);
+- 学习/测试时直接用字面量赋值。
+
+该问题已记录在仓库 `docs/SUGGESTIONS_NEXT.md` §1.4。
+:::
 
 ## 数学
 

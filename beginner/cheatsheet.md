@@ -9,7 +9,8 @@ description: "CIN 语法速查表：程序骨架、类型、运算符、控制�
 ## 程序骨架
 
 ```c
-import "math.cin"              // 1) import 必须在文件最上面 (可选)
+// 1) import 必须在文件最上面 (可选; 注意: import 行不能写行尾注释)
+import "math.cin"
 
 int counter = 0                // 2) 全局变量 (可选)
 
@@ -39,8 +40,8 @@ function main() -> int {         // 5) 入口
 | `int` (含 `char` `short` `long` `unsigned *`) | `0` | `42` `-7` `0xFF` `0b1010` `0o17` `'A'` `1_000` |
 | `float` | `0.0` | `3.14` `1e-5` `1.5f` |
 | `bool` | `false` | `true` `false` |
-| `string` | `""` | `"hello\n"` |
-| struct | 全零 | — |
+| `string` | **必须写 `= ""`** | `"hello\n"` |
+| struct | 数值字段 `0`, **字符串字段不是空串** | — |
 | `T[n]` 固长数组 | 全零 | `int a[3] = {1,2,3}` |
 | `T[]` 指针数组 | 空指针 | 用于参数/返回 |
 
@@ -109,8 +110,12 @@ function no_return(int a) -> void {     // -> void 可省略
 
 ```c
 int a[5]                    // 声明, 全 0
-int b[4] = {1, 2, 3, 4}     // 初始化
-int m[2][3] = { {1,2,3}, {4,5,6} }   // 二维 (行主序)
+int b[4] = {1, 2, 3, 4}     // 一维字面量初始化 (有效)
+
+int m[2][3]                 // 二维: 用循环填充 (局部字面量初始化无效!)
+for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 3; j++) { m[i][j] = i * 3 + j }   // 行主序
+}
 
 for (int i = 0; i < n; i++) { a[i] } // 遍历: 条件一定写 i < n
 
@@ -118,7 +123,8 @@ function sum(int[] arr, int n) -> int { ... }   // 传参要带长度
 ```
 
 - 下标从 0 开始; 数组**不记录长度**;
-- 默认**不检查越界**; 排查时用 `--bounds-check` (指针形式参数抓不到, 需自己保证 `n`)。
+- 默认**不检查越界**; 排查时用 `--bounds-check` (指针形式参数抓不到, 需自己保证 `n`);
+- 二维也可以用一维代替: `flat[i * cols + j]`。
 
 ## 字符串
 
@@ -144,22 +150,38 @@ struct Student {
     int grades[5]           // 固长数组字段可以, T[] 字段不行
 }
 
-Student s                   // 声明, 字段全零
+Student s                   // 声明后立刻给字符串字段赋值
 s.name = "小明"
 s.score = 92
 println(s.score)
-
-Student cls[3]              // struct 数组
-cls[0].name = "小红"
 ```
 
-struct 传参是**值语义**; 想改到外面就返回新 struct 或传数组。
+- 单个 struct 变量可靠; **struct 数组 (表格数据) 与嵌套 struct 字段当前不可靠** ——
+  表格用并行数组, 多段数据用多个独立 struct 变量;
+- struct 传参是**值语义**; 想改到外面就返回新 struct 或传数组。
+
+## 5.5.0 已知限制 (避坑清单)
+
+| 写法 | 实际行为 | 规避 |
+|------|----------|------|
+| `input()` | 恒为 `0`, 不读键盘 | 汇编 `IN` / 读文件 |
+| `string s` 不初始化 | 指向相邻字面量 | 写 `string s = ""` |
+| struct 字符串字段不赋值 | 不是空串 | 声明后立刻赋值 |
+| 内层块重名声明变量 | 与外墙共用存储 | 内层换名字 |
+| `Student cls[3]` | 元素字段互相覆盖 | 并行数组 |
+| `r.a.x` 嵌套字段 | 互相覆盖 | 扁平字段 / 独立变量 |
+| 函数内 `int m[2][3] = {...}` | 初始化无效 | 循环填充 / 全局字面量 / 一维 `flat[i*cols+j]` |
+| `import "x.cin"  // 注释` | 编译失败 | 注释另起一行 |
+| `sqrt(-1)` | 原生 `NaN` / 解释器报错 | 先判断定义域 |
+| `int[] a` 参数越界 | `--bounds-check` 管不到 | 自己保证循环用 `i < n` |
 
 ## 模块与标准库
 
 ```c
-import "math.cin"           // 裸名字 = 内置标准库 codecin/lib/
-import "./helpers.cin"      // 相对当前文件的路径
+// 裸名字 = 内置标准库 codecin/lib/; "./x.cin" = 相对当前文件的路径
+// 注意: import 行不能写行尾注释
+import "math.cin"
+import "./helpers.cin"
 ```
 
 | 前缀 | 库 | 常用函数 |
@@ -227,13 +249,18 @@ termux_notify(t, c) termux_toast(m) termux_vibrate(ms) termux_battery()
 | `host builtins ... require the native Go runtime` | 去掉 `--no-native` |
 | `Unknown instruction: jle` | 本 ISA 没有该指令, 用 `JG`/`JL`/`JE` |
 
-## 五个最容易踩的坑
+## 最容易踩的坑
 
 1. **`/` 是浮点除法** —— 整数商用 `idiv`;
 2. **字符串不能用 `==` 比内容** —— 用 `strcmp(a, b) == 0`;
 3. **数组不记录长度** —— 传参必须带 `n`, 循环写 `i < n`;
 4. **`switch` 分支默认贯穿** —— 记得 `break`;
-5. **`input()` 当前恒为 0** —— 交互输入用汇编 `IN` 或读文件。
+5. **`input()` 当前恒为 0** —— 交互输入用汇编 `IN` 或读文件;
+6. **未初始化的 `string` / struct 字符串字段不是空串** —— 声明时就赋值;
+7. **struct 数组与嵌套 struct 字段当前不可靠** —— 表格用并行数组, 多段数据用独立变量;
+8. **函数内二维数组字面量初始化无效** —— 循环填充或压成一维 `flat[i * cols + j]`。
+
+> 完整清单 (含表现与规避写法) 见 [第 12 章 · 已知限制](/beginner/ch12-debug#_12-7-5-5-0-已知限制与规避-重点)。
 
 ## 相关页面
 

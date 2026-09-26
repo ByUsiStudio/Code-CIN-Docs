@@ -21,17 +21,23 @@ CIN 用 `import` 引入其它 `.cin` 文件。解析规则只有两条, 且 `imp
 
 ```c
 // main.cin
-import "math.cin"         // f_abs / f_floor / f_ceil / f_round / f_min / f_max / i_clamp ...
-import "str.cin"          // s_upper / s_lower / s_contains / s_starts_with / s_ends_with ...
-import "./helpers.cin"    // 自建模块 (与 main.cin 同目录)
+// 注意: import 行不能写行尾注释 (会报 Expected IDENT)
+import "math.cin"
+import "str.cin"
+import "./helpers.cin"
 
 function main() -> int {
-    int v = f_floor(3.9)
-    string up = s_upper("hi")
+    int v = f_floor(3.9)              // math 库: 向下取整
+    string up = s_upper("hi")         // str 库: 转大写
     println(float_to_str(f_round(2.5)) + " " + up + " " + int_to_str(v))
     return v
 }
 ```
+
+::: danger `import` 行不要写行尾注释
+实测 (5.5.0): `import "math.cin"  // 数学` 会编译失败
+(`Compiler error: Expected IDENT but got STRING`)。把注释挪到上一行或下一行。
+:::
 
 实测输出 (`examples/modules_demo.cin`, 见 [示例程序集](/guide/examples)):
 

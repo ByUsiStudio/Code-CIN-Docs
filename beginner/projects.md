@@ -68,8 +68,9 @@ function main() -> int {
     while (low <= high) {
         int guess = idiv(low + high, 2)
         tries++
+        println("第 " + tries + " 次猜: " + guess)
         if (guess == secret) {
-            println("第 " + tries + " 次猜中: " + guess)
+            println("猜中! 秘密数字 = " + secret + ", 共 " + tries + " 次")
             return 0
         }
         if (guess < secret) {
@@ -78,60 +79,84 @@ function main() -> int {
             high = guess - 1
         }
     }
-    println("没猜中 (不应该发生)")
     return 1
 }
 ```
 
-输出会显示二分的每一步与最终次数 (因为固定了种子, 每次运行完全一致)。
+```text
+第 1 次猜: 50
+第 2 次猜: 25
+第 3 次猜: 37
+第 4 次猜: 31
+第 5 次猜: 28
+第 6 次猜: 29
+猜中! 秘密数字 = 29, 共 6 次
+```
+
+因为固定了种子 (`srand(7)`), 每次运行的秘密数字与过程完全一致 —— 这也是给程序写测试的好习惯。
+
+> 注意: `import` 行**不能**写行尾注释 (会编译失败), 见
+> [第 10 章](/beginner/ch10-modules#_10-2-import-的两条规则)。
 
 ## 项目 3: 成绩统计报告
 
-struct 数组 + 排序 + 统计, 输出一张小报表:
+用**并行数组**存表格数据 (为什么不用 struct 数组, 见
+[第 9 章的限制说明](/beginner/ch09-structs#_9-4-一张表-用并行数组)), 输出一张小报表:
 
 ```c
-import "sort.cin"
-
-struct Student {
-    string name
-    int score
-}
-
 function main() -> int {
-    Student cls[5]
-    cls[0].name = "小明"; cls[0].score = 88
-    cls[1].name = "小红"; cls[1].score = 95
-    cls[2].name = "小刚"; cls[2].score = 72
-    cls[3].name = "小美"; cls[3].score = 59
-    cls[4].name = "小强"; cls[4].score = 81
+    string names[5]
+    int scores[5]
+    names[0] = "小明"; scores[0] = 88
+    names[1] = "小红"; scores[1] = 95
+    names[2] = "小刚"; scores[2] = 72
+    names[3] = "小美"; scores[3] = 59
+    names[4] = "小强"; scores[4] = 81
 
     int total = 0
     int pass = 0
     int best = 0
     for (int i = 0; i < 5; i++) {
-        total += cls[i].score
-        if (cls[i].score >= 60) { pass++ }
-        if (cls[i].score > cls[best].score) { best = i }
+        total += scores[i]
+        if (scores[i] >= 60) { pass++ }
+        if (scores[i] > scores[best]) { best = i }
     }
 
     println("姓名\t分数\t等级")
     for (int i = 0; i < 5; i++) {
         string grade = "不及格"
-        if (cls[i].score >= 90) { grade = "优秀" }
-        else if (cls[i].score >= 80) { grade = "良好" }
-        else if (cls[i].score >= 60) { grade = "及格" }
-        println(cls[i].name + "\t" + cls[i].score + "\t" + grade)
+        if (scores[i] >= 90) { grade = "优秀" }
+        else if (scores[i] >= 80) { grade = "良好" }
+        else if (scores[i] >= 60) { grade = "及格" }
+        println(names[i] + "\t" + scores[i] + "\t" + grade)
     }
-
     println("-------------")
     println("平均分: " + (total / 5))
     println("及格率: " + (pass * 100 / 5) + "%")
-    println("最高分: " + cls[best].name + " (" + cls[best].score + ")")
+    println("最高分: " + names[best] + " (" + scores[best] + ")")
     return 0
 }
 ```
 
-要点: 用 `\t` 对齐; `pass * 100 / 5` 是浮点除法 → 及格率 80%。
+```text
+姓名	分数	等级
+小明	88	良好
+小红	95	优秀
+小刚	72	及格
+小美	59	不及格
+小强	81	良好
+-------------
+平均分: 79
+及格率: 80%
+最高分: 小红 (95)
+```
+
+要点:
+
+- 两个数组靠同一个下标 `i` 对齐 (`names[i]` ↔ `scores[i]`);
+- `\t` 用来在终端里对齐列;
+- `pass * 100 / 5` 是浮点除法 → 及格率 `80%`;
+- 求最高分时用 `best` 记住**下标**, 最后才能同时拿到名字和分数。
 
 ## 项目 4: 排序 + 二分查找
 
@@ -207,11 +232,25 @@ function main() -> int {
 
 `2×3` 的矩阵乘 `3×2` 的矩阵, 结果 `2×2`。规则: 结果的 `(i,j)` = 左矩阵第 `i` 行与右矩阵第 `j` 列逐项相乘再求和。
 
+矩阵用二维数组表示, **用循环填充** (局部二维数组的 `{ {...} }` 字面量初始化当前无效,
+原因见 [第 7 章](/beginner/ch07-arrays#_7-8-二维数组)):
+
 ```c
 function main() -> int {
-    int A[2][3] = { {1, 2, 3}, {4, 5, 6} }
-    int B[3][2] = { {7, 8}, {9, 10}, {11, 12} }
+    int A[2][3]
+    int B[3][2]
     int C[2][2]
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            A[i][j] = i * 3 + j + 1              // 1 2 3 / 4 5 6
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 2; j++) {
+            B[i][j] = 7 + i * 2 + j              // 7 8 / 9 10 / 11 12
+        }
+    }
 
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
@@ -231,6 +270,11 @@ function main() -> int {
     }
     return 0
 }
+```
+
+```text
+58 64 
+139 154 
 ```
 
 手算核对: `C[0][0] = 1×7 + 2×9 + 3×11 = 58`, `C[1][1] = 4×8 + 5×10 + 6×12 = 154`。
