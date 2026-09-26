@@ -33,7 +33,7 @@ import "../shared/x.cin"
 ```
 
 ::: danger `import` 行不能写行尾注释
-实测 (5.5.0): `import "math.cin"   // 数学` 会直接编译失败:
+实测: `import "math.cin"   // 数学` 会直接编译失败:
 
 ```text
 Compiler error: Expected IDENT but got STRING ('math.cin')

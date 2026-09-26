@@ -254,7 +254,7 @@ head -c 3 hello.cin | xxd
 ```
 
 ::: tip BOM 与 import 的关系
-早期版本中带 BOM 的文件里 `import` 会静默失效；5.5.0 起 BOM 在词法层被丢弃，
+早期版本中带 BOM 的文件里 `import` 会静默失效；现在 BOM 在词法层被丢弃，
 带 BOM 的模块文件也能正常引用。参见 `tests/test_literals_and_bom.py`。
 :::
 

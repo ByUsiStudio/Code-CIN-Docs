@@ -8,7 +8,7 @@ Code CIN 除了命令行工具, 也可以直接当作 Python 库嵌入到自己�
 `Config`, 交给 `CPU`, 然后调用 `run()` 或逐条 `step()`。整条工具链 (汇编器、CIN
 编译器、Go 原生 VM 桥接、CROM 读写、反汇编、统计) 都是公开可调用的。
 
-本页所有签名均以 5.5.0 源码为准: 包导出见 `codecin/__init__.py`, 配置字段见
+本页所有签名均以当前源码为准: 包导出见 `codecin/__init__.py`, 配置字段见
 `codecin/config.py`, 运行时见 `codecin/cpu.py`。
 
 ## 顶层导出
@@ -28,13 +28,13 @@ Code CIN 除了命令行工具, 也可以直接当作 Python 库嵌入到自己�
 | `CompilerError` | exception | CIN 编译阶段错误 |
 | `ExecutionError` | exception | 指令执行阶段错误 |
 | `MemoryAccessError` | exception | 内存越界 / 保护违例 |
-| `__version__` | str | 版本号单一真源 (`"5.5.0"`) |
+| `__version__` | str | 版本号单一真源 (`"x.y.z"`) |
 
 ```python
 import codecin
 from codecin import CPU, Config, Opcode, Constants, Syscall
 
-print(codecin.__version__)            # 5.5.0
+print(codecin.__version__)            # 打印版本号
 print(len(list(Opcode)))              # 112
 print(Constants.OPCODE_NAMES[Opcode.SYS])   # 'SYS'
 print(Syscall.PRINT_STR)              # 24
@@ -238,7 +238,7 @@ except CPUSimulatorError as e:
 | 接口 | 说明 |
 |------|------|
 | `get_engine(logger=None) -> Optional[NativeEngine]` | 查找并加载原生库; 失败返回 `None` (结果被缓存, 只尝试一次) |
-| `NativeEngine.version()` | 库自报版本字符串, 如 `codecin-native 5.5.0 (Go)` |
+| `NativeEngine.version()` | 库自报版本字符串, 如 `codecin-native <版本> (Go)` |
 | `NativeEngine.run(...)` | 整程序字节码执行, 返回结果字典 |
 | `NativeEngine.crom_pack(mem, compress)` / `crom_unpack(data)` | CROM 打包/解包 |
 | `encode_program(instructions, entry=0, labels=None) -> bytes` | 指令元组列表 → UCBC 字节码 |

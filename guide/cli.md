@@ -21,7 +21,7 @@ Supported formats:
 
 ```bash
 codecin --help          # 彩色帮助 (intro + argparse 全量选项)
-codecin --version       # Code CIN 5.5.0
+codecin --version       # 打印当前版本
 ```
 
 ## 位置参数

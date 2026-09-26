@@ -11,7 +11,7 @@ Code CIN 的发行路径统一为 **pip 包**: 代码通过 sdist 进入 PyPI, �
 
 ```python
 # codecin/__init__.py
-__version__ = "5.5.0"
+__version__ = "x.y.z"
 ```
 
 ```toml
@@ -37,8 +37,8 @@ version = { attr = "codecin.__version__" }
 ```bash
 python -m pip install build
 python -m build
-# dist/codecin-5.5.0.tar.gz
-# dist/codecin-5.5.0-py3-none-any.whl
+# dist/codecin-x.y.z.tar.gz
+# dist/codecin-x.y.z-py3-none-any.whl
 ```
 
 == 只构建 sdist
@@ -76,7 +76,7 @@ build.bat                # Windows
 `setup.py` 把 `build_py` 换成了 `BuildPyWithNative`:
 
 ```text
-pip install codecin==5.5.0
+pip install codecin
         │
         ▼
 BuildPyWithNative.run()

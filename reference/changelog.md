@@ -1,10 +1,10 @@
 ---
-description: Code CIN 版本更新日志：当前版本 5.5.0 的架构收敛、原生库安装期编译、内置标准库打包与 AOT 加固，以及历史版本主线。
+description: Code CIN 版本更新日志：架构收敛、原生库安装期编译、内置标准库打包与 AOT 加固，以及历史版本主线。
 ---
 
 # 更新日志
 
-本站与发行版同步, 当前文档对应 **Code CIN 5.5.0**。完整的逐条变更记录见主仓库
+本站与发行版同步。完整的逐条变更记录见主仓库
 [`CHANGELOG.md`](https://github.com/ByUsiStudio/Code-CIN/blob/main/CHANGELOG.md)
 (遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 与
 [语义化版本](https://semver.org/lang/zh-CN/))。
@@ -13,13 +13,13 @@ description: Code CIN 版本更新日志：当前版本 5.5.0 的架构收敛、
 
 | 版本 | 日期 | 主线 |
 |------|------|------|
-| **5.5.0** | 2026-09-24 | 「Python 只做 CLI、Go 是唯一实现」架构收敛; 原生库安装期编译; 内置标准库入包; AOT 依赖加固 |
+| **5.5.3** | 2026-09-24 | 「Python 只做 CLI、Go 是唯一实现」架构收敛; 原生库安装期编译; 内置标准库入包; AOT 依赖加固 |
 | 5.4.2 | 2026-09-13 | 消除静默错误 + 工程可信度加固 (测试从 158 项增至 413 项 Python 用例 + 2 个 Go 测试包) |
 | 5.3.0 | 2026-09-11 | 项目正式更名为 **Code CIN**, 架构从 Python 优先切换为 **Go 优先**; 扩展 CIN 语法、官方标准库、跨平台宿主能力 |
 | 5.2.0 | — | 语言与运行时能力扩充 (详见完整日志) |
 | 5.1.0 及更早 | — | UCPU 模拟器工具链初始化: 解释执行 / JIT / Go 原生三路径、模块化 `codecin/` 包结构 |
 
-## 5.5.0 — 架构收敛
+## 5.5.3 — 架构收敛
 
 当前版本, 以「Python 只做 CLI、Go 是唯一实现」为主线的架构收敛, 配套标准库打包修复与
 AOT 依赖加固。
@@ -72,10 +72,10 @@ AOT 依赖加固。
   `Build Error` 面板。
 - `--build-exe` 在 Windows 上不再产生无扩展名、无法执行的输出文件。
 
-## 升级到 5.5.0
+## 升级到 5.5.3
 
 ```bash
-pip install -U codecin==5.5.0
+pip install -U codecin
 ```
 
 ::: tip 从 5.3/5.4 升级要注意的三点

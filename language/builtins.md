@@ -15,7 +15,7 @@ description: "CIN 内建函数完整参考：I/O、数学、随机与时间、�
 | `println(x)` | void | 输出并换行; **无参调用输出空行** |
 | `input()` | int | **当前版本不读键盘: 恒定返回 `0`** (见下方警告) |
 
-::: danger 5.5.0 的 `input()` 是空实现
+::: danger `input()` 目前是空实现
 两个编译器 (Python 侧 `codecin/cin.py` 与 Go 侧 `codecin/native/compiler/codegen.go`)
 都把 `input()` 编译成常量 `0`, 因此它**不会**读取标准输入:
 

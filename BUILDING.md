@@ -65,7 +65,7 @@ Code CIN/
 └── docs/                   # 文档 (本目录)
 ```
 
-> **Go 侧不提供 CLI** (5.5.0 起): 语言实现全部在 Go, 但只以库的形式存在 ——
+> **Go 侧不提供 CLI**: 语言实现全部在 Go, 但只以库的形式存在 ——
 > `codecin/native/` 下唯一的 `package main` 是 cgo 的 c-shared 库入口 `main.go`。
 > 唯一命令行入口是 Python (`python cpu.py` / 安装后的 `codecin`)。
 > `tests/test_no_go_cli.py` 与 CI 的 `native` 作业都会对此把关。
@@ -340,7 +340,7 @@ codecin build basic.cin -o basic --target windows/amd64              # 全 Go �
 ### 6.2 分发包 (sdist 为主)
 
 发行路径统一为 **pip 包**, 不再维护 PyInstaller spec 或独立安装脚本
-(5.5.0 起 `codecin.spec` / `codecin_linux.spec` / `install.sh` / `install.ps1`
+(`codecin.spec` / `codecin_linux.spec` / `install.sh` / `install.ps1`
 / `build_win.bat` 已删除):
 
 ```bash

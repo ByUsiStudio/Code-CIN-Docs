@@ -1,6 +1,6 @@
 {
   "name": "codecin-docs",
-  "version": "5.5.0",
+  "version": "5.5.3",
   "private": true,
   "type": "module",
   "description": "Code CIN 官方文档站 — VitePress + vitepress-plugin-tabs",

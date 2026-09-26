@@ -14,7 +14,7 @@ description: "第 1 章：安装 Code CIN、写出并运行第一个 CIN 程序�
 打开终端 (Windows 用 **PowerShell**, macOS/Linux 用 **终端**), 输入:
 
 ```bash
-pip install codecin==5.5.0
+pip install codecin
 ```
 
 安装完成后验证:
@@ -24,7 +24,7 @@ codecin --version
 ```
 
 ```text
-Code CIN 5.5.0
+Code CIN x.y.z
 ```
 
 如果提示 `codecin: command not found`, 可以用等价的另一种调用方式:
@@ -234,7 +234,7 @@ codecin hello.cin --no-native --debug
 
 ## 1.9 本章小结
 
-- 安装: `pip install codecin==5.5.0`, 验证 `codecin --version`;
+- 安装: `pip install codecin`, 验证 `codecin --version`;
 - 运行: `codecin 文件名.cin`, 加 `--log-level ERROR` 只看程序输出;
 - 程序骨架: `function main() -> int { ... return 0 }`;
 - `println` 打印并换行, `print` 不换行, `+` 兼具加法与字符串拼接;

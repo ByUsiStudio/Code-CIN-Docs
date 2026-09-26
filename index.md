@@ -55,8 +55,8 @@ features:
 ## 一条命令安装
 
 ```bash
-pip install codecin==5.5.0
-codecin --version        # Code CIN 5.5.0
+pip install codecin
+codecin --version        # 打印当前版本
 codecin --help           # 完整命令行帮助
 ```
 
@@ -146,7 +146,7 @@ python cpu.py hello.cin
 
 | 项目 | 信息 |
 |------|------|
-| 当前版本 | **5.5.0** (文档站与发行版同步) |
+| 当前版本 | 以 `codecin --version` 为准 |
 | 语言实现 | Go 侧是唯一核心 (CIN 编译器 / 字节码 VM / CROM / AOT 运行时), **Go 侧不提供 CLI** |
 | 唯一命令行入口 | `python cpu.py <程序> [选项]` 或安装后的 `codecin <程序> [选项]` |
 | 依赖 | Python 3.8+ 与 `rich` (唯一第三方运行时依赖); Go 1.26+ 仅用于编译原生库/AOT |

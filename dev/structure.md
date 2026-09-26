@@ -4,7 +4,7 @@ description: "Code CIN 仓库结构: Python 包各模块职责、Go 原生库各
 
 # 项目结构
 
-仓库 `UCPU` (项目 Code CIN / codecin 5.5.0) 由三部分组成: **Python 包** `codecin/`
+仓库 `UCPU` (项目 Code CIN / 包 codecin) 由三部分组成: **Python 包** `codecin/`
 (唯一 CLI 外壳 + 解释器 + JIT)、**Go 原生库** `codecin/native/` (语言实现核心:
 CIN 编译器、字节码 VM、CROM、AOT 运行时)、以及 **`docs/` 官方文档站**
 (VitePress, 同时是独立仓库 Code-CIN-Docs, 以 git submodule 内嵌)。
@@ -40,7 +40,7 @@ UCPU/
 
 | 模块 | 职责 |
 |------|------|
-| `__init__.py` | 包导出与**版本号单一真源** `__version__ = "5.5.0"` |
+| `__init__.py` | 包导出与**版本号单一真源** `__version__ = "x.y.z"` |
 | `cli.py` | 命令行入口: `build_parser()` (argparse) → `Config` → 加载 → 运行; 唯一参数表来源 |
 | `config.py` | `Config` dataclass: 全部运行配置字段 + `validate()` 夹取 |
 | `cpu.py` | CPU 核心: 指令 dispatch (`_op_*` 自动注册)、解释执行、栈/标志、`SYS` 宿主调用、调试入口 |

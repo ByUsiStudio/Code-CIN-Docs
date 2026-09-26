@@ -214,7 +214,7 @@ python cpu.py hello.cin --no-native --debug --log-file logs\hello.log
 
 ```text
 $ python cpu.py --version
-Code CIN 5.5.0
+Code CIN x.y.z
 $ echo $LASTEXITCODE      # 0
 $ python cpu.py --definitely-not-an-option
 $ echo $LASTEXITCODE      # 2

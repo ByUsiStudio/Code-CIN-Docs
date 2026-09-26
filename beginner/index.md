@@ -62,8 +62,8 @@ description: "CIN 初学者教程导览：零基础学习路线、每章目标�
 2. **Code CIN 本体** — 一条命令安装:
 
 ```bash
-pip install codecin==5.5.0
-codecin --version        # 应输出: Code CIN 5.5.0
+pip install codecin
+codecin --version        # 打印当前版本
 ```
 
 想拿到最快的执行速度, 再装一个 Go 工具链 (安装时会自动编译原生加速库);
@@ -94,7 +94,7 @@ codecin --version        # 应输出: Code CIN 5.5.0
 - 形如 `codecin prog.cin` 的代码块是**要你在终端里敲的命令**;
 - 形如 ` ```c ` 的代码块是**CIN 源码**, 建议手动敲一遍, 不要只复制;
 - 形如 ` ```text ` 的代码块是**程序的真实输出**(本教程所有输出都在
-  Code CIN 5.5.0 上实测过);
+  当前版本上实测过);
 - 术语首次出现时会用**粗体**标注。
 
 ## 与 C/Go 最容易踩的五个差异

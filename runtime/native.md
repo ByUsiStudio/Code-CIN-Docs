@@ -8,7 +8,7 @@ Go 原生运行时是 Code CIN 的**加速与宿主能力层**：它把 CIN 编�
 
 ## 架构定位：Go 是语言实现，Python 只是 CLI 外壳
 
-不要把 Go 原生库理解成"一个可选插件"。在 5.5.0 里，语言实现的核心在 Go 侧：
+不要把 Go 原生库理解成"一个可选插件"。语言实现的核心在 Go 侧：
 
 | 层 | 落地文件 | 职责 |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ program.cin ──codecin/cin.py──► instructions + labels + data_writes
 | `codecin_free` | `ptr` | 释放任意由上面接口返回的缓冲；`NULL` 安全 |
 | `codecin_crom_pack` | `data ptr,len`、`compress int`、`out_len *int` | 打包为 CROM 字节流，返回缓冲指针，长度写回 `out_len` |
 | `codecin_crom_unpack` | `data ptr,len`、`mem_len *int`、`flags *int` | 校验收包，返回载荷指针与长度/标志；失败返回 `NULL` |
-| `codecin_version` | 无 | `const char*`，内容形如 `codecin-native 5.5.0 (Go)` |
+| `codecin_version` | 无 | `const char*`，内容形如 `codecin-native <版本> (Go)` |
 
 `codecin_version` 返回的指针是**进程级常量**（`sync.Once` 内 `C.CString`），调用方不要 `free`；Python 侧以 `c_char_p` 取值，不做释放。
 

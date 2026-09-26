@@ -1,5 +1,5 @@
 ---
-description: 用 pip 安装 Code CIN 5.5.0 的完整步骤：安装期原生库编译、预编译库、源码树与 Termux 安装，以及安装验证与排错。
+description: 用 pip 安装 Code CIN 的完整步骤：安装期原生库编译、预编译库、源码树与 Termux 安装，以及安装验证与排错。
 ---
 
 # 安装 Code CIN
@@ -27,26 +27,26 @@ Python 侧提供唯一命令行入口 `codecin`, 语言实现 (Go 编译器 / �
 == pip (推荐)
 
 ```bash
-pip install codecin==5.5.0
+pip install codecin
 ```
 
 发行版是 **sdist** (源码分发包), 因此 `pip` 在安装阶段会调用 `setup.py` 的 `build_py` 钩子,
 用**本机的 Go 工具链现场编译原生库**, 并把产物单独拷进安装目录 —— 装完即带原生加速。
 
 ```bash
-codecin --version     # Code CIN 5.5.0
+codecin --version     # 打印当前版本
 ```
 
 == pip + 跳过原生编译
 
 ```bash
 # Linux / macOS / Termux
-CODECIN_SKIP_NATIVE=1 pip install codecin==5.5.0
+CODECIN_SKIP_NATIVE=1 pip install codecin
 ```
 
 ```powershell
 # Windows PowerShell
-$env:CODECIN_SKIP_NATIVE=1; pip install codecin==5.5.0
+$env:CODECIN_SKIP_NATIVE=1; pip install codecin
 ```
 
 适合没有 Go/cgo 工具链、CI 构建发布物、或只想快速试语言的场景。
@@ -65,7 +65,7 @@ $env:CODECIN_SKIP_NATIVE=1; pip install codecin==5.5.0
 | `codecin_native-windows-x64.dll` | windows/amd64 |
 
 ```bash
-pip install codecin==5.5.0
+pip install codecin
 cd "$(python -c 'import codecin,os;print(os.path.dirname(codecin.__file__))')"
 curl -L -O https://github.com/ByUsiStudio/Code-CIN/releases/latest/download/libcodecin_native-linux-arm64.so
 python -c "from codecin import native; print(native.get_engine())"   # 非 None 即生效
@@ -95,7 +95,7 @@ pip install -e .                       # 可选: 以可编辑模式装上 codeci
 
 ```bash
 pkg install python golang
-pip install codecin==5.5.0
+pip install codecin
 ```
 
 Termux 自带 cgo 工具链, 支持 `-buildmode=c-shared`。安装 Termux:API 应用并
@@ -108,7 +108,7 @@ Termux 自带 cgo 工具链, 支持 `-buildmode=c-shared`。安装 Termux:API �
 ```bash
 # 1) 版本
 codecin --version
-# Code CIN 5.5.0
+# 打印当前版本 (形如 Code CIN x.y.z)
 
 # 2) 原生库是否加载成功 (输出非 None 即成功)
 python -c "from codecin import native; print(native.get_engine())"
@@ -141,8 +141,8 @@ Hello, Code CIN!
 ## 升级与卸载
 
 ```bash
-pip install -U codecin==5.5.0     # 升级/锁定到指定版本
-pip install codecin               # 装最新版
+pip install -U codecin            # 升级到最新版
+pip install codecin               # 首次安装
 pip uninstall codecin             # 卸载
 pip cache purge                   # 需要时可清理 wheel/sdist 缓存
 ```
@@ -157,7 +157,7 @@ pip cache purge                   # 需要时可清理 wheel/sdist 缓存
 | 安装日志出现 `setup.py` 编译警告, 但安装成功 | 本机没有 Go/cgo 工具链, 原生库没编出来 | 可忽略; 需要原生能力时装 Go 后重装, 或下载预编译库 |
 | `ImportError: DLL load failed` / `cannot open shared object file` | 原生库依赖的系统 C 运行时缺失 (如 Windows 缺 MinGW 运行库) | 用 `--no-native` 先跑通, 或改装预编译库 |
 | `get_engine()` 打印 warning 并返回 `None` | 库的架构/ABI 与当前解释器不符 | 换成对应平台的资产; 运行时不会因此失败 |
-| `import "math.cin"` 报 `Import file not found` | 装到了不含内置标准库的旧版本 | `pip install -U codecin==5.5.0` 后重试 |
+| `import "math.cin"` 报 `Import file not found` | 装到了不含内置标准库的旧版本 | `pip install -U codecin` 后重试 |
 | `codecin: command not found` | 脚本目录不在 `PATH` | 用 `python -m codecin.cli` 或 `python cpu.py` 运行, 或把 `Scripts`/`bin` 加进 `PATH` |
 | 想确认到底走了哪条路径 | — | 加 `--log-level DEBUG`, 初始化 dump 里会打印 `native` / `jit` 取值 |
 

@@ -35,7 +35,7 @@ function main() -> int {
 ```
 
 ::: danger `import` 行不要写行尾注释
-实测 (5.5.0): `import "math.cin"  // 数学` 会编译失败
+实测: `import "math.cin"  // 数学` 会编译失败
 (`Compiler error: Expected IDENT but got STRING`)。把注释挪到上一行或下一行。
 :::
 
