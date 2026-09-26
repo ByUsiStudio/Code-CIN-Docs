@@ -235,7 +235,12 @@ function double_all(int[] a, int n) -> void {
 
 ```c
 function main() -> int {
-    int m[2][3] = { {1, 2, 3}, {4, 5, 6} }
+    int m[2][3]                        // 2 行 3 列
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            m[i][j] = i * 3 + j + 1    // 依次填 1..6
+        }
+    }
 
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 3; j++) {
@@ -254,8 +259,48 @@ function main() -> int {
 m[1][2] = 6
 ```
 
-二维数组按**行主序**存放 (先放完第一行再放第二行)。更多矩阵运算见
-[第 13 章 · 矩阵乘法](/beginner/projects#项目-6-矩阵乘法)。
+二维数组按**行主序**存放 (先放完第一行再放第二行)。
+
+::: danger 局部二维数组的 `{ {...}, {...} }` 字面量初始化当前无效
+实测 (5.5.0): 在**函数内部**写
+
+```c
+int m[2][3] = { {1, 2, 3}, {4, 5, 6} }    // 局部: 元素不会被写入 (读到 0/垃圾)
+```
+
+元素不会真的被初始化。三种可用写法:
+
+1. **用循环填充** (上面的例子, 推荐);
+2. **放到全局** (文件顶层) 再用字面量初始化 —— 全局的二维字面量是有效的;
+3. **压成一维数组**自己算下标: `flat[i * cols + j]` —— 标准库 `matrix.cin` 就是这么做的。
+
+```c
+// 写法 2: 全局二维数组字面量 (有效)
+int GRID[2][3] = { {1, 2, 3}, {4, 5, 6} }
+
+function main() -> int {
+    println("GRID[0][0] = " + GRID[0][0])    // 1
+    println("GRID[1][2] = " + GRID[1][2])    // 6
+    return 0
+}
+```
+
+```c
+// 写法 3: 一维数组模拟矩阵 (行主序)
+function main() -> int {
+    int flat[6]
+    int rows = 2
+    int cols = 3
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            flat[i * cols + j] = i * cols + j + 1
+        }
+    }
+    println("flat[0] = " + flat[0] + ", flat[5] = " + flat[5])
+    return 0
+}
+```
+:::
 
 ## 7.9 越界: 默认不检查
 

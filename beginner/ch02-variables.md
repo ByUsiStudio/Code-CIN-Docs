@@ -45,7 +45,7 @@ int _tmp = 1            // 合法
 | `int` | 整数 (64 位) | `0` | `int n = 42` |
 | `float` | 小数 (64 位浮点) | `0.0` | `float pi = 3.14159` |
 | `bool` | 真 / 假 | `false` | `bool ok = true` |
-| `string` | 文本 (NUL 结尾的字节串) | `""` | `string s = "hello"` |
+| `string` | 文本 (NUL 结尾的字节串) | **必须显式写成 `""`** | `string s = "hello"` |
 
 还有几个“同义类型名”: `char` / `short` / `long` / `unsigned int` 等, 在 CIN 里
 **和 `int` 一样是 64 位整数**, 只是写法习惯不同:
@@ -69,14 +69,14 @@ mask=65535
 CIN 里字符就是整数: `'A'` 等于 65。想打印字符本身, 得用字符串 `"A"`。
 :::
 
-未初始化的变量有**确定的默认值**, 不会读到垃圾数据:
+`int` / `float` / `bool` 未初始化时会得到确定的默认值; **`string` 例外, 一定要自己写 `""`**:
 
 ```c
 function main() -> int {
     int i
     float f
     bool b
-    string s
+    string s = ""                    // 必须显式初始化
     println("int    = " + i)
     println("float  = " + f)
     println("bool   = " + b)
@@ -91,6 +91,22 @@ float  = 0
 bool   = false
 string = []
 ```
+
+::: danger 未初始化的 `string` 不是空串
+实测 (5.5.0): 只写 `string s` 而不赋初值, 它里面是**未清零的指针**, 可能指向相邻的字符串
+字面量, 打印出来是别的文本或乱码:
+
+```c
+function main() -> int {
+    println("prefix line")
+    string s                 // 没有初始化
+    println("[" + s + "]")   // 实测输出: [prefix line]
+    return 0
+}
+```
+
+**规则: 声明字符串时就写 `string s = ""`。**
+:::
 
 ## 2.3 浮点数的“真相”: 打印出来可能很长
 

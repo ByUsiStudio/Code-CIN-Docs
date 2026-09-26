@@ -85,19 +85,37 @@ function main() -> int {
 
     int x = 1
     if (true) {
-        int x = 99              // 内层重新声明, 遮蔽外层的 x
-        println("inner x = " + x)
+        int inner = 99          // 内层用**不同的名字**
+        println("inner = " + inner)
     }
-    println("outer x = " + x)
+    println("x = " + x)
     return 0
 }
 ```
 
 ```text
 counter = 2
-inner x = 99
-outer x = 1
+inner = 99
+x = 1
 ```
+
+::: danger 内层不要重复声明同名变量 (5.5.0 实测行为)
+CIN 目前**没有真正的块级遮蔽**: 在内层块里再写一次 `int x = 99`, 它和外面的 `x`
+用的是**同一个存储位置**, 内层赋值会把外层也改掉:
+
+```c
+function main() -> int {
+    int x = 1
+    if (true) {
+        int x = 99          // 看起来是"新的 x", 实际不是
+    }
+    println("x = " + x)     // 实测输出: x = 99  (不是 1!)
+    return 0
+}
+```
+
+**规则: 内层块里换一个变量名。**
+:::
 
 ::: tip 少用全局变量
 全局变量让“谁改了它”变得难以追踪。优先用**参数传入、返回值传出**;

@@ -26,11 +26,21 @@ description: "第 10 章：CIN 模块与标准库——import 规则、把代码
 | `import "math.cin"` (裸名字) | **内置标准库** `codecin/lib/` |
 
 ```c
-import "math.cin"          // 内置库: 数学
-import "str.cin"           // 内置库: 字符串
-import "./helpers.cin"     // 自己的文件: 与 main.cin 同目录
-import "../shared/x.cin"   // 自己的文件: 上一级目录
+import "math.cin"
+import "str.cin"
+import "./helpers.cin"
+import "../shared/x.cin"
 ```
+
+::: danger `import` 行不能写行尾注释
+实测 (5.5.0): `import "math.cin"   // 数学` 会直接编译失败:
+
+```text
+Compiler error: Expected IDENT but got STRING ('math.cin')
+```
+
+**规则: `import` 行只写 `import` 语句本身, 注释写在上一行或下一行。**
+:::
 
 ::: tip 一句话记住
 **想引用自己的文件就写 `"./"`, 不写前缀一律当内置库。**
