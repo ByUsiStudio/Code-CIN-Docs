@@ -4,7 +4,7 @@ description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语�
 
 # 快速开始
 
-本节假设你已经完成 [安装](/guide/installation) (`pip install codecin==5.5.0`)。
+本节假设你已经完成 [安装](/guide/installation) (`pip install codecin`)。
 下面所有命令既可以用安装后的 `codecin`, 也可以用源码树里的 `python cpu.py`,
 两者完全等价。
 
