@@ -1,5 +1,5 @@
 ---
-description: "第 11 章：CIN 读写的文件与路径、网络请求、哈希/编码、桌面集成（剪贴板/通知）、画布绘图、系统信息与环境变量、Android/Termux 扩展与安全注意事项。"
+description: "第 11 章：CIN 读写的文件与路径、网络请求、哈希/编码、桌面集成（剪贴板/通知）、画布绘图、系统信息与环境变量、Android/Termux 扩展、键盘输入监听与安全注意事项。"
 ---
 
 # 第 11 章 文件、画布与系统交互
@@ -365,7 +365,39 @@ function main() -> int {
 
 完整清单见 [宿主能力](/language/host-abilities)。
 
-## 11.11 常见错误
+## 11.11 键盘输入监听 (了解即可)
+
+内建 `key_hit()` / `get_key()` / `key_flush()` 提供非阻塞键盘轮询, 适合游戏循环:
+`key_hit()` 返回 `1` 表示有按键可读, `get_key()` 取出键码 (无按键返回 `-1`),
+`key_flush()` 清空键盘输入缓冲。需要**真实终端** (管道 / 重定向下 `key_hit` 恒 `0`、
+`get_key` 恒 `-1`, 不报错), 程序退出自动恢复终端设置。
+
+```c
+import "key.cin"
+
+function main() -> int {
+    println("方向键移动, ESC 退出")
+    while (1) {
+        int k = key_wait()
+        if (k == K_ESC) { break }
+        if (k == K_LEFT)  { println("left") }
+        if (k == K_RIGHT) { println("right") }
+    }
+    return 0
+}
+```
+
+`key.cin` 的 `enum Key` 提供 `K_UP`..`K_F10`、`K_ESC` 等键码常量。不用常量时:
+`0..255` 是原始字节 (Ctrl+C 在监听期间是键码 `3`, **不会**终止程序),
+方向键 / Home / End / PgUp / PgDn / Ins / Del 是 `1001..1010`, F1..F10 是 `1021..1030`。
+完整键码表见 [宿主能力 · 键盘输入监听](/language/host-abilities#键盘输入监听-非阻塞轮询)。
+
+::: warning 循环要有退出条件
+监听期间 Ctrl+C 不再终止程序 (表现为键码 `3`), 所以键盘轮询循环一定要有退出条件,
+比如按 `K_ESC` 跳出。
+:::
+
+## 11.12 常见错误
 
 | 现象 | 原因 | 解决 |
 |------|------|------|
@@ -376,9 +408,10 @@ function main() -> int {
 | `exec` 卡住 | 命令等待输入 | 换用不交互的命令 |
 | `http_get` / `download` 返回空串 / `-1` | 断网、超时 (15 秒)、非 2xx 或超过大小上限 | 检查 URL 与网络; `download` 换 2xx 直链 |
 | 剪贴板 / 通知返回 `-1` | 平台命令缺失 (如 Linux 没装 `xclip` / `notify-send`) | 安装对应工具; Android 装 Termux:API |
+| 键盘轮询没反应 | 管道 / 重定向 / IDE 捕获输出, 不是真实终端 | 在真实终端运行; `key_hit` 恒 `0`、`get_key` 恒 `-1` 是预期行为 |
 | `base64_decode` 返回空串 | 输入不是合法 Base64 | 先校验输入 |
 
-## 11.12 练习
+## 11.13 练习
 
 1. 让程序把 `1` 到 `5` 每行一个数写入 `nums.txt`, 再读回来打印。
 2. 读取一个文本文件, 统计它有多少行、多少字节。
@@ -392,9 +425,9 @@ function main() -> int {
 
 参考实现见 [习题与答案 · 第 11 章](/beginner/exercises#第-11-章)。
 
-## 11.13 本章小结
+## 11.14 本章小结
 
-- 宿主能力 (文件 / 路径 / 网络 / 哈希 / 桌面 / 画布 / 音频 / 命令 / Termux) 需要 Go 原生运行时,
+- 宿主能力 (文件 / 路径 / 网络 / 哈希 / 桌面 / 画布 / 音频 / 命令 / Termux / 键盘) 需要 Go 原生运行时,
   `--no-native` 下调用会报 `host builtins ... require the native Go runtime`;
 - 文件: `file_write` / `file_append` / `file_read` / `file_exists` / `file_size` / `mkdir`;
   路径与管理: `path_join` / `path_basename` / `path_dirname` / `path_abs` / `file_copy` /
@@ -405,6 +438,7 @@ function main() -> int {
 - 网络与编码: `http_get` / `http_post` / `download`、`sha256` / `base64_encode` / `base64_decode`;
 - 桌面: `clipboard_get` / `clipboard_set` / `notify` / `open_url`;
 - 画布: `canvas` + `set_color` + 形状函数 + `save_png`; `gui.cin` 提供图表封装;
+- 键盘: `key_hit` / `get_key` / `key_flush` 非阻塞轮询, 需真实终端; `key.cin` 提供 `K_*` 常量与 `key_wait`;
 - 权限是真实的 (含文件与网络), 谨慎运行来路不明的程序。
 
 下一章: [调试与排错](/beginner/ch12-debug)。

@@ -100,7 +100,7 @@ BuildPyWithNative.run()
 
 | 位置 | 内容 | 由谁负责 |
 |------|------|----------|
-| `codecin/lib/*.cin` | 19 个内置标准库 (**必须进包**) | `package-data` + `MANIFEST.in` |
+| `codecin/lib/*.cin` | 20 个内置标准库 (**必须进包**) | `package-data` + `MANIFEST.in` |
 | `codecin/native/**` | Go 源码 / `go.mod` / 构建脚本 (安装时要编译) | `MANIFEST.in` |
 | `docs/**/*.md` | 文档 (仓库文档 + 文档站页面) | `MANIFEST.in` (`prune docs/node_modules`、`prune docs/.vitepress`) |
 | `examples/**`、`script/*.py`、`misc/**` | 示例、工具脚本、编辑器配置 | `MANIFEST.in` |

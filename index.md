@@ -36,7 +36,7 @@ features:
     title: 112 条指令的 UCPU
     details: Base 28 + ARM64 40 + RISC-V 27 + FP 10 + Vector 6 + SYS 1; 32 通用 + 32 向量寄存器; 可选 MMU 与缓存建模。
   - icon: 📦
-    title: 19 个内置标准库
+    title: 20 个内置标准库
     details: math / str / array / sort / conv / vec / rand / json / time / io / gui / termux 等随 pip 包分发, import 即用。
   - icon: 🔍
     title: 可调试、可分析
@@ -136,7 +136,7 @@ python cpu.py hello.cin
 | 指南 | 安装、快速开始、命令行、执行路径、架构、示例、FAQ | [安装](/guide/installation) · [快速开始](/guide/quickstart) |
 | CIN 语言 | 词法、类型、变量、运算符、控制流、函数、struct、数组、字符串、内建、宿主能力、模块 | [语言总览](/language/) |
 | 汇编 / ISA | 汇编语法 (ASM 与 PL 两种风格)、112 条指令语义、指令编码表 | [汇编总览](/asm/) |
-| 标准库 | 19 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
+| 标准库 | 20 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
 | 运行时 | Go 原生运行时、JIT、`.bin`/`.crom` 格式、AOT 独立可执行文件 | [Go 原生运行时](/runtime/native) |
 | 工具 | 交互式调试器、远程调试协议、日志与错误、性能分析、内存与缓存 | [交互式调试器](/tools/debugger) |
 | 参考 | 指令编码表、寄存器与内存模型、Python 嵌入 API、更新日志 | [寄存器与内存模型](/reference/registers-memory) |

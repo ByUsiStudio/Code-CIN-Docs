@@ -15,7 +15,7 @@ CIN 编译器、字节码 VM、CROM、AOT 运行时)、以及 **`docs/` 官方�
 UCPU/
 ├── cpu.py                    # 唯一 CLI 入口 (转发到 codecin.cli: main)
 ├── codecin/                  # Python 主包
-│   ├── lib/                  # 内置标准库 (19 个 .cin, 随包分发)
+│   ├── lib/                  # 内置标准库 (20 个 .cin, 随包分发)
 │   ├── native/               # Go 原生库源码 (module codecin-native)
 │   └── ...
 ├── tests/                    # pytest 套件 (33 个 test_*.py + helpers/conftest)
@@ -62,9 +62,9 @@ UCPU/
 | `errors.py` | 异常层次: `CPUSimulatorError` 及子类 |
 
 ```text
-codecin/lib/   (19 个内置标准库, import 时按裸名字解析到这里)
-array  bits  conv  gui  hash  io  json  math  matrix  queue
-rand   sort  stat  str  termux  test  time  validate  vec
+codecin/lib/   (20 个内置标准库, import 时按裸名字解析到这里)
+array  bits  conv  gui  hash  io  json  key   math  matrix
+queue  rand  sort  stat  str  termux  test  time  validate  vec
 ```
 
 ## `codecin/native/` — Go 原生库

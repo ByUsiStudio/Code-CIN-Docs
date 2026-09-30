@@ -1,5 +1,5 @@
 ---
-description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理，以及 19 个官方库清单。"
+description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理，以及 20 个官方库清单。"
 ---
 
 # 模块与标准库
@@ -108,6 +108,7 @@ function main() -> int {
 | `io.cin` | `io_` | `io_read` `io_write` `io_append` `io_exists` `io_size` `io_remove` `io_mkdir` `io_list` `io_join` `io_basename` `io_dirname` `io_line_count` `io_get_line` `io_split_get` `io_split_count` |
 | `gui.cin` | `g_` | `g_rgb` `g_new` `g_clear` `g_rect_outline` `g_bar_chart` `g_line_chart` `g_grid` `g_save` `g_show` |
 | `termux.cin` | `tx_` | `tx_ok` `tx_notify` `tx_toast` `tx_copy` `tx_paste` `tx_vibrate` `tx_say` `tx_sms` `tx_battery_level` `tx_battery_temp` `tx_battery_plugged` `tx_latitude` `tx_longitude` `tx_wifi_ssid` `tx_prompt` `tx_alert` |
+| `key.cin` | `k_` `K_` | `k_ctrl` `k_is_special` `key_wait` + `enum Key` 键码常量 (`K_UP`..`K_F10`、`K_ESC` `K_ENTER` `K_TAB` `K_BACKSPACE`) |
 | `test.cin` | `t_` | `t_eq_int` `t_eq_str` `t_near` `t_true` `t_false` `t_reset` `t_report` |
 | `bits.cin` | `bits_` | `bits_popcount` `bits_clz` `bits_ctz` `bits_is_pow2` `bits_next_pow2` `bits_test` `bits_set` `bits_clear` `bits_toggle` `bits_rotl` `bits_rotr` `bits_reverse` `bits_range_mask` `bits_extract` `bits_insert` `bits_bswap` |
 | `stat.cin` | `stat_` | `stat_sum` `stat_min` `stat_max` `stat_range` `stat_mean` `stat_count` `stat_mode` `stat_median_sorted` `stat_percentile_sorted` `stat_q1_sorted` `stat_q3_sorted` `stat_histogram` `stat_variance_x1000` `stat_stdev_x100` `stat_is_sorted` |
@@ -117,7 +118,7 @@ function main() -> int {
 | `queue.cin` | `queue_` `stack_` | `queue_clear` `queue_push` `queue_pop` `queue_front` `queue_back` `queue_size` `queue_is_empty` `queue_is_full` `queue_capacity` + `stack_clear` `stack_push` `stack_pop` `stack_peek` `stack_size` `stack_is_empty` `stack_capacity` |
 
 ::: warning 依赖宿主能力的库
-`io.cin` / `gui.cin` / `termux.cin` 封装的是宿主能力 (文件、画布、Termux API), 因此
+`io.cin` / `gui.cin` / `termux.cin` / `key.cin` 封装的是宿主能力 (文件、画布、Termux API、键盘轮询), 因此
 **需要 Go 原生运行时**; 其余库为纯 CIN, 三条执行路径一致。
 :::
 
@@ -136,7 +137,7 @@ function main() -> int {
 
 ## 相关页面
 
-- [标准库概览](/stdlib/) — 19 个库的定位与依赖
+- [标准库概览](/stdlib/) — 20 个库的定位与依赖
 - [标准库参考](/stdlib/reference) — 全部函数签名
-- [宿主能力](/language/host-abilities) — `io` / `gui` / `termux` 的底层内建
+- [宿主能力](/language/host-abilities) — `io` / `gui` / `termux` / `key` 的底层内建
 - [示例程序集](/guide/examples) — `modules_demo.cin`、`stdlib_demo.cin`

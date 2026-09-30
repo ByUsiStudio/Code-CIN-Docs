@@ -311,6 +311,53 @@ if (is_android() == 1) {
 }
 ```
 
+## 键盘输入监听 (非阻塞轮询)
+
+面向游戏循环 / TUI 的**非阻塞**键盘轮询, 需要**真实终端**: 首次调用会把终端切到原始输入
+(不回显、无行缓冲), 程序退出自动恢复。管道 / 重定向 / IDE 捕获输出的环境下**优雅失败**
+(`key_hit` 恒 `0`, `get_key` 恒 `-1`), 不阻塞、不报错; `--no-native` 下报
+`require the native Go runtime`, `--sandbox` 同样拦截。
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `key_hit()` | `int` | `1` 有待读按键 / `0` 无 |
+| `get_key()` | `int` | 取出一个键码; 无按键 `-1` |
+| `key_flush()` | `int` | 清空键盘输入缓冲, 返回 `0` |
+
+键码约定:
+
+| 返回值 | 含义 |
+|--------|------|
+| `0..255` | 原始字节: 字母 / 数字 / `Enter`=13 / `Tab`=9 / `Backspace`=8 / `Esc`=27; Ctrl+字母 = 字母 & 0x1F (Ctrl+C 即 `3`, 监听期间**不会**终止程序) |
+| `1001..1010` | `↑ ↓ ← →` / Home / End / PgUp / PgDn / Ins / Del |
+| `1021..1030` | F1 .. F10 |
+| `-1` | 无按键 |
+
+真实终端下激活监听时, 原生引擎先把已缓冲输出落到终端, 之后逐条直写 stdout,
+"提示 → 等按键 → 反馈"顺序实时可见; 非终端环境 (管道 / 重定向 / 测试捕获) 保持
+"缓冲 + 结束回传"不变。
+
+::: tip 推荐 key.cin 标准库
+[`codecin/lib/key.cin`](/stdlib/reference#key) 提供 `enum Key` 键码常量 (`K_UP`..`K_F10`、
+`K_ESC` `K_ENTER` `K_TAB` `K_BACKSPACE`) 与 `k_ctrl` (Ctrl 组合键码)、
+`k_is_special` (扩展键码判定)、`key_wait` (10ms 轮询阻塞等一键)。
+:::
+
+```c
+import "key.cin"
+
+function main() -> int {
+    println("方向键移动, ESC 退出")
+    while (1) {
+        int k = key_wait()
+        if (k == K_ESC) { break }
+        if (k == K_LEFT)  { println("left") }
+        if (k == K_RIGHT) { println("right") }
+    }
+    return 0
+}
+```
+
 ## 能力矩阵
 
 | 能力 | 纯 Python / JIT | Go 原生 | 说明 |
@@ -323,6 +370,7 @@ if (is_android() == 1) {
 | 编码与哈希 | ❌ | ✅ | `sha256` / `base64_*` |
 | 桌面集成 | ❌ | ✅ | 剪贴板 / 通知 / `open_url` |
 | Termux API 与 Android 扩展 | ❌ | ✅ | 需 Termux:API; 非 Android 优雅失败 |
+| 键盘输入 (非阻塞轮询) | ❌ | ✅ | 需真实终端; 管道 / 重定向下优雅失败 |
 | 纯 CIN 标准库 (`math`/`sort`/`hash`…) | ✅ | ✅ | 三路径一致 |
 
 ## 相关页面
@@ -330,4 +378,4 @@ if (is_android() == 1) {
 - [执行路径](/guide/execution-paths) — 为什么宿主能力必须走原生
 - [Go 原生运行时](/runtime/native) — 原生库加载与宿主调用区段
 - [内建函数](/language/builtins) — 宿主内建的完整清单
-- [标准库参考](/stdlib/reference) — `io` / `gui` / `termux` 库的封装函数
+- [标准库参考](/stdlib/reference) — `io` / `gui` / `termux` / `key` 库的封装函数

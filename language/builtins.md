@@ -192,5 +192,5 @@ function builtins_demo() -> int {
 
 - [字符串](/language/strings) — 字符串语义与陷阱
 - [宿主能力](/language/host-abilities) — 画布 / 音频 / 文件 / 进程 / Termux
-- [标准库概览](/stdlib/) — 19 个内置库 (数组、排序、统计、哈希、矩阵…)
+- [标准库概览](/stdlib/) — 20 个内置库 (数组、排序、统计、哈希、矩阵…)
 - [标准库参考](/stdlib/reference) — 逐库逐函数签名

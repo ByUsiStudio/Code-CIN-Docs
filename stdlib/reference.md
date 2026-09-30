@@ -1,10 +1,10 @@
 ---
-description: Code CIN 19 个官方标准库的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
+description: Code CIN 20 个官方标准库的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
 ---
 
 # 逐库函数参考
 
-本页覆盖 `codecin/lib/` 下全部 19 个官方标准库，共 218 个函数。每个库一节，先说明用途与
+本页覆盖 `codecin/lib/` 下全部 20 个官方标准库，共 221 个函数。每个库一节，先说明用途与
 `import` 语句，再以表格列出**该库的全部函数**，最后给出一个可直接运行的 CIN 示例。
 
 约定与阅读提示：
@@ -14,7 +14,7 @@ description: Code CIN 19 个官方标准库的逐库逐函数参考：签名、�
 - `void` 返回值表示该函数只产生副作用（原地修改数组、写输出数组、打印、写文件），无返回值；
 - `_sorted` 结尾的函数要求输入**已升序**，否则结果无意义；矩阵类 `_to` 风格函数把结果写入调用方提供的输出数组；
 - 三条执行路径（Go 原生 VM / JIT / 纯 Python 解释器）对纯 CIN 库的行为一致；
-  `io` / `gui` / `termux` 三库依赖宿主能力，需 Go 原生运行时。
+  `io` / `gui` / `termux` / `key` 四库依赖宿主能力，需 Go 原生运行时。
 
 ## array
 
@@ -282,6 +282,51 @@ function main() -> int {
     println(int_to_str(j_bool(j, "on")))            // 1
     println(float_to_str(j_float(j, "temp")))       // 30.500000
     println(int_to_str(j_has(j, "missing")))        // 0
+    return 0
+}
+```
+
+## key
+
+键盘输入监听便捷封装。封装内建 `key_hit` / `get_key` / `key_flush`（非阻塞轮询），
+需要**真实终端**与 Go 原生运行时；管道 / 重定向下 `key_hit` 恒为 `0`、`get_key` 恒为 `-1`。
+首次调用会把终端切到原始输入（不回显、无行缓冲），程序退出自动恢复；监听期间 Ctrl+C
+不再终止程序，表现为键码 `k_ctrl(67)` 即 `3`。
+
+```c
+import "key.cin"
+```
+
+`enum Key` 键码常量（扩展码与常用控制键）：
+
+| 常量 | 值 | 含义 |
+| --- | --- | --- |
+| `K_UP` / `K_DOWN` / `K_LEFT` / `K_RIGHT` | `1001..1004` | 方向键 |
+| `K_HOME` / `K_END` / `K_PGUP` / `K_PGDN` | `1005..1008` | Home / End / PgUp / PgDn |
+| `K_INS` / `K_DEL` | `1009` / `1010` | 插入 / 删除 |
+| `K_F1` .. `K_F10` | `1021..1030` | 功能键 F1..F10 |
+| `K_ESC` / `K_ENTER` / `K_TAB` / `K_BACKSPACE` | `27` / `13` / `9` / `8` | 常用控制键 |
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `k_ctrl` | `k_ctrl(int c)` | `int` | Ctrl 组合键码：`c & 0x1F`；如 `k_ctrl(67)`（字母 C）即 `3`（Ctrl+C） |
+| `k_is_special` | `k_is_special(int code)` | `int` | 扩展键码判定：`1001..1030` 返回 `1`，其余（含 `0..255` 原始字节）返回 `0` |
+| `key_wait` | `key_wait()` | `int` | 阻塞等待一个按键：内部以 10ms 轮询 `get_key()`，取到键码即返回 |
+
+```c
+import "key.cin"
+
+function main() -> int {
+    println("任意键开始, ESC 退出")
+    while (1) {
+        int k = key_wait()
+        if (k == K_ESC) { break }
+        if (k == K_UP)   { println("up") }
+        if (k == K_DOWN) { println("down") }
+        if (!k_is_special(k)) {
+            println("键码 " + int_to_str(k))
+        }
+    }
     return 0
 }
 ```

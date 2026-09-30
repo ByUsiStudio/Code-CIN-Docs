@@ -1,5 +1,5 @@
 ---
-description: "第 10 章：CIN 模块与标准库——import 规则、把代码拆成多文件、19 个内置库的常用函数。"
+description: "第 10 章：CIN 模块与标准库——import 规则、把代码拆成多文件、20 个内置库的常用函数。"
 ---
 
 # 第 10 章 模块与标准库
@@ -105,7 +105,7 @@ max3 = 9
 
 ## 10.4 内置标准库总览
 
-19 个库随 pip 包一起安装, 直接 `import "名字.cin"` 就能用:
+20 个库随 pip 包一起安装, 直接 `import "名字.cin"` 就能用:
 
 | 库 | 用途 | 常用函数 |
 |----|------|----------|
@@ -128,9 +128,10 @@ max3 = 9
 | `io.cin` | 文件 (需原生) | `io_read` `io_write` `io_exists` `io_line_count` `io_get_line` |
 | `gui.cin` | 画图 (需原生) | `g_new` `g_bar_chart` `g_line_chart` `g_save` |
 | `termux.cin` | 安卓 Termux (需原生) | `tx_notify` `tx_toast` `tx_battery_level` |
+| `key.cin` | 键盘轮询 (需原生) | `k_ctrl` `k_is_special` `key_wait` + `enum Key` 常量 |
 
-::: warning 三个库需要 Go 原生运行时
-`io` / `gui` / `termux` 封装的是宿主能力 (文件、绘图、安卓 API)。用 `--no-native`
+::: warning 四个库需要 Go 原生运行时
+`io` / `gui` / `termux` / `key` 封装的是宿主能力 (文件、绘图、安卓 API、键盘)。用 `--no-native`
 运行时会报 `host builtins ... require the native Go runtime`。其余 16 个库是纯 CIN,
 三条执行路径行为一致。
 :::
@@ -238,8 +239,8 @@ function main() -> int {
 
 - `import` 只能写在文件顶部; `"./x.cin"` 是相对路径, 裸名字是内置库;
 - 模块里不写 `main`; 重复包含会去重, 循环引用报错;
-- 内置库的数组函数都要传数组 + 长度; 19 个库覆盖数学、字符串、数组、排序、统计、随机、测试等;
-- `io` / `gui` / `termux` 需要原生运行时;
+- 内置库的数组函数都要传数组 + 长度; 20 个库覆盖数学、字符串、数组、排序、统计、随机、测试等;
+- `io` / `gui` / `termux` / `key` 需要原生运行时;
 - 给自己的函数加前缀避免冲突。
 
 下一章: [文件、画布与系统交互](/beginner/ch11-io-host)。
