@@ -189,7 +189,7 @@ println(s.score)
 
 | 写法 | 实际行为 | 规避 |
 |------|----------|------|
-| `input()` | 恒为 `0`, 不读键盘 | 汇编 `IN` / 读文件 |
+| `input()` 收到非整数行 / EOF | 返回 `0` (不报错) | 需要校验时自己检查语义 |
 | `string s` 不初始化 | 指向相邻字面量 | 写 `string s = ""` |
 | struct 字符串字段不赋值 | 不是空串 | 声明后立刻赋值 |
 | 内层块重名声明变量 | 与外墙共用存储 | 内层换名字 |
@@ -197,7 +197,7 @@ println(s.score)
 | `r.a.x` 嵌套字段 | 互相覆盖 | 扁平字段 / 独立变量 |
 | 函数内 `int m[2][3] = {...}` | 初始化无效 | 循环填充 / 全局字面量 / 一维 `flat[i*cols+j]` |
 | `import "x.cin"  // 注释` | 编译失败 | 注释另起一行 |
-| `sqrt(-1)` | 原生 `NaN` / 解释器报错 | 先判断定义域 |
+| `sqrt(-1)` 等数学域错误 | 两条路径一致返回 `NaN` | 需要时先判断定义域 |
 | `int[] a` 参数越界 | `--bounds-check` 管不到 | 自己保证循环用 `i < n` |
 | `for (int v : intArrParam)` | `int[]` 参数不是定长数组, 报 `range-for requires a fixed-size array` | 用定长数组或下标循环 |
 | `for (int v : m)` (多维) | 元素是数组, 报 `range-for over multi-dimensional arrays is not supported` | 两层下标循环 |

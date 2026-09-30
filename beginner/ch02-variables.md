@@ -247,70 +247,43 @@ int MAX_SCORE = 100
 int DAYS_PER_WEEK = 7
 ```
 
-## 2.8 读取用户输入 (重要: 当前版本现状)
+## 2.8 读取用户输入
 
-::: danger `input()` 不读键盘: 它恒定返回 0
-内建 `input()` 在当前版本被编译成常量 `0` (实现见 `codecin/cin.py` 与
-`codecin/native/compiler/codegen.go` 中的 `input` 分支, 仓库
-`docs/SUGGESTIONS_NEXT.md` §1.4 也记录了该问题)。因此:
+::: tip `input()` 读一行整数
+`input()` 从标准输入读取一行并转成 int:
 
 ```c
-int n = input()          // 永远是 0, 无论你输入什么
-```
-
-**不要**用它做交互式输入。下面是当前可用的三种替代方案。
-:::
-
-### 方案 A: 要交互式读整数, 用汇编的 `IN` 指令
-
-`IN` 指令会真的从标准输入读一行整数。写一个只有几行的汇编程序:
-
-```asm
-.text
-main:
-    in x0            ; 从键盘读一个整数到 x0
-    out x0           ; 打印这个整数
-    out #10          ; 换行
-    halt
+function main() -> int {
+    int n = input()
+    println("读到的数字: " + n + ", 两倍: " + (n * 2))
+    return 0
+}
 ```
 
 运行 (先输入 `42` 再回车, 或管道送入):
 
 ```bash
-codecin read_int.asm
-```
-
-```text
-42
-```
-
-> 汇编语法见 [汇编语法参考](/asm/syntax); `IN`/`OUT` 属于 Base ISA 指令
-> ([指令语义参考](/asm/instructions))。
-
-### 方案 B: 把数据写进文件, 程序读文件
-
-适合“批处理”式的小工具, 需要原生运行时 (默认路径即可):
-
-```c
-function main() -> int {
-    file_write("numbers.txt", "42")          // 先准备一个数据文件
-    string text = file_read("numbers.txt")   // 再把它读回来
-    int n = atoi(text)
-    println("读到的数字: " + n + ", 两倍: " + (n * 2))
-    return 0
-}
+echo 42 | codecin read_int.cin --log-level ERROR
 ```
 
 ```text
 读到的数字: 42, 两倍: 84
 ```
 
-详见 [第 11 章](/beginner/ch11-io-host)。
+边界行为: **非法行** (不是整数字符串) 与 **EOF / 无输入** 返回 `0`, 不报错。
+:::
 
-### 方案 C: 用小工具/练习题常用的“固定输入”
+### 其他输入方式
 
-学习阶段的大多数练习不需要真的读键盘: 直接给变量一个值, 或把值写进源码顶部,
-调试时改一下就行。本教程后面的例子都采用这种方式。
+- **键盘轮询 (游戏循环)**: `key_hit` / `get_key` 逐键非阻塞读取,
+  配合 `codecin/lib/key.cin` 的 `K_*` 键码常量,
+  见 [宿主能力: 键盘输入监听](/language/host-abilities);
+- **汇编 `IN` 指令**: `in x0` 直接读一行整数到 `x0`,
+  见 [汇编语法参考](/asm/syntax) 与 [指令语义参考](/asm/instructions);
+- **读文件**: `file_read` / `io.cin`, 适合"批处理"式小工具,
+  见 [第 11 章](/beginner/ch11-io-host);
+- 学习阶段的大多数练习不需要真的读键盘: 直接给变量一个值, 或把值写进源码顶部,
+  调试时改一下就行。本教程后面的例子都采用这种方式。
 
 ## 2.9 三个小例子
 

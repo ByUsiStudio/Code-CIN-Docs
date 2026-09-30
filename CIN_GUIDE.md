@@ -800,6 +800,48 @@ println("通知结果: " + int_to_str(notify("Code CIN", "任务完成")))
 println("打开结果: " + int_to_str(open_url("https://example.com")))
 ```
 
+### 宿主能力: 键盘输入监听 (非阻塞轮询)
+
+面向游戏循环 / TUI 的**非阻塞**键盘轮询, 需**真实终端**: 首次调用会把终端切到
+原始输入 (不回显、无行缓冲), 程序退出自动恢复。管道 / 重定向 / IDE 捕获输出的
+环境下**优雅失败** (`key_hit` 恒 `0`, `get_key` 恒 `-1`), 不阻塞、不报错。
+
+键码约定:
+
+| 返回值 | 含义 |
+|--------|------|
+| `0..255` | 原始字节: 字母 / 数字 / `Enter`=13 / `Tab`=9 / `Backspace`=8 / `Esc`=27; Ctrl+字母 = 字母 & 0x1F (Ctrl+C 即 `3`, 监听期间**不会**终止程序) |
+| `1001..1010` | `↑ ↓ ← →` / Home / End / PgUp / PgDn / Ins / Del |
+| `1021..1030` | F1 .. F10 |
+| `-1` | 无按键 |
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `key_hit()` | int | `1` 有待读按键 / `0` 无 |
+| `get_key()` | int | 取出一个键码 (原始字节或扩展码); 无按键 `-1` |
+| `key_flush()` | int | 清空键盘输入缓冲; `0` |
+
+推荐 `import "key.cin"` 用 `K_*` 常量与辅助函数:
+
+```cin
+import "key.cin"
+
+// 小游戏循环: 方向键移动, Q 退出
+while (1) {
+    int k = get_key()
+    if (k == K_LEFT)  { x = x - 1 }
+    if (k == K_RIGHT) { x = x + 1 }
+    if (k == K_UP)    { y = y - 1 }
+    if (k == K_DOWN)  { y = y + 1 }
+    if (k == k_ctrl('Q') || k == K_ESC) { break }
+    // ... 更新 / 重绘 ...
+    sleep_ms(16)
+}
+```
+
+> Windows 用 msvcrt `_kbhit`/`_getch`, Linux / macOS / Termux 用 termios 原始输入
+> (只关行缓冲 / 回显 / Ctrl+C 信号, 输出处理保留, `println` 不受影响)。
+
 ### 宿主能力: Android / Termux 扩展
 
 在 Android/Termux 之外, 这一组调用**一律优雅失败** (返回 `-1` 或空串), 不抛异常:
@@ -831,9 +873,9 @@ if (is_android() == 1) {
 }
 ```
 
-> 以上全部宿主 API (画布 / 音频 / 系统交互 / 路径 / 网络 / 编码 / 桌面 / Termux) 都是
+> 以上全部宿主 API (画布 / 音频 / 系统交互 / 路径 / 网络 / 编码 / 桌面 / Termux / 键盘) 都是
 > **Go 原生引擎实现**: 纯解释路径 (`--no-native`) 调用它们会报
-> `host builtins (GUI/audio/system/Termux) require the native Go runtime`。
+> `host builtins (GUI/audio/system/Termux/keyboard) require the native Go runtime`。
 > 它们具备**真实文件与网络权限** (`exec` / `file_*` / `dir_remove` / `download` / `http_*` / `chdir`),
 > 请只运行可信脚本。
 
@@ -948,8 +990,9 @@ function main() -> int {
 | `codecin/lib/validate.cin` | `val_` | `val_is_digit` `val_is_alpha` `val_is_alnum` `val_is_hex` `val_is_space` `val_is_upper` `val_is_lower` `val_is_int` `val_is_float` `val_is_ident` `val_is_blank` `val_is_hex_color` `val_count_char` `val_clamp_int` `val_parse_int` |
 | `codecin/lib/matrix.cin` | `mat_` | `mat_zero` `mat_identity` `mat_get` `mat_set` `mat_add` `mat_sub` `mat_scale` `mat_mul` `mat_transpose` `mat_trace` `mat_sum` `mat_equals` `mat_is_symmetric` `mat_det` `mat_print` |
 | `codecin/lib/queue.cin` | `queue_` `stack_` | `queue_clear` `queue_push` `queue_pop` `queue_front` `queue_back` `queue_size` `queue_is_empty` `queue_is_full` `queue_capacity` + `stack_clear` `stack_push` `stack_pop` `stack_peek` `stack_size` `stack_is_empty` `stack_capacity` |
+| `codecin/lib/key.cin` | `k_` `K_*` | 键码常量 `K_UP` `K_DOWN` `K_LEFT` `K_RIGHT` `K_HOME` `K_END` `K_PGUP` `K_PGDN` `K_INS` `K_DEL` `K_F1..K_F10` `K_ESC` `K_ENTER` `K_TAB` `K_BACKSPACE` + `k_ctrl` `k_is_special` `key_wait` (依赖宿主能力) |
 
-> `codecin/lib/io.cin` / `codecin/lib/gui.cin` / `codecin/lib/termux.cin` 依赖宿主能力 (需 Go 原生运行时);
+> `codecin/lib/io.cin` / `codecin/lib/gui.cin` / `codecin/lib/termux.cin` / `codecin/lib/key.cin` 依赖宿主能力 (需 Go 原生运行时);
 > 其余库为纯 CIN, 三执行路径一致。示例见 `examples/stdlib_demo.cin`。
 >
 > `codecin/lib/matrix.cin` 的矩阵以一维数组行主序存放 (`m[i*n + j]`), `mat_det` 用拉普拉斯

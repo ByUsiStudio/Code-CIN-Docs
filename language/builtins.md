@@ -13,7 +13,7 @@ description: "CIN 内建函数完整参考：I/O、数学、随机与时间、�
 |------|------|------|
 | `print(x, ...)` | void | 输出不换行 (自动字符串化; 多参数依次输出且不加分隔符) |
 | `println(x, ...)` | void | 输出并换行; **无参调用输出空行** |
-| `input()` | int | **当前版本不读键盘: 恒定返回 `0`** (见下方警告) |
+| `input()` | int | 读一行标准输入并转成 int (**非法行 / EOF 返回 `0`**; 见下方说明) |
 
 多参数输出:
 
@@ -25,32 +25,31 @@ print("no", "newline")
 println()                       // 空行
 ```
 
-::: danger `input()` 目前是空实现
-两个编译器 (Python 侧 `codecin/cin.py` 与 Go 侧 `codecin/native/compiler/codegen.go`)
-都把 `input()` 编译成常量 `0`, 因此它**不会**读取标准输入:
+::: tip `input()` 从标准输入读一行整数
+`input()` 编译为 `IN` 指令, 从标准输入逐行读取并转成 int:
 
 ```c
-int n = input()      // 永远是 0
+int n = input()
+println("你输入的是 " + n)
 ```
 
-实测 (两种路径一致):
+实测 (两条执行路径一致):
 
 ```bash
 echo 42 | codecin prog.cin --log-level ERROR
 ```
 
 ```text
-你输入的是 0
+你输入的是 42
 ```
 
-替代方案:
+边界行为:
 
-- **汇编 `IN` 指令** (真的读一行整数): `in x0` + `out x0`, 见
-  [指令语义参考](/asm/instructions);
-- **读文件**: `file_read` / `io.cin`, 见 [宿主能力](/language/host-abilities);
-- 学习/测试时直接用字面量赋值。
-
-该问题已记录在仓库 `docs/SUGGESTIONS_NEXT.md` §1.4。
+- **非法行** (非整数字符串) 与 **EOF / 无输入** 返回 `0`, 不报错;
+- 交互运行时逐行等待键盘输入; 管道运行时由 CLI 预读全部标准输入;
+- 需要逐字符键盘轮询 (游戏循环) 时用 `key_hit` / `get_key`
+  (见 [宿主能力: 键盘输入监听](/language/host-abilities));
+- 也可以用汇编 `IN` 指令直接读: 见 [指令语义参考](/asm/instructions)。
 :::
 
 ## 数学
