@@ -60,6 +60,33 @@ function main() -> int {
 | `for (int i = 0; i < n; i += 2)` | 每次加 2 (偶数步长) |
 | `for (;;) { ... break ... }` | 无限循环, 靠 `break` 退出 |
 
+初始化那一段既可以是**声明** (`int i = 0`), 也可以给**已有变量赋值** (`for (i = 0; i < n; i = i + 1)`)。
+
+### 范围 for: 直接遍历定长数组
+
+数组元素挨个处理时, 不用自己维护下标:
+
+```c
+function main() -> int {
+    int scores[4] = {90, 75, 88, 60}
+    int total = 0
+    for (int s : scores) {
+        total = total + s
+    }
+    println("总分: " + total)          // 总分: 313
+    return 0
+}
+```
+
+```text
+总分: 313
+```
+
+- 冒号左边写**元素类型 + 变量名**, 右边是**定长数组** (长度写在类型里, 如 `int scores[4]`);
+- `int[]` 这种指针形式参数与多维数组不能遍历, 会报 `range-for requires a fixed-size array`,
+  这时改用下标循环;
+- 循环变量是元素的**拷贝**, 改它不会改动原数组; `break` / `continue` 照常可用。
+
 ## 5.3 do-while: 至少执行一次
 
 ```c

@@ -1,5 +1,5 @@
 ---
-description: "第 11 章：CIN 读写的文件、画布绘图、系统信息与环境变量、执行命令与安全注意事项。"
+description: "第 11 章：CIN 读写的文件与路径、网络请求、哈希/编码、桌面集成（剪贴板/通知）、画布绘图、系统信息与环境变量、Android/Termux 扩展与安全注意事项。"
 ---
 
 # 第 11 章 文件、画布与系统交互
@@ -26,7 +26,8 @@ ERROR    Execution error: host builtins (GUI/audio/system/Termux) require the
 ```
 
 ::: warning 宿主能力是真实的系统权限
-`file_write` / `file_delete` / `exec` 用的是当前用户的真实权限, 不会自动沙箱化。
+`file_write` / `file_delete` / `dir_remove` / `exec` / `download` / `http_get` / `http_post` / `chdir`
+用的是当前用户的真实文件与网络权限, 不会自动沙箱化。
 运行别人的程序前先看一眼代码; 不放心时加 `--sandbox` (限制宿主访问) 或 `--no-io`。
 :::
 
@@ -67,6 +68,40 @@ function main() -> int {
 ```
 
 > 示例里写的是相对路径, 相对**当前工作目录** (即你运行 `codecin` 的目录)。
+
+### 路径与文件管理
+
+| 函数 | 作用 |
+|------|------|
+| `path_join(dir, name)` | 拼接路径 (用**当前平台**分隔符: Windows `\`, Linux/Android `/`) |
+| `path_basename(p)` / `path_dirname(p)` | 取路径的末段名 / 目录部分 (同样用当前平台分隔符) |
+| `path_abs(p)` | 绝对路径 (不要求存在; 失败空串) |
+| `file_copy(src, dst)` / `file_move(src, dst)` | 复制 / 移动(重命名), `0` 成功 / `-1` 失败 |
+| `dir_remove(p)` | **递归删除**目录及其内容 |
+| `is_dir(p)` | `1` 是目录 / `0` 不是 |
+| `file_mtime(p)` | 修改时间 (Unix 秒, 失败 `-1`) |
+| `temp_dir()` | 系统临时目录 |
+| `chdir(p)` | 切换当前工作目录 |
+
+```c
+function main() -> int {
+    string dir = temp_dir()
+    string f = path_join(dir, "demo.txt")
+
+    file_write(f, "hello")
+    println("文件名: " + path_basename(f))       // demo.txt
+    println("目录: " + path_dirname(f))          // 与 temp_dir() 相同
+    println("绝对路径: " + path_abs(f))
+    println("是目录? " + is_dir(dir))            // 1
+    println("修改时间: " + file_mtime(f))        // Unix 秒
+
+    file_copy(f, path_join(dir, "copy.txt"))
+    println("清理: " + dir_remove(path_join(dir, "copy.txt")))   // 0
+    return 0
+}
+```
+
+> `chdir` 会改变整个进程的工作目录, 之后的**相对路径**都基于新目录; 出错时返回 `-1` 且不改动。
 
 ## 11.3 按行处理文件 (`io.cin`)
 
@@ -131,7 +166,106 @@ function main() -> int {
 
 尖括号部分是随机器变化的, 所以不写死具体值。
 
-## 11.5 执行命令
+### 时间与系统信息
+
+| 函数 | 作用 |
+|------|------|
+| `time_ms()` | Unix 时间戳 (毫秒); `time()` 是秒 |
+| `sleep_ms(ms)` | 阻塞睡眠指定毫秒, 返回 `0`; **单次上限 10 分钟** (600000 ms) |
+| `cpu_count()` | 逻辑 CPU 数 |
+| `arch_name()` | 目标架构 (`"amd64"` / `"arm64"` / `"386"` / `"arm"` …) |
+| `mem_info()` | 内存信息 JSON `{"total_kb":N,"free_kb":M}`; 未知平台为 0 |
+| `is_android()` | `1` Android (含 Termux) / `0` |
+
+```c
+function main() -> int {
+    println("毫秒时间戳: " + time_ms())
+    println("CPU: " + cpu_count() + " 架构: " + arch_name())
+    println(mem_info())                    // {"total_kb":...,"free_kb":...}
+    println("是 Android? " + is_android())
+    sleep_ms(100)                          // 睡 0.1 秒 (上限 600000)
+    return 0
+}
+```
+
+> `os_name()` 除 `"windows"` / `"darwin"` / `"linux"` 外, **Android 原生构建会返回 `"android"`**。
+
+## 11.5 网络请求 (HTTP/HTTPS)
+
+| 函数 | 作用 |
+|------|------|
+| `http_get(url)` | GET 并返回响应体; 失败返回空串 (**15 秒超时, 8 MiB 上限**) |
+| `http_post(url, body)` | POST (`text/plain; charset=utf-8`) 并返回响应体; 失败空串 |
+| `download(url, path)` | 下载到文件; `0` 成功 / `-1` 失败 (**非 2xx 算失败**, 上限 256 MiB) |
+
+```c
+function main() -> int {
+    string page = http_get("https://example.com/")
+    println("拿到 " + strlen(page) + " 字节")
+
+    string echo = http_post("https://example.com/api", "name=cin")
+    println("POST 返回 " + strlen(echo) + " 字节")
+
+    int rc = download("https://example.com/logo.png", "logo.png")
+    println("download = " + rc)         // 0 成功
+    return 0
+}
+```
+
+::: warning 会真的联网
+`http_get` / `http_post` **不检查状态码** (非 2xx 也会把响应体返回给你),
+`download` 把非 2xx 视为失败。请求超时 15 秒、响应体上限 8 MiB, 下载上限 256 MiB。
+:::
+
+## 11.6 编码与哈希
+
+| 函数 | 作用 |
+|------|------|
+| `sha256(s)` | SHA-256 摘要, 十六进制**小写**字符串 |
+| `base64_encode(s)` | 标准 Base64 编码 (带 `=`) |
+| `base64_decode(s)` | Base64 解码; **非法输入返回空串** |
+
+```c
+function main() -> int {
+    println(sha256("hello"))
+    string enc = base64_encode("hello")
+    println(enc)                        // aGVsbG8=
+    println(base64_decode(enc))         // hello
+    println(strlen(base64_decode("!!")))// 0 (非法输入 -> 空串)
+    return 0
+}
+```
+
+## 11.7 桌面集成: 剪贴板 / 通知 / 打开链接
+
+| 函数 | 作用 |
+|------|------|
+| `clipboard_get()` | 读剪贴板文本 (失败空串; 末尾换行被去掉) |
+| `clipboard_set(s)` | 写剪贴板, `0` 成功 / `-1` 失败 |
+| `notify(title, body)` | 弹系统通知, `0` 成功 / `-1` 失败 |
+| `open_url(url)` | 用默认浏览器打开, `0` 成功 / `-1` 失败 |
+
+```c
+function main() -> int {
+    clipboard_set("来自 CIN 的文本")
+    println(clipboard_get())
+    println("通知: " + notify("Code CIN", "任务完成"))
+    println("打开: " + open_url("https://example.com"))
+    return 0
+}
+```
+
+底层实现按平台分发 (**Termux 优先**, 然后是各平台的原生命令), 命令缺失时**优雅失败**
+(返回 `-1` 或空串), 不会抛异常:
+
+| 平台 | 剪贴板 | 通知 | 打开 URL |
+|------|--------|------|----------|
+| Windows | PowerShell `Get-Clipboard` / `cmd /c clip` | `Wscript.Shell.Popup` (**10 秒自动消失**) | `cmd /c start` |
+| Linux | `wl-paste` / `xclip` / `xsel` (写为 `wl-copy` / `xclip -i` / `xsel -b -i`) | `notify-send` | `xdg-open` |
+| macOS | `pbpaste` / `pbcopy` | `osascript` | `open` |
+| Android / Termux | `termux-clipboard-get` / `termux-clipboard-set` | `termux-notification` | `termux-open-url` |
+
+## 11.8 执行命令
 
 | 函数 | 作用 |
 |------|------|
@@ -154,7 +288,7 @@ function main() -> int {
 需要传参时, 固定命令字符串、只把数据写进文件或用环境变量传递。
 :::
 
-## 11.6 画布: 生成图片
+## 11.9 画布: 生成图片
 
 内置 2D 画布可以画矩形、圆、线、文字, 并导出 PNG:
 
@@ -204,16 +338,34 @@ g_save = 0
 
 `g_line_chart` / `g_grid` / `g_rect_outline` 可以画折线图、网格与边框。
 
-## 11.7 音频与 Termux (了解即可)
+## 11.10 音频与 Termux / Android (了解即可)
 
 - **音频**: `audio_play(url)` 支持 `http/https` 或本地 **WAV(PCM)** 文件, 配套
   `audio_stop` / `audio_volume` / `audio_wait`。MP3/OGG 暂不支持。
 - **Termux (安卓)**: 装了 Termux:API 后可以用 `termux_notify` / `termux_toast` /
   `termux_vibrate` / `termux_tts` / `termux_battery` 等, 非 Termux 环境会优雅失败。
+- **Android / Termux 扩展**: 用 `is_android()` 先判断环境, 再调用 `android_intent` /
+  `termux_call` / `termux_share` / `termux_torch` / `termux_volume` /
+  `termux_brightness` / `termux_camera_photo` / `termux_fingerprint` / `termux_sensor`。
+  这些在**非 Android 环境一律优雅失败** (返回 `-1` 或空串), 不会抛异常:
+
+```c
+function main() -> int {
+    if (is_android() == 1) {
+        termux_torch(1)                          // 打开手电筒
+        termux_volume("music", 8)
+        termux_camera_photo("photo.jpg")
+        println(termux_sensor("accelerometer"))  // JSON
+    } else {
+        println("非 Android: 这组调用返回 -1 / 空串")
+    }
+    return 0
+}
+```
 
 完整清单见 [宿主能力](/language/host-abilities)。
 
-## 11.8 常见错误
+## 11.11 常见错误
 
 | 现象 | 原因 | 解决 |
 |------|------|------|
@@ -222,8 +374,11 @@ g_save = 0
 | 写文件返回 `-1` | 目录不存在或无权限 | 先 `mkdir`, 或换可写目录 |
 | 图片没生成 | `save_png` 返回了 `-1` | 检查目标目录是否存在 |
 | `exec` 卡住 | 命令等待输入 | 换用不交互的命令 |
+| `http_get` / `download` 返回空串 / `-1` | 断网、超时 (15 秒)、非 2xx 或超过大小上限 | 检查 URL 与网络; `download` 换 2xx 直链 |
+| 剪贴板 / 通知返回 `-1` | 平台命令缺失 (如 Linux 没装 `xclip` / `notify-send`) | 安装对应工具; Android 装 Termux:API |
+| `base64_decode` 返回空串 | 输入不是合法 Base64 | 先校验输入 |
 
-## 11.9 练习
+## 11.12 练习
 
 1. 让程序把 `1` 到 `5` 每行一个数写入 `nums.txt`, 再读回来打印。
 2. 读取一个文本文件, 统计它有多少行、多少字节。
@@ -232,16 +387,24 @@ g_save = 0
 5. 用 `exec_output` 执行一个打印数字的命令, 再用 `atoi` 把输出转成整数并加 1 打印。
    (提示: Windows 用 `echo 41`, Linux/macOS 用 `echo 41`, 注意 `exec_output` 可能带换行,
    可用 `trim` 清理。)
+6. 用 `path_join` + `temp_dir` 拼出一个临时文件路径, 写入内容后打印 `file_mtime`, 最后 `dir_remove` 清理。
+7. 计算某个字符串的 `sha256`, 再用 `base64_encode` 编码同一个字符串, 打印两个结果。
 
 参考实现见 [习题与答案 · 第 11 章](/beginner/exercises#第-11-章)。
 
-## 11.10 本章小结
+## 11.13 本章小结
 
-- 宿主能力 (文件 / 画布 / 音频 / 命令 / Termux) 需要 Go 原生运行时;
+- 宿主能力 (文件 / 路径 / 网络 / 哈希 / 桌面 / 画布 / 音频 / 命令 / Termux) 需要 Go 原生运行时,
+  `--no-native` 下调用会报 `host builtins ... require the native Go runtime`;
 - 文件: `file_write` / `file_append` / `file_read` / `file_exists` / `file_size` / `mkdir`;
+  路径与管理: `path_join` / `path_basename` / `path_dirname` / `path_abs` / `file_copy` /
+  `file_move` / `dir_remove` / `is_dir` / `file_mtime` / `temp_dir` / `chdir`;
 - `io.cin` 提供按行与分段的文本处理 (`io_line_count` / `io_get_line` / `io_split_get`);
-- 系统信息: `os_name` / `hostname` / `username` / `cwd` / `home_dir`; 环境变量 `getenv` / `setenv`;
+- 系统信息: `os_name` / `hostname` / `username` / `cwd` / `home_dir` / `time_ms` /
+  `cpu_count` / `arch_name` / `mem_info` / `is_android`; 环境变量 `getenv` / `setenv`;
+- 网络与编码: `http_get` / `http_post` / `download`、`sha256` / `base64_encode` / `base64_decode`;
+- 桌面: `clipboard_get` / `clipboard_set` / `notify` / `open_url`;
 - 画布: `canvas` + `set_color` + 形状函数 + `save_png`; `gui.cin` 提供图表封装;
-- 权限是真实的, 谨慎运行来路不明的程序。
+- 权限是真实的 (含文件与网络), 谨慎运行来路不明的程序。
 
 下一章: [调试与排错](/beginner/ch12-debug)。

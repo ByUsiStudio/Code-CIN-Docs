@@ -1,5 +1,5 @@
 ---
-description: CIN 类型系统：int/float/bool/string 与别名、struct、固长与指针数组、默认值、提升与截断规则
+description: CIN 类型系统：int/float/bool/string 与别名、struct、enum、固长与指针数组、默认值、提升与截断规则
 ---
 
 # 类型系统
@@ -20,6 +20,7 @@ CIN 是静态类型语言：每个变量、参数与返回值都有确定类型�
 | `string` | NUL 结尾字符串指针 | `""` |
 | `void` | 仅函数返回类型 | - |
 | `StructName` | 用户定义 struct | 全零 |
+| `EnumName` | 用户定义 enum（成员是编译期整数常量，类型名等价于 `int`） | `0` |
 | `T[n]` / `T[n][m]` | 固长数组（值语义） | 全零 |
 | `T[]` / `int[][]` | 指针形式数组（参数/返回） | 空指针 |
 
@@ -139,6 +140,41 @@ struct Student {
 | 访问 | `p.x`、`s.info.name` 链式成员访问 |
 
 详见 [struct](/language/structs)。
+
+## enum 类型
+
+`enum` 为一组**编译期整数常量**命名; 枚举类型名本身等价于 `int` (`Color c = BLUE` 中的 `c`
+就是一个 64 位整数槽, 默认值 `0`):
+
+```c
+enum Color { RED, GREEN = 5, BLUE }     // RED=0, GREEN=5, BLUE=6
+
+Color c = BLUE
+println(int_to_str(c))                  // 6
+```
+
+| 规则 | 说明 |
+|------|------|
+| 声明位置 | 文件顶层 (与 `struct` 同级), 语法 `enum Name { 成员, ... }`, 结尾分号可省略 |
+| 自动递增 | 未显式赋值的成员 = 上一个成员 +1; 第一个成员从 `0` 开始 |
+| 显式赋初值 | `= <整数常量表达式>`: 支持 `+ - * / % << >> & \| ^` 与一元 `-` / `~`, 只能引用**先前已定义**的成员 |
+| 语义 | 成员是只读常量; 可用在表达式、全局初始化与 `case` 标签中 |
+| 类型等价 | 枚举类型名解析为 `int` (可作变量类型、参数类型、返回类型) |
+
+```c
+enum Level { LOW = 1, MID = LOW + 4, HIGH = MID * 2 }   // 1, 5, 10
+
+function rank(Level l) -> int {
+    switch (l) {
+        case LOW:  return 1
+        case MID:  return 2
+        default:   return 3
+    }
+}
+```
+
+成员不可赋值 (`Cannot assign to enum member: X (constants are read-only)`);
+重复成员、空 enum、成员名与关键字/全局变量冲突、值超出 64 位都会在编译期报错。
 
 ## 数组类型
 
@@ -351,6 +387,8 @@ r := -7 % 2                  // -1
 | `Cannot mix string and numeric in '?:'` | 三目两侧一侧 string 一侧数值 | 统一转成 string 或数值 |
 | `Type mismatch ...` | 赋值 / 传参类型不兼容 | 显式转换或用 `int_to_str` / `float_to_str` |
 | `Cannot apply '&=' to float` | 对 float 用位运算复合赋值 | 改用 `+ - * /` 复合赋值 |
+| `Cannot assign to enum member: X (constants are read-only)` | 给 enum 成员赋值 | 成员是编译期常量，改用普通 `int` 变量 |
+| `Enum member X initializer must be an integer constant expression` | enum 初值引用了变量/函数或未定义的成员 | 只用整数常量与先前已定义的成员 |
 
 ## 相关页面
 

@@ -11,9 +11,19 @@ description: "CIN 内建函数完整参考：I/O、数学、随机与时间、�
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `print(x)` | void | 输出不换行 (自动字符串化) |
-| `println(x)` | void | 输出并换行; **无参调用输出空行** |
+| `print(x, ...)` | void | 输出不换行 (自动字符串化; 多参数依次输出且不加分隔符) |
+| `println(x, ...)` | void | 输出并换行; **无参调用输出空行** |
 | `input()` | int | **当前版本不读键盘: 恒定返回 `0`** (见下方警告) |
+
+多参数输出:
+
+```c
+int a = 3
+string b = "cin"
+println("a=", a, " b=", b)      // a=3 b=cin (无分隔符, 分隔符要自己写)
+print("no", "newline")
+println()                       // 空行
+```
 
 ::: danger `input()` 目前是空实现
 两个编译器 (Python 侧 `codecin/cin.py` 与 Go 侧 `codecin/native/compiler/codegen.go`)
@@ -143,9 +153,15 @@ println(bool_to_str(1 > 2))      // false
 | 2D 画布 | `canvas` `set_color` `fill_rect` `fill_circle` `draw_line` `draw_text` `save_png` `show_canvas` |
 | 联网音频 | `audio_play` `audio_stop` `audio_volume` `audio_wait` |
 | 文件系统 | `file_read` `file_write` `file_append` `file_exists` `file_delete` `file_size` `mkdir` `dir_list` |
+| 路径与文件系统扩展 | `path_join` `path_basename` `path_dirname` `path_abs` `file_copy` `file_move` `dir_remove` `is_dir` `file_mtime` `temp_dir` `chdir` |
 | 进程/环境 | `exec` `exec_output` `getenv` `setenv` |
 | 系统信息 | `os_name` `hostname` `username` `cwd` `home_dir` |
+| 时间与系统 | `time_ms` `sleep_ms` `cpu_count` `arch_name` `mem_info` `is_android` |
+| 网络 | `http_get` `http_post` `download` |
+| 编码与哈希 | `sha256` `base64_encode` `base64_decode` |
+| 桌面集成 | `clipboard_get` `clipboard_set` `notify` `open_url` |
 | Termux (Android) | `termux_available` `termux_notify` `termux_toast` `termux_clipboard_get` `termux_clipboard_set` `termux_battery` `termux_vibrate` `termux_tts` `termux_location` `termux_wifi_info` `termux_dialog` `termux_sms_send` |
+| Android / Termux 扩展 | `android_intent` `termux_call` `termux_share` `termux_torch` `termux_volume` `termux_brightness` `termux_camera_photo` `termux_fingerprint` `termux_sensor` |
 
 ## 内建速查示例
 

@@ -30,6 +30,33 @@ println("c = " + 'A')           // c = 65  (字符字面量是整数编码)
 (别名 `itoa` / `ftoa`), 例如 `"x=" + int_to_str(x)`。
 :::
 
+`print` / `println` 可以一次给多个参数, 依次输出且**不加分隔符**:
+
+```c
+int a = 3
+string b = "cin"
+println("a=", a, " b=", b)      // a=3 b=cin
+println()                       // 空行
+```
+
+### 转义序列
+
+字符串字面量除单字符转义 (`\n \t \r \0 \" \\`, 以及 `\a \b \f \v`) 外, 还支持字节与码点转义:
+
+| 转义 | 含义 |
+|------|------|
+| `\xH` / `\xHH` | **原始字节** (1~2 位十六进制): `"\xE4\xB8\xAD"` 即 `"中"` 的 UTF-8 三字节 |
+| `\uHHHH` | Unicode 码点 (正好 4 位十六进制), 按 UTF-8 编码写入: `"\u4E2D"` 与 `"中"` 等价 |
+| `\UHHHHHHHH` | Unicode 码点 (正好 8 位十六进制) |
+
+```c
+string raw = "\xE4\xB8\xAD"     // 3 个字节
+string cp  = "\u4E2D"           // 也是 3 个字节
+println(int_to_str(strlen(raw)) + " " + int_to_str(strlen(cp)))   // 3 3
+```
+
+详见 [词法规则](/language/lexical#字符串字面量)。
+
 ## 比较与复制
 
 ```c

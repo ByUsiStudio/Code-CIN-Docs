@@ -56,8 +56,8 @@ python cpu.py hello.cin
 | 标识符 | 字母/`_` 开头, 字母/数字/`_` 组成, 区分大小写 |
 | 整数字面量 | `42`, `-7`, 前缀 `0xFF`(16) / `0b1010`(2) / `0o17`(8), 后缀 `u/U/l/L/f/F` 忽略, 数字下划线 `1_000` 允许 |
 | 浮点字面量 | `3.14`, `1e-5`, `1.5f` (支持科学计数法与 `f` 后缀) |
-| 字符字面量 | `'a'` `'\n'` `'\t'` `'\''` `'\\'` `'\0'` (值为整数字符编码) |
-| 字符串字面量 | `"..."`, 支持转义 `\n \t \r \" \\ \0` |
+| 字符字面量 | `'a'` `'\n'` `'\t'` `'\''` `'\\'` `'\0'` `'\a'` `'\b'` `'\f'` `'\v'` (值为整数字符编码) |
+| 字符串字面量 | `"..."`, 支持转义 `\n \t \r \a \b \f \v \" \\ \0` 以及 `\xH` / `\xHH` (原始字节)、`\uHHHH` / `\UHHHHHHHH` (Unicode 码点) |
 | 布尔字面量 | `true` / `false` |
 | 语句分隔 | 换行 (推荐) 或 `;` |
 
@@ -75,6 +75,32 @@ float x = (a + b) *
           (c + d)
 ```
 
+### 转义序列
+
+字符字面量只接受**单字符转义** (见上表); 字符串字面量在此之上还支持十六进制字节与 Unicode 码点转义:
+
+| 转义 | 含义 | 示例 |
+|------|------|------|
+| `\xH` / `\xHH` | **原始字节** (1~2 位十六进制, 直接写进字符串) | `"\xE4\xB8\xAD"` 就是 `"中"` 的 UTF-8 三字节 |
+| `\uHHHH` | Unicode 码点 (必须正好 4 位十六进制), 按 UTF-8 编码写入 | `"\u4E2D"` 与 `"中"` 等价 |
+| `\UHHHHHHHH` | Unicode 码点 (必须正好 8 位十六进制), 按 UTF-8 编码写入 | `"\U0001F600"` |
+| `\a` `\b` `\f` `\v` | 报警 / 退格 / 换页 / 垂直制表 | 与 C 一致 |
+
+```cin
+string a = "\xE4\xB8\xAD"       // 原始字节: 中 (UTF-8: E4 B8 AD)
+string b = "\u4E2D"             // Unicode 码点: 同样是 中
+println(int_to_str(strlen(a)) + " " + int_to_str(strlen(b)))   // 3 3
+println("\u4F60\u597D")         // 你好
+println("A\tB\vC")              // 含制表与垂直制表
+```
+
+- `\x` 是**字节**语义: `"\xE4"` 写入的是单个字节 `0xE4`, 而不是按 UTF-8 编码的字符;
+- `\u` / `\U` 是**码点**语义: 先解析出码点, 再按 UTF-8 编码写入 (所以 `\u4E2D` 也是 3 个字节);
+- `\u` 必须写满 4 位、`\U` 必须写满 8 位, 否则报 `\u escape needs exactly 4 hex digits`
+  (或 `\U escape needs exactly 8 hex digits`); 码点超过 `0x10FFFF` 报 `\u escape out of Unicode range`;
+- `\x` 至少要有一位十六进制数字, 否则报 `\x escape needs at least one hex digit`;
+- 未知转义 (如 `\q`) 保持**原样**: `"\q"` 得到的就是 `q`。
+
 ---
 
 ## 3. 类型系统
@@ -89,6 +115,7 @@ float x = (a + b) *
 | `string` | NUL 结尾字符串指针 | `""` |
 | `void` | 仅函数返回类型 | - |
 | `StructName` | 用户定义 struct | 全零 |
+| `EnumName` | 用户定义 enum (等价于 `int`) | `0` |
 | `T[n]` / `T[n][m]` | 固长数组 (值语义) | 全零 |
 | `T[]` / `int[][]` | 指针形式数组 (参数/返回) | 空指针 |
 
@@ -97,6 +124,35 @@ float x = (a + b) *
 - `int` / `bool` 参与浮点运算时**自动提升**为 `float` ( `/` 恒为浮点除法; 整数取模用 `%` );
 - `float -> int` 在赋值 (`int i = f`) 或显式内建 (`int_to_str`) 时截断转换;
 - `bool` 打印为 `"true"` / `"false"`, 数值上下文中为 `1` / `0`。
+
+### enum 枚举
+
+`enum` 定义的成员是**编译期整数常量**, 枚举类型名可以直接当 `int` 使用:
+
+```cin
+enum Color { RED, GREEN = 5, BLUE }      // RED=0, GREEN=5, BLUE=6
+
+Color c = BLUE                           // 枚举类型名等价于 int
+println(int_to_str(c))                   // 6
+
+int flags = RED | (1 << 8)               // 成员可直接参与表达式
+switch (c) {
+    case RED:         println("red");        break
+    case GREEN, BLUE: println("green/blue"); break
+    default:          println("other")
+}
+```
+
+- 声明写在**文件顶层** (与 `struct` 同级), 语法为 `enum Name { 成员, ... }`, 结尾分号可省略;
+- 未显式赋值的成员从 `0` 开始**自动递增** (上一个成员的值 +1);
+- `= <整数常量表达式>` 可引用**先前已定义**的成员 (同一 enum 的先前成员, 或更早 enum 的成员),
+  支持 `+ - * / % << >> & | ^` 与一元 `-` / `~`; 引用变量/函数等非常量会报
+  `Enum member X initializer must be an integer constant expression`;
+- 成员可用于表达式、全局初始化与 `case` 标签; 使用处**不受定义顺序限制** (成员名在整份文件解析完后才解析);
+- 成员是**只读常量**: 赋值报 `Cannot assign to enum member: X (constants are read-only)`;
+- 重复成员名报 `Duplicate enum member: X`; 空 enum 报 `Empty enum X`;
+  成员名与关键字/全局变量冲突报 `Name 'X' is already used as an enum member or keyword`;
+  成员值超出 64 位有符号范围报 `Enum member X out of 64-bit range`。
 
 ---
 
@@ -210,7 +266,43 @@ for (int i = 0; i < 10; i = i + 1) {
 }
 ```
 
-三段均可省略: `for (;;) { break }`。init 段支持类型声明; update 段为赋值表达式。
+三段均可省略: `for (;;) { break }`。init 段支持类型声明, 也支持**赋值表达式**:
+
+```cin
+int i
+for (i = 0; i < 10; i = i + 1) {    // init 段直接给已有变量赋值
+    println("i = " + i)
+}
+```
+
+update 段同样是赋值表达式。
+
+### 范围 for (遍历定长数组)
+
+`for (T v : arr)` 依次把 `arr` 的每个元素拷进 `v`, 元素类型可以是标量、`string` 或 struct:
+
+```cin
+int data[5] = {10, 20, 30, 40, 50}
+
+int total = 0
+for (int v : data) {
+    total = total + v               // 10+20+30+40+50
+}
+println(int_to_str(total))          // 150
+
+string names[3] = {"ann", "bob", "cid"}
+for (string s : names) {
+    println(s)                      // 每行一个名字
+}
+```
+
+- 被遍历对象必须是**定长数组** (`int a[5]` / `float m[3]` / `string names[3]`, 含声明为
+  `int[5]` 的形参): 指针形式 (`int[]` / `int[][]`) 会报
+  `range-for requires a fixed-size array`;
+- 元素类型**不能是数组**: 多维数组请用下标循环 (`for (int i = 0; i < n; i++)`),
+  否则报 `range-for over multi-dimensional arrays is not supported`;
+- 循环变量在每轮迭代开始时**拷贝**当前元素, 修改它不会写回原数组;
+- `break` / `continue` 与普通 `for` 一致 (`continue` 走到下一个元素)。
 
 ### break / continue
 
@@ -253,10 +345,24 @@ switch (tier) {
 }
 ```
 
-- 选择表达式与 `case` 常量必须是整数 (支持 `case 2+3` 常量表达式与 `'A'` 等字面量);
+- 选择表达式与 `case` 常量必须是整数 (支持 `case 2+3` 常量表达式、`'A'` 等字面量与**枚举成员**);
 - 分支体 **默认贯穿**到下一个 case (与 C 一致), 用 `break` 跳出整个 switch;
 - `break` 跳出的是最近一层 switch/loop; switch 内嵌套循环时 `continue` 仍作用于循环;
 - `default` 可出现在任意位置, 无匹配时执行; 无 `default` 且无匹配则整段跳过。
+
+一个 `case` 标签还可以列出**多个值**或**闭区间** `lo..hi` (逗号分隔, 可混用, 支持负数):
+
+```cin
+switch (n) {
+    case 1, 2, 7..9:  println("small or 7-9"); break
+    case -3..-1:      println("negative");     break
+    case 10, 20..25:  println("mixed");        break
+    default:          println("other")
+}
+```
+
+`7..9` 含 7 与 9 (闭区间), 要求 `lo <= hi`, 否则报 `Empty case range: lo..hi`;
+多值/范围只是把多个比较合并到一个分支, **贯穿语义不变**。
 
 ### 三目表达式
 
@@ -390,6 +496,7 @@ string copy = strcpy(s)         // 拷贝为新堆块
 ```
 
 - `+` 拼接右侧任意类型: `"n = " + 42`、`"pi = " + 3.14`、`"ok = " + true`。
+- 字符串字面量支持 `\n \t \r \a \b \f \v` 与 `\x`(原始字节) / `\u` / `\U`(Unicode 码点) 转义, 见 [词法规则](#转义序列)。
 - 支持 `s[i]` 读取单字节 (按字节下标, 返回 0–255 整数编码, 无越界检查);
   字符串不可原地修改, `s[i]` 不能作为赋值左值。
 - 字符串内建: `strlen` / `strcmp` / `strcpy` / `substr` / `indexof` / `trim` / `atoi` 等 (见下表)。
@@ -400,8 +507,8 @@ string copy = strcpy(s)         // 拷贝为新堆块
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `print(x)` | void | 输出不换行 (自动字符串化) |
-| `println(x)` | void | 输出并换行; 无参输出空行 |
+| `print(x, ...)` | void | 依次输出各参数 (无分隔符, 自动字符串化) |
+| `println(x, ...)` | void | 同上并追加换行; **无参输出空行** |
 | `input()` | int | 读入一行并解析为整数 (失败为 0) |
 | `abs(x)` | int | 整数绝对值 |
 | `sqrt(x)` | float | 平方根 |
@@ -427,6 +534,17 @@ string copy = strcpy(s)         // 拷贝为新堆块
 | `idiv(a, b)` | int | 整数除法 (向零截断; `/` 恒为浮点除) |
 
 内建在表达式任意位置可用; 数值参数按需自动提升为 float。
+
+`print` / `println` 支持**多个参数**, 依次字符串化后连续输出 (参数之间**不加分隔符**),
+需要分隔时自己拼进字符串:
+
+```cin
+int a = 3
+string b = "cin"
+println("a=", a, " b=", b)      // a=3 b=cin
+print("no", "newline")          // 不换行
+println()                       // 空行
+```
 
 示例:
 
@@ -513,7 +631,7 @@ function music() -> int {
 | `exec_output(cmd)` | string | 执行并返回 stdout |
 | `getenv(name)` | string | 读环境变量 (未设置为空串) |
 | `setenv(name, value)` | int | 设置环境变量 |
-| `os_name()` | string | `"windows"` / `"darwin"` / `"linux"` |
+| `os_name()` | string | `"windows"` / `"darwin"` / `"linux"`; Android 原生构建返回 `"android"` |
 | `hostname()` | string | 主机名 |
 | `username()` | string | 用户名 |
 | `cwd()` | string | 当前工作目录 |
@@ -566,6 +684,158 @@ if (termux_available() == 1) {
 ```
 
 > 示例: `examples/system_interaction.cin`; Termux 一键安装见 `script/install_termux.sh`。
+
+### 宿主能力: 路径与文件系统扩展
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `path_join(dir, name)` | string | 拼接路径 (使用**当前平台**分隔符: Windows `\`, Linux/Android `/`) |
+| `path_basename(p)` | string | 路径末段名 |
+| `path_dirname(p)` | string | 去掉末段后的目录 (同样使用当前平台分隔符) |
+| `path_abs(p)` | string | 绝对路径 (不要求路径已存在; 失败为空串) |
+| `file_copy(src, dst)` | int | 复制文件; `0` 成功 / `-1` 失败 |
+| `file_move(src, dst)` | int | 移动或重命名; `0` 成功 / `-1` 失败 |
+| `dir_remove(p)` | int | **递归删除**目录及其全部内容; `0` 成功 / `-1` 失败 |
+| `is_dir(p)` | int | `1` 是目录 / `0` 不是目录 (含不存在) |
+| `file_mtime(p)` | int | 修改时间 (Unix 秒) / `-1` 失败 |
+| `temp_dir()` | string | 系统临时目录 |
+| `chdir(p)` | int | 切换当前工作目录; `0` 成功 / `-1` 失败 |
+
+```cin
+string dir = temp_dir()
+string file = path_join(dir, "cin_demo.txt")
+
+file_write(file, "hello")
+println(path_basename(file))            // cin_demo.txt
+println(path_dirname(file))             // 与 temp_dir() 同样的目录
+println(path_abs("cin_demo.txt"))       // 绝对路径
+println("是目录? " + int_to_str(is_dir(dir)))     // 1
+println("修改时间: " + int_to_str(file_mtime(file)))
+chdir(dir)                              // 之后相对路径基于 dir
+file_copy(file, path_join(dir, "copy.txt"))
+file_move(path_join(dir, "copy.txt"), path_join(dir, "moved.txt"))
+println("清理: " + int_to_str(dir_remove(path_join(dir, "moved.txt"))))
+```
+
+### 宿主能力: 时间与系统信息
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `time_ms()` | int | Unix 时间戳 (毫秒) |
+| `sleep_ms(ms)` | int | 阻塞睡眠指定毫秒, 返回 `0`; **单次上限 10 分钟** (超出按 10 分钟计) |
+| `cpu_count()` | int | 逻辑 CPU 数 |
+| `arch_name()` | string | 目标架构: `"amd64"` / `"arm64"` / `"386"` / `"arm"` … |
+| `mem_info()` | string | JSON `{"total_kb":N,"free_kb":M}`; 未知平台为 `{"total_kb":0,"free_kb":0}` |
+| `is_android()` | int | `1` Android (含 Termux) / `0` |
+
+```cin
+println("秒: " + int_to_str(time()))
+println("毫秒: " + int_to_str(time_ms()))
+println("CPU: " + int_to_str(cpu_count()) + " 架构: " + arch_name())
+println(mem_info())                     // {"total_kb":...,"free_kb":...}
+println("Android? " + int_to_str(is_android()))
+sleep_ms(200)                           // 睡 200 毫秒 (上限 600000)
+```
+
+### 宿主能力: 网络 (HTTP/HTTPS)
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `http_get(url)` | string | GET 并返回响应体; 失败为空串 (**15 秒超时, 响应体上限 8 MiB**) |
+| `http_post(url, body)` | string | POST (`text/plain; charset=utf-8`) 并返回响应体; 失败为空串 (同样 15 秒 / 8 MiB) |
+| `download(url, path)` | int | 下载到本地文件; `0` 成功 / `-1` 失败 (**非 2xx 状态码算失败**; 落盘上限 256 MiB) |
+
+> `http_get` / `http_post` **不检查状态码**: 非 2xx 也会返回响应体; `download` 则把非 2xx 视为失败。
+
+```cin
+string body = http_get("https://example.com/")
+if (strlen(body) > 0) {
+    println("长度: " + int_to_str(strlen(body)))
+}
+string echo = http_post("https://example.com/api", "name=cin")
+println("POST 返回 " + int_to_str(strlen(echo)) + " 字节")
+int rc = download("https://example.com/logo.png", "logo.png")
+println("download = " + int_to_str(rc))       // 0 成功
+```
+
+### 宿主能力: 编码与哈希
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `sha256(s)` | string | SHA-256 十六进制摘要 (**小写**) |
+| `base64_encode(s)` | string | 标准 Base64 编码 (带 `=` 填充) |
+| `base64_decode(s)` | string | Base64 解码; **非法输入返回空串** |
+
+```cin
+string sum = sha256("hello")
+println(sum)                                  // 2cf24dba5fb0a30e...
+string enc = base64_encode("hello")
+println(enc)                                  // aGVsbG8=
+println(base64_decode(enc))                   // hello
+println("长度 " + int_to_str(strlen(base64_decode("!!非法!!"))))   // 0
+```
+
+### 宿主能力: 桌面集成 (剪贴板 / 通知 / 打开 URL)
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `clipboard_get()` | string | 读剪贴板文本 (失败为空串, 末尾换行会被去掉) |
+| `clipboard_set(s)` | int | 写剪贴板; `0` 成功 / `-1` 失败 |
+| `notify(title, body)` | int | 弹出系统通知; `0` 成功 / `-1` 失败 |
+| `open_url(url)` | int | 用默认浏览器/查看器打开; `0` 成功 / `-1` 失败 |
+
+分发顺序是 **Termux 优先 → 平台原生命令**; 依赖的命令不存在时**优雅失败** (返回 `-1` 或空串), 不抛异常:
+
+| 平台 | 剪贴板读 | 剪贴板写 | 通知 | 打开 URL |
+|------|----------|----------|------|----------|
+| Windows | PowerShell `Get-Clipboard -Raw` | `cmd /c clip` | PowerShell `Wscript.Shell.Popup` (**10 秒后自动消失**) | `cmd /c start "" <url>` |
+| Linux | `wl-paste` → `xclip -o` → `xsel -b` | `wl-copy` → `xclip -i` → `xsel -b -i` | `notify-send` | `xdg-open` |
+| macOS | `pbpaste` | `pbcopy` | `osascript` (`display notification`) | `open` |
+| Android / Termux | `termux-clipboard-get` | `termux-clipboard-set` | `termux-notification` | `termux-open-url` |
+
+```cin
+clipboard_set("来自 CIN 的文本")
+println(clipboard_get())                // 来自 CIN 的文本
+println("通知结果: " + int_to_str(notify("Code CIN", "任务完成")))
+println("打开结果: " + int_to_str(open_url("https://example.com")))
+```
+
+### 宿主能力: Android / Termux 扩展
+
+在 Android/Termux 之外, 这一组调用**一律优雅失败** (返回 `-1` 或空串), 不抛异常:
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `android_intent(action, uri)` | int | 发起系统 Intent (`am start -a <action> -d <uri>`; Termux 下回退 `termux-am`); Android 之外返回 `-1` |
+| `termux_call(number)` | int | 拨号 (`termux-telephony-call`) |
+| `termux_share(file)` | int | 系统分享文件 (`termux-share -a send`) |
+| `termux_torch(on)` | int | 手电筒开/关 (`termux-torch`, 非 0 视为开) |
+| `termux_volume(stream, vol)` | int | 设置某个音频流的音量 (`termux-volume <stream> <vol>`) |
+| `termux_brightness(level)` | int | 设置屏幕亮度 (`termux-brightness`, 通常 `0..255`) |
+| `termux_camera_photo(path)` | int | 后置摄像头拍照并保存 (`termux-camera-photo -c 0`) |
+| `termux_fingerprint()` | string | 指纹认证结果 (JSON; 失败为空串) |
+| `termux_sensor(type)` | string | 单个传感器的一次读数 (JSON, `termux-sensor -s <type> -n 1`; 失败为空串) |
+
+```cin
+if (is_android() == 1) {
+    android_intent("android.intent.action.VIEW", "https://example.com")
+    termux_share("photo.jpg")
+    termux_torch(1)                     // 开灯
+    termux_volume("music", 8)
+    termux_brightness(120)
+    termux_camera_photo("photo.jpg")
+    println(termux_fingerprint())       // JSON
+    println(termux_sensor("accelerometer"))
+} else {
+    println("非 Android: 这组调用返回 -1 / 空串")
+}
+```
+
+> 以上全部宿主 API (画布 / 音频 / 系统交互 / 路径 / 网络 / 编码 / 桌面 / Termux) 都是
+> **Go 原生引擎实现**: 纯解释路径 (`--no-native`) 调用它们会报
+> `host builtins (GUI/audio/system/Termux) require the native Go runtime`。
+> 它们具备**真实文件与网络权限** (`exec` / `file_*` / `dir_remove` / `download` / `http_*` / `chdir`),
+> 请只运行可信脚本。
 
 ---
 
@@ -698,6 +968,8 @@ function main() -> int {
 6. **全局初始化顺序**: 按声明顺序写入数据区; 数组字面量长度超过声明维度会报错。
 7. **函数先定义后使用不强制**: 同文件内的函数可互相调用 (两遍编译); 但变量必须先声明后使用。
 8. **字符串不可原位修改**: `strcpy` 返回新堆块; 没有可变的原地字符替换。
+9. **范围 for 只遍历定长数组**: `int[]` 指针形式与多维数组不能用 `for (T v : arr)`, 请用下标循环。
+10. **enum 成员是只读常量**: 成员不能赋值, 也不能作为 `for` 范围循环变量名; 成员初始值只能引用先前已定义的成员。
 
 ---
 
@@ -713,6 +985,12 @@ function main() -> int {
 | `Undefined variable: xxx` | 使用未声明变量 | 先声明 |
 | `Type mismatch ...` | 赋值/传参类型不匹配 | 显式转换或修改类型 |
 | `Stack overflow` | 递归过深 / 栈耗尽 | 减少深度或 `--mem-size` 扩容 |
+| `Cannot assign to enum member: X (constants are read-only)` | 给枚举成员赋值 | 成员是编译期常量, 改用普通变量累加 |
+| `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 改用定长数组或下标循环 |
+| `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
+| `Empty case range: lo..hi` | `case` 范围写反 (`lo > hi`) | 保证 `lo <= hi` |
+| `case value must be an integer constant` | `case` 用了非常量表达式 | 用整数常量表达式或枚举成员 |
+| `\x escape needs at least one hex digit` / `\u escape needs exactly 4 hex digits` | 十六进制转义位数不足 | 补足位数 (`\x` 1~2 位, `\u` 4 位, `\U` 8 位) |
 
 **调试技巧**:
 

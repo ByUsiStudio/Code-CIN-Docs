@@ -71,16 +71,16 @@ Hello, Code CIN!
 | 主题 | 你会学到的内容 | 页面 |
 |------|----------------|------|
 | 词法规则 | 注释、标识符、字面量、转义、语句分隔与续行、BOM | [词法规则](/language/lexical) |
-| 类型系统 | `int/float/bool/string/struct`、固长数组、指针形式数组、默认值 | [类型系统](/language/types) |
+| 类型系统 | `int/float/bool/string/struct`、`enum`、固长数组、指针形式数组、默认值 | [类型系统](/language/types) |
 | 变量与作用域 | 全局变量（数据区）、局部变量、一行多声明、数组字面量初始化 | [变量与作用域](/language/variables) |
 | 运算符 | 14 级优先级、算术/比较/逻辑短路、位运算、复合赋值、三目 | [运算符](/language/operators) |
-| 控制流 | `if` / `while` / `for` / `do-while` / `switch` / `break` / `continue` | [控制流](/language/control-flow) |
+| 控制流 | `if` / `while` / `for`（含范围 for）/ `do-while` / `switch`（多值与 `lo..hi` 范围）/ `break` / `continue` | [控制流](/language/control-flow) |
 | 函数 | `function` 定义、参数传递、递归、返回值 | [函数](/language/functions) |
 | struct | 成员访问、嵌套、值语义、作字段的固长数组 | [struct](/language/structs) |
 | 数组 | 多维下标、行主序、数组传参衰减 | [数组](/language/arrays) |
-| 字符串 | NUL 结尾、拼接、字节下标、字符串内建 | [字符串](/language/strings) |
-| 内建函数 | 数学、字符串、转换、数值工具 | [内建函数](/language/builtins) |
-| 宿主能力 | 绘图、音频、文件、系统交互、Termux API | [宿主能力](/language/host-abilities) |
+| 字符串 | NUL 结尾、拼接、字节下标、`\x`/`\u` 转义、字符串内建 | [字符串](/language/strings) |
+| 内建函数 | 数学、字符串、转换、数值工具、多参数 `print`/`println` | [内建函数](/language/builtins) |
+| 宿主能力 | 绘图、音频、文件与路径、网络、哈希、桌面集成、系统交互、Termux/Android API | [宿主能力](/language/host-abilities) |
 | 模块与标准库 | `import` 解析规则、`codecin/lib/` 函数清单 | [模块与标准库](/language/modules) |
 | 内嵌 CPU 指令语句 | `set` / `add` / `multiply` 等 7 条寄存器风格语句 | [内嵌 CPU 指令语句](/language/inline-cpu) |
 | 限制与常见错误 | 禁用特性、报错表、排错入口 | [限制与常见错误](/language/errors) |
@@ -96,15 +96,19 @@ Hello, Code CIN!
 | 数组字面量 | `int v[4] = {1, 2, 3, 4}` | [变量与作用域](/language/variables) |
 | 指针形式数组 | `function sum(int[] arr) -> int` | [数组](/language/arrays) |
 | struct | `struct Point { float x\n float y }` | [struct](/language/structs) |
+| enum | `enum Color { RED, GREEN = 5, BLUE }` | [类型系统](/language/types) |
 | 成员访问 | `p.x = 1.0`、`r.bottom_right.x` | [struct](/language/structs) |
 | 条件 | `if (x > 0) { ... } else { ... }` | [控制流](/language/control-flow) |
 | 循环 | `while (n > 0) { ... }`、`for (int i = 0; i < 10; i++) { ... }` | [控制流](/language/control-flow) |
+| 范围 for | `for (int v : arr) { ... }` (arr 必须是定长数组) | [控制流](/language/control-flow) |
 | 后置条件循环 | `do { ... } while (cond)` | [控制流](/language/control-flow) |
 | 多分支 | `switch (x) { case 1: ... break default: ... }` | [控制流](/language/control-flow) |
+| case 多值/范围 | `case 1, 2, 7..9:` (闭区间, 可混用) | [控制流](/language/control-flow) |
 | 三目 | `string s = (score >= 60) ? "pass" : "fail"` | [运算符](/language/operators) |
 | 位运算 | `a & b`、`a \| b`、`a ^ b`、`~a`、`a << n`、`a >> n` | [运算符](/language/operators) |
 | 字符串拼接 | `"n = " + 42`、`"pi = " + 3.14` | [字符串](/language/strings) |
-| 内建调用 | `println(x)`、`strlen(s)`、`sqrt(16)` | [内建函数](/language/builtins) |
+| 字符串转义 | `"\xE4\xB8\xAD"`(原始字节)、`"\u4E2D"`(码点) | [词法规则](/language/lexical) |
+| 内建调用 | `println(x)`、`strlen(s)`、`sqrt(16)`、`println("a=", a)` | [内建函数](/language/builtins) |
 | 模块引入 | `import "math.cin"`、`import "./util.cin"` | [模块与标准库](/language/modules) |
 | 内嵌 CPU 语句 | `set x 30`、`add x 12` | [内嵌 CPU 指令语句](/language/inline-cpu) |
 | 断言 | `assert(x > 0, "x must be positive")` | [限制与常见错误](/language/errors) |
@@ -191,6 +195,8 @@ function demo() -> int {
 6. **字符串不可原位修改**：`strcpy` 返回新堆块，`s[i]` 不能作为赋值左值。
 7. **函数先定义后使用不强制**：同文件内函数可互相调用（两遍编译）；但**变量必须先声明后使用**。
 8. **同一函数内不要重名声明**：同名局部声明会共用同一个槽位（详见 [变量与作用域](/language/variables)）。
+9. **范围 for 只遍历定长数组**：`for (T v : arr)` 不支持 `int[]` 指针形式与多维数组，请用下标循环。
+10. **enum 成员是只读常量**：成员不能赋值，初值表达式只能引用先前已定义的成员。
 
 ::: warning 排错从这里开始
 完整报错表、错误面板格式与调试命令见 [限制与常见错误](/language/errors) 与 [交互式调试器](/tools/debugger)。

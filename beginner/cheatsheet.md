@@ -1,5 +1,5 @@
 ---
-description: "CIN 语法速查表：程序骨架、类型、运算符、控制流、函数、数组、字符串、struct、模块、标准库、CLI 与常见错误。"
+description: "CIN 语法速查表：程序骨架、类型与 enum、运算符、控制流（含范围 for 与 case 范围）、函数、数组、字符串、struct、模块、标准库、宿主能力、CLI 与常见错误。"
 ---
 
 # CIN 语法速查表
@@ -44,8 +44,17 @@ function main() -> int {         // 5) 入口
 | struct | 数值字段 `0`, **字符串字段不是空串** | — |
 | `T[n]` 固长数组 | 全零 | `int a[3] = {1,2,3}` |
 | `T[]` 指针数组 | 空指针 | 用于参数/返回 |
+| enum 类型名 | 同 `int` (`0`) | `enum Color { RED, GREEN = 5, BLUE }` |
 
 转换: 整数→浮点自动; 浮点→整数**截断**; `atoi` / `int_to_str` / `float_to_str` / `bool_to_str`。
+
+enum 成员是**编译期整数常量** (只读, 可用于表达式与 `case`):
+
+```c
+enum Color { RED, GREEN = 5, BLUE }     // 0, 5, 6 (未赋值自动 +1)
+Color c = BLUE
+println(int_to_str(c))                  // 6
+```
 
 ## 运算符 (从高到低)
 
@@ -72,12 +81,17 @@ if (cond) { ... } else if (cond) { ... } else { ... }
 while (cond) { ... }
 
 for (int i = 0; i < n; i++) { ... }     // 三段可省: for (;;) { break }
+for (i = 0; i < n; i = i + 1) { ... }   // init 段也可以是赋值 (用已有变量)
+
+for (int v : arr) { ... }               // 范围 for: arr 必须是定长数组!
 
 do { ... } while (cond);                // 至少执行一次
 
 switch (x) {                            // 分支默认贯穿!
     case 1:
     case 2: println("一或二"); break
+    case 3, 4: println("三或四"); break
+    case 7..9: println("七到九"); break  // 闭区间 (lo <= hi)
     default: println("其他")
 }
 
@@ -85,6 +99,8 @@ int m = cond ? a : b;                   // 三目
 ```
 
 `break` 结束本层循环/switch; `continue` 跳过本轮。
+范围 for **只能遍历定长数组** (`int[]` 参数与多维数组报 `range-for requires a fixed-size array`),
+循环变量是拷贝, 改它不影响原数组。
 
 ## 函数
 
@@ -137,9 +153,18 @@ string u = upper(t)                 // 大写 (新字符串)
 string v = substr(t, 0, 5)          // 子串
 int p = indexof(t, "world")         // 查找, 找不到 -1
 int c = s[0]                        // 单字节只读访问 ('h' = 104)
+println("a=", a, " b=", b)          // 多参数: 依次输出, 无分隔符
 ```
 
 字符串不可原地修改 (没有 `s[i] = ...`)。
+
+转义: `\n \t \r \0 \" \\` + `\a \b \f \v`, 以及 `\xH`/`\xHH`(**原始字节**)、
+`\uHHHH`/`\UHHHHHHHH`(**Unicode 码点**, 按 UTF-8 写入):
+
+```c
+string a = "\xE4\xB8\xAD"           // 中 的 UTF-8 三字节
+string b = "\u4E2D"                 // 同样是 中
+```
 
 ## struct
 
@@ -174,6 +199,9 @@ println(s.score)
 | `import "x.cin"  // 注释` | 编译失败 | 注释另起一行 |
 | `sqrt(-1)` | 原生 `NaN` / 解释器报错 | 先判断定义域 |
 | `int[] a` 参数越界 | `--bounds-check` 管不到 | 自己保证循环用 `i < n` |
+| `for (int v : intArrParam)` | `int[]` 参数不是定长数组, 报 `range-for requires a fixed-size array` | 用定长数组或下标循环 |
+| `for (int v : m)` (多维) | 元素是数组, 报 `range-for over multi-dimensional arrays is not supported` | 两层下标循环 |
+| `RED = 7` (给枚举成员赋值) | 成员只读, 报 `Cannot assign to enum member` | 成员是常量, 用普通变量 |
 
 ## 模块与标准库
 
@@ -206,12 +234,23 @@ import "./helpers.cin"
 
 ```c
 file_read(p) file_write(p, s) file_append(p, s) file_exists(p) file_size(p) mkdir(p) dir_list(p)
+file_copy(a, b) file_move(a, b) dir_remove(p) is_dir(p) file_mtime(p) chdir(p)
+path_join(d, n) path_basename(p) path_dirname(p) path_abs(p) temp_dir()
 exec(cmd) exec_output(cmd) getenv(n) setenv(n, v)
-os_name() hostname() username() cwd() home_dir()
+os_name() hostname() username() cwd() home_dir() time_ms() sleep_ms(ms)
+cpu_count() arch_name() mem_info() is_android()
+http_get(url) http_post(url, body) download(url, p)
+sha256(s) base64_encode(s) base64_decode(s)
+clipboard_get() clipboard_set(s) notify(t, b) open_url(url)
 canvas(w, h) set_color(rgb) fill_rect(...) fill_circle(...) draw_line(...) draw_text(...) save_png(p)
 audio_play(url) audio_stop() audio_volume(v) audio_wait()
 termux_notify(t, c) termux_toast(m) termux_vibrate(ms) termux_battery()
+android_intent(a, u) termux_call(n) termux_share(f) termux_torch(on) termux_volume(s, v)
+termux_brightness(lv) termux_camera_photo(p) termux_fingerprint() termux_sensor(t)
 ```
+
+以上全部是 **Go 原生实现**: `--no-native` 下调用会报
+`host builtins ... require the native Go runtime`; 它们有**真实文件与网络权限**, 只运行可信脚本。
 
 ## 命令行速查
 

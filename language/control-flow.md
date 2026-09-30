@@ -1,5 +1,5 @@
 ---
-description: "CIN 控制流：if/else、while、for、do-while、break/continue、switch/case 贯穿语义与三目表达式。"
+description: "CIN 控制流：if/else、while、for 与范围 for、do-while、break/continue、switch/case 多值范围与贯穿语义、三目表达式。"
 ---
 
 # 控制流
@@ -51,9 +51,43 @@ for (int i = 0; i < 10; i = i + 1) {
 ```
 
 - 三段 (init / cond / update) 都可以省略: `for (;;) { break }`;
-- init 段支持类型声明, 声明的变量作用域覆盖整个循环;
+- init 段支持类型声明, 也支持**赋值表达式** (`for (i = 0; i < n; i = i + 1)`), 适合给已有变量赋初值;
+- init 段声明的变量作用域覆盖整个循环;
 - update 段是赋值表达式, 也可以写 `i++` 或 `i += 2`;
 - 条件为空视为恒真。
+
+### 范围 for (遍历定长数组)
+
+`for (T v : arr)` 逐个把元素拷进 `v`:
+
+```c
+int data[5] = {10, 20, 30, 40, 50}
+
+int total = 0
+for (int v : data) {
+    total = total + v            // 10+20+30+40+50
+}
+println(int_to_str(total))       // 150
+
+string names[3] = {"ann", "bob", "cid"}
+for (string s : names) {
+    println(s)                   // 每行一个名字
+}
+```
+
+- 被遍历对象必须是**定长数组** (`int a[5]` / `float m[3]` / `string names[3]`, 含声明为 `int[5]` 的形参);
+  指针形式 (`int[]` / `int[][]`) 报 `range-for requires a fixed-size array`;
+- 元素类型**不能是数组** —— 多维数组用下标循环, 否则报
+  `range-for over multi-dimensional arrays is not supported`;
+- 循环变量每轮迭代**拷贝**当前元素, 改它不影响原数组; 元素类型可为标量 / `string` / struct;
+- `break` / `continue` 语义与普通 `for` 相同 (`continue` 直接进入下一个元素)。
+
+```text
+150
+ann
+bob
+cid
+```
 
 ## do-while
 
@@ -105,14 +139,30 @@ level: top
 
 规则:
 
-- 选择表达式与 `case` 常量必须是**整数**; `case` 支持常量表达式 (`case 2+3`) 与字符字面量 (`case 'A'`);
+- 选择表达式与 `case` 常量必须是**整数**; `case` 支持常量表达式 (`case 2+3`)、字符字面量 (`case 'A'`)
+  与**枚举成员**;
+- 一个 `case` 标签可以列**多个值**与**闭区间** `lo..hi` (逗号分隔, 可混用, 支持负数);
 - 分支体**默认贯穿**到下一个 `case` (与 C 一致), 用 `break` 跳出整个 `switch`;
 - `break` 跳出的是最近一层 `switch`/循环; `switch` 内嵌套循环时 `continue` 仍作用于循环;
 - `default` 可以出现在任意位置, 无匹配时执行; 没有 `default` 且无匹配则整段跳过;
 - `switch` 不会自动为最后一个分支加 `break`。
 
+多值与范围写法:
+
+```c
+switch (n) {
+    case 1, 2, 7..9:  println("small or 7-9"); break
+    case -3..-1:      println("negative");     break
+    case 10, 20..25:  println("mixed");        break
+    default:          println("other")
+}
+```
+
+`7..9` 是**闭区间** (含 7 与 9), 要求 `lo <= hi`, 否则报 `Empty case range: lo..hi`;
+多值/范围只是把多个比较合到一个分支, **贯穿语义不变**。
+
 ::: tip 多分支也可以用 if 链
-`case` 常量必须是编译期整型常量, 需要范围判断或字符串判断时用 `if / else if` 链
+`case` 常量必须是编译期整型常量 (可用枚举成员与范围); 需要**字符串**判断时用 `if / else if` 链
 (字符串用 `strcmp(a, b) == 0`)。
 :::
 
@@ -171,7 +221,10 @@ sum=20 d=4 pass
 |----------|------|------|
 | `Expected RBRACE ... at line N` | 花括号不配对, 或块内语句缺少换行 | 检查第 N 行附近 |
 | `switch` 分支“串”到一起 | 忘了 `break`, 分支默认贯穿 | 每个分支末尾加 `break` |
-| `case` 报错 | `case` 常量不是整数常量表达式 | 用整数或常量表达式 |
+| `case` 报错 | `case` 常量不是整数常量表达式 | 用整数、枚举成员或常量表达式 |
+| `Empty case range: lo..hi` | `case` 范围写反 (`lo > hi`) | 保证 `lo <= hi` |
+| `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 用定长数组或下标循环 |
+| `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
 | 死循环 | `--max-instructions` 上限内未退出 | 检查循环条件; 上限默认 1 亿 |
 | `do-while` 少执行一次 | 条件写在体前 (写成了 `while`) | 确认使用 `do { } while (...)` |
 

@@ -33,7 +33,7 @@ int y = 2
 | 元素 | 规则 |
 |------|------|
 | 标识符 | 首字符为字母或 `_`，后续为字母、数字或 `_`；**区分大小写** |
-| 保留字 | `struct` `function` `if` `else` `while` `for` `do` `switch` `case` `default` `break` `continue` `return` `true` `false` `unsigned` |
+| 保留字 | `struct` `enum` `function` `if` `else` `while` `for` `do` `switch` `case` `default` `break` `continue` `return` `true` `false` `unsigned` |
 | 内嵌指令名 | `set` `add` `subtract` `multiply` `divide` `increment` `decrement`（语句首出现时按内嵌语句解析） |
 | 内建函数名 | `println` `print` `strlen` `sqrt` … 见 [内建函数](/language/builtins) |
 
@@ -123,9 +123,12 @@ char vtab = '\v'              // 11
 char dquote = '\"'            // 34
 ```
 
+字符字面量只接受**单个字符或单字符转义**：`\x` / `\u` / `\U` 是字符串字面量专属（见下），
+写进字符字面量会按「未知转义保留原字符」处理。`'ab'` 报 `Unterminated char literal`。
+
 ### 字符串字面量
 
-字符串用双引号，支持 `\n \t \r \" \\ \0` 转义；**不支持** `'` 包裹的字符串：
+字符串用双引号，支持单字符转义与字节/码点转义；**不支持** `'` 包裹的字符串：
 
 ```c
 string s = "hello"
@@ -133,6 +136,27 @@ string path = "C:\\temp\\file.txt"      // 反斜杠要转义
 string multi = "line1\nline2"
 string empty = ""
 ```
+
+| 转义 | 含义 | 说明 |
+|------|------|------|
+| `\n` `\t` `\r` `\0` `\"` `\\` | 换行 / 制表 / 回车 / NUL / 双引号 / 反斜杠 | 与 C 一致 |
+| `\a` `\b` `\f` `\v` | 报警 / 退格 / 换页 / 垂直制表 | 与 C 一致 |
+| `\xH` / `\xHH` | **原始字节**（1~2 位十六进制） | `"\xE4\xB8\xAD"` 就是 `"中"` 的 UTF-8 三字节 |
+| `\uHHHH` | Unicode 码点，**必须正好 4 位**十六进制，按 UTF-8 编码写入 | `"\u4E2D"` 与 `"中"` 等价 |
+| `\UHHHHHHHH` | Unicode 码点，**必须正好 8 位**十六进制，按 UTF-8 编码写入 | `"\U0001F600"` |
+
+```c
+string a = "\xE4\xB8\xAD"       // 原始字节: 中
+string b = "\u4E2D"             // 码点: 同样是 中
+println(int_to_str(strlen(a)) + " " + int_to_str(strlen(b)))   // 3 3
+println("\u4F60\u597D")         // 你好
+```
+
+- `\x` 是**字节**语义：只写一个字节，不按 UTF-8 重新编码；`\u` / `\U` 是**码点**语义：先得到
+  码点再按 UTF-8 编码，所以 `\u4E2D` 写出来也是 3 个字节；
+- 位数不足分别报 `\x escape needs at least one hex digit`、
+  `\u escape needs exactly 4 hex digits`、`\U escape needs exactly 8 hex digits`；
+  码点超过 `0x10FFFF` 报 `\u escape out of Unicode range`。
 
 ::: warning 字符串里没有的转义
 遇到未定义的转义（如 `\q`）时，词法分析器会退化为「保留该字符本身」而不是报错，
@@ -168,7 +192,7 @@ CIN 以**换行作为语句终止符**（`;` 可作显式分隔符）。词法�
 ==  !=  <  >  <=  >=      比较
 &&  ||                    逻辑
 ++  --                    自增自减
-,  .  ->                  逗号 / 成员 / 箭头
+,  .  ..  ->              逗号 / 成员 / case 范围 / 箭头
 ```
 
 ```c
@@ -266,6 +290,9 @@ head -c 3 hello.cin | xxd
 | `Numeric literal out of 64-bit range at ...` | 十进制 > `0x7FFF...FFFF`、十六进制 > `0xFFFF...FFFF` | 缩小字面量或用 `unsigned int` 接收合法范围内的值 |
 | `Unexpected character 'x' at ...` | 出现了词法层不认识的字符（如 `@`、`#`、全角符号） | 改用合法运算符，检查是否混入中文标点 |
 | `Unterminated char literal at ...` | 字符字面量缺右引号，或写了 `'ab'` | 字符字面量只能是一个字符或一个转义 |
+| `\x escape needs at least one hex digit at ...` | `\x` 后面没有十六进制数字 | 补 1~2 位十六进制 |
+| `\u escape needs exactly 4 hex digits at ...` / `\U escape needs exactly 8 hex digits at ...` | `\u` / `\U` 位数不足 | 分别写满 4 位 / 8 位 |
+| `\u escape out of Unicode range at ...` | 码点大于 `0x10FFFF` | 用合法码点 |
 | `Expected RBRACE ... at line N` | 块内语句折行 / 花括号不配对 | 用行尾运算符或括号续行 |
 
 ::: details 一个完整的词法探针

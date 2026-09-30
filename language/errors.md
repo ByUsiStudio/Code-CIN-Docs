@@ -26,6 +26,10 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
    (见 [字符串](/language/strings))。
 10. **数组不携带长度**: 所有数组接口都要显式传入元素个数 `n`; 默认不做越界检查
     (需要时用 `--bounds-check`)。
+11. **范围 for 只接受定长数组**: `for (T v : arr)` 的 `arr` 必须声明为定长数组
+    (`int[]` 指针形式与多维数组报错, 改用下标循环)。
+12. **enum 成员是只读常量**: 不能给成员赋值; 成员的初值表达式只能引用**先前已定义**的成员
+    (见 [类型系统](/language/types))。
 
 ## 常见错误对照表
 
@@ -42,6 +46,12 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
 | `Stack overflow (collides with heap)` | 递归过深 / 局部数组过大 / 堆栈相撞 | `--mem-size` 扩容, 或减少局部大对象 |
 | `Memory access out of bounds` 类错误 | 越界读写或保护违例 | 打开 `--bounds-check` 定位 |
 | `host builtins ... require the native Go runtime` | 纯 Python 路径下调用宿主能力 | 去掉 `--no-native` (见 [宿主能力](/language/host-abilities)) |
+| `Cannot assign to enum member: X (constants are read-only)` | 给枚举成员赋值 | 成员是编译期常量, 改用普通变量 |
+| `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 用定长数组或下标循环 |
+| `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
+| `Empty case range: lo..hi` | `case` 范围写反 (`lo > hi`) | 保证 `lo <= hi` |
+| `case value must be an integer constant` | `case` 用了非常量表达式 | 用整数常量表达式或枚举成员 |
+| `\u escape needs exactly 4 hex digits` 等 | 十六进制转义位数不足 | `\x` 写 1~2 位, `\u` 写 4 位, `\U` 写 8 位 |
 | `Unknown instruction: xxx` (汇编) | 用了本 ISA 没有的指令 (例如 `jle`) | 见 [指令语义参考](/asm/instructions); 比较用 `JG`/`JL`/`JE` |
 
 错误输出统一为 rich 红色面板, 带 `文件:行号` 定位:
