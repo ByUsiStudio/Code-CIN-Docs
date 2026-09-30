@@ -247,6 +247,7 @@ audio_play(url) audio_stop() audio_volume(v) audio_wait()
 termux_notify(t, c) termux_toast(m) termux_vibrate(ms) termux_battery()
 android_intent(a, u) termux_call(n) termux_share(f) termux_torch(on) termux_volume(s, v)
 termux_brightness(lv) termux_camera_photo(p) termux_fingerprint() termux_sensor(t)
+key_hit() get_key() key_flush()        // 键盘轮询, 需真实终端 (游戏循环)
 ```
 
 以上全部是 **Go 原生实现**: `--no-native` 下调用会报
