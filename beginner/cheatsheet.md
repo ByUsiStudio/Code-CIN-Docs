@@ -294,7 +294,7 @@ termux_brightness(lv) termux_camera_photo(p) termux_fingerprint() termux_sensor(
 2. **字符串不能用 `==` 比内容** —— 用 `strcmp(a, b) == 0`;
 3. **数组不记录长度** —— 传参必须带 `n`, 循环写 `i < n`;
 4. **`switch` 分支默认贯穿** —— 记得 `break`;
-5. **`input()` 当前恒为 0** —— 交互输入用汇编 `IN` 或读文件;
+5. **`input()` 收到非整数行 / EOF 返回 `0`** —— 需要校验时自己判断;
 6. **未初始化的 `string` / struct 字符串字段不是空串** —— 声明时就赋值;
 7. **struct 数组与嵌套 struct 字段当前不可靠** —— 表格用并行数组, 多段数据用独立变量;
 8. **函数内二维数组字面量初始化无效** —— 循环填充或压成一维 `flat[i * cols + j]`。
