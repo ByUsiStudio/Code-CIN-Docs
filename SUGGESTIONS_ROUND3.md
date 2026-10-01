@@ -457,6 +457,26 @@ int matrix[N][N]
 `docs/language/structs.md` 的「实例化与默认全零」对**局部 struct** 也成立
 （全局 struct 本来就在清零的数据段里）。
 
+### 6.6 版本功能增强（把版本号从字符串升级为设施）
+
+原先版本号只有"单一真源 + 一个字符串"，本轮补齐了**自检、可编程、可发布**三件事：
+
+| 新增 | 内容 |
+|------|------|
+| `codecin/version.py` | `version_info()` / `try_version_tuple()` / `is_version_string()` / `compare(a, b)` / `current_version()` / `jit_available()` / `build_info()` / `format_build_info()` / `build_info_json()` / `VersionError` |
+| `build_info()` | 版本、Python 实现与版本、平台/架构、JIT 可用性、包路径，以及**原生库是否可用 / 自报版本 / 是否与包版本一致**；每个探测都包了降级，**永不抛异常** |
+| `--build-info` | 多行文本输出，不需要位置参数，退出 0 |
+| `--build-info --json` | 同一份信息的 JSON（可直接 `json.loads`）；`--json` 单独用返回 2 |
+| `script/bump_version.py x.y.z` | 一步完成：改 `codecin/__init__.py` → 重新生成 Go 侧 `engine/version_gen.go` → 在 `CHANGELOG.md` 插入新版本小节骨架 → 三处自检；**先校验后落盘**，任一步失败按字节备份回滚；支持 `--dry-run` / `--date` / `--root` |
+| 发布门禁测试 | `test_changelog_lists_current_version`：`__version__` 提升而 `CHANGELOG.md` 没有对应 `## [x.y.z]` 小节即失败 |
+
+**这一条解决的是真实缺口**：上一轮报告 §5.5 指出 `release.yml` 只比对 tag 与
+`__init__.py`，**可以发布一个完全没有变更日志的版本**。现在这个缺口由测试兜住了。
+
+顺带确认：`CHANGELOG.md` 里**已经有** `## [5.6.0]`，所以本轮没有补写条目；
+原生库自报串（`codecin-native 5.6.0 (Go)`）与包版本一致，
+`native_version_matches = true` —— "原生库过期"这类问题现在一条命令就能判定。
+
 ---
 
 ## 7. 本轮新增标准库
@@ -492,22 +512,46 @@ int matrix[N][N]
    **本轮修复**：这两个文件改用 `workdir` 夹具（原因写在测试注释里）。
    于是本机全量测试只剩 `tests/test_aot.py` 的 3 个环境性失败，
    其余失败都能直接归因到代码——这本身就是一条重要的可观测性改进。
-2. **AOT 临时目录建在源码树内且静默清理失败**（上一轮 §3.3）。实测本机
-   `tests/test_aot.py` 有 **3 个 PermissionError 失败**，且 `codecin/native/` 下会累积
-   `.aotbuild-*` 残留；残留目录一旦权限异常，`git status --ignored`、
-   `Get-ChildItem -Recurse`、编辑器索引都会报 Access is denied。
-   本轮已按上一轮建议加固（清理失败记 warning + 启动时清扫陈旧残留 + 不把残留打进 wheel），
-   但**本机的 3 个失败源于沙箱拒绝 `go build` 写临时目录，属环境限制**。
-3. **字符串 `==` 比较的是指针而不是内容**——这一条**文档已经写清楚了**
+2. **AOT 临时目录建在源码树内且静默清理失败**（上一轮 §3.3，**本轮已加固**）。
+   改动：`codecin/aot.py` 新增
+   `sweep_stale_build_dirs(max_age_seconds=6h, logger=None) -> SweepResult(removed, failed)`，
+   在每次构建创建临时目录**之前**清扫超过 6 小时的 `.aotbuild-*` / `.aotprobe-*` 残留
+   （只扫一层、只认自己的前缀、显式拒绝 `..`/分隔符/绝对路径、再校验父目录就是 `codecin/native`、
+   跳过符号链接、任何失败都不抛异常）；`build()` 的 `finally` 不再用
+   `ignore_errors=True`，清理失败会以 `warning` 给出**残留目录绝对路径**与
+   `Remove-Item -LiteralPath "<p>" -Recurse -Force` / `rm -rf "<p>"` 的手动清理命令；
+   `pyproject.toml` 增 `[tool.setuptools.exclude-package-data] "codecin.native" =
+   [".aotbuild-*", ".aotprobe-*"]`，并用真实 wheel 做了**阳性/阴性对照**
+   （有排除 → 0 条 AOT 临时条目；删掉排除表 → 2 个残留 `main.go` 出现在 wheel 里）。
+   另外确认：`codecin/native/aot/build.go` **已不存在**（该目录只有 `aot.go` + 模板），
+   上一轮 §3.3 引用的 `build.go:86-88` 是过期引用，Go 侧无需同步。
+   **本机的 3 个失败仍未消除**，原因见下一条——它不是 Go 缓存问题。
+3. **本机 3 个 AOT 失败的真实根因：沙箱子进程是 Low integrity（no-write-up）**。
+   实测在沙箱内 `Set-Content codecin\probe.txt`、`New-Item codecin\native\<任意名>`、
+   `codecin\lib\probe.txt`、`tests\probe.txt`、`examples\probe.txt` **全部 `WinError 5`**，
+   而**工作区根目录**（`.pytest_tmp/`、`.gocache/`、新建的根级目录）可写。
+   也就是说：**已存在的仓库子目录一律写不进去**，只有根目录可写。
+   3 个 `test_aot.py` 失败恰好都发生在 `os.makedirs('codecin/native/.aotbuild-…')` 这一行，
+   **早于调用 `go`**，所以设 `GOCACHE` / `GOTMPDIR` 对它无效（我先前也据此误判过一次）。
+   同理 `python -m build`、pytest 的 `.pytest_cache` 也都会失败。
+   **这纯属本机沙箱限制**，不是仓库缺陷；在普通权限的环境里这些用例应当通过。
+4. **字符串 `==` 比较的是指针而不是内容**——这一条**文档已经写清楚了**
    （`docs/language/strings.md` 的 danger 提示），不是缺陷；但它是新增库测试里
    最容易踩的坑：`s != "abc"` 恒为真，必须用 `strcmp(s, "abc") == 0`、判空用 `strlen(s) == 0`。
-4. **多个 agent 并发改同一工作区时的 git 污染**。本轮为并行加速，同时有多个子任务在
+5. **多个 agent 并发改同一工作区时的 git 污染**。本轮为并行加速，同时有多个子任务在
    同一个工作区里写文件；其中有子任务在收尾时执行了 `git add -A && git commit`，
    于是：别人的**在途半成品**被一起提交；只能算是探针的临时文件（如 `tt_probe/`）
-   被提交；`HEAD` 里出现过"同一文件的修正前版本"（例如 `tests/test_lib_text.py`）。
+   被提交；`HEAD` 里出现过"同一文件的修正前版本"（例如 `tests/test_lib_text.py`）；
+   有的改动（`codecin/aot.py` 的加固）被卷进了一条主题完全不同的提交
+   （`f821a6d "feat: 新增 token 和 text 库测试…"`），变更边界丢失。
    **这不是仓库缺陷，但它是并行开发流程的真实风险**：给自动提交加上
    "只提交自己新建/修改的路径"或干脆禁止子任务提交，就能避免。
    本轮后续的子任务已明确禁止执行任何 git 写操作。
+6. **`tests/conftest.py` 的 session 级 `_clean_tmp` 会 `rmtree(.pytest_tmp)`**，
+   并发跑两个 pytest 会话时，先结束的那个会把另一个会话正在用的临时文件删掉
+   （多个子任务都踩到，表现为"文件刚创建就被删 / Load Error"）。
+   `tmp_path` 之外还有这个竞态。**建议**：把 `_clean_tmp` 改成只清理本会话自己的子目录
+   （按 session id 分目录），而不是整个 `.pytest_tmp`。
 
 ---
 
