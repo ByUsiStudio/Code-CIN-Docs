@@ -47,14 +47,17 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 
 | 项目 | 本轮结束时 | 会话开始时（同一台机器） |
 |------|-----------|--------------------------|
-| `python -m pytest -q` | **1034 passed / 3 failed / 49 skipped** | 565 passed / 3 failed / 49 skipped / **5 errors** |
+| `python -m pytest -q` | **1044 passed / 3 failed / 49 skipped** | 565 passed / 3 failed / 49 skipped / **5 errors** |
 | `tests/test_aggregate_and_const.py`（新） | **138 passed**（interp / native / JIT） | — |
 | `tests/test_struct_value_semantics.py`（新） | **194 用例**，与上者合计 314 passed | — |
+| `tests/test_all_libs_together.py`（新） | **3 passed**：31 个库同时 import 并各调一个接口 | — |
+| `tests/test_lib_codec.py`（新） | **7 passed**（43 条断言，interp / native / JIT） | — |
 | `python script/check_paths.py` | **6/6 passed**（三条路径逐字节一致） | 6/6 passed |
 | `python script/gen_native_isa.py --check` | 三个生成文件 **up to date** | 通过 |
 | `python script/gen_isa_docs.py --check` | ISA 文档 **up to date** | 通过 |
 | `python -m ruff check codecin cpu.py script tests` | **All checks passed** | 通过 |
 | `tests/test_version.py` | **30 passed** | 4 passed |
+| 标准库数量 | **36**（新增 16） | 20 |
 
 ::: warning 仅剩的 3 个失败是环境限制，不是仓库缺陷
 `tests/test_aot.py` 的 `test_build_host_executable`、`test_build_respects_error_exit_code`、
@@ -63,6 +66,12 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 **发生在调用 `go` 之前**（见 §8.3 的 Low integrity 根因）。
 会话开始时是同样的 3 个失败 —— 本轮既没有引入也没有消除它们（无法在沙箱内消除）。
 **会话开始时还有的 5 个 `tmp_path` ERROR 已在本轮清零**（见 §8.1）。
+:::
+
+::: tip 端到端新增量
+套件从 **565 → 1044** 通过（+479），标准库从 **20 → 36**。
+新增测试里既有针对缺陷的回归护栏（struct 存储模型 138 + 194 条、字节语义 14 条、
+用户函数遮蔽 21 条），也有正向的能力覆盖（16 个库各自的用例、跨库集成 3 条）。
 :::
 
 
@@ -730,6 +739,48 @@ int matrix[N][N]
 
 逐库签名与示例见 [标准库参考](/stdlib/reference)。
 
+### 7.1 `codec.cin` 的两个坑（一个真 bug + 一个工具坑）
+
+`codec.cin` 是本轮最后落地、也是唯一需要返工的库。它先后暴露了两个不同性质的问题，
+都值得留档：
+
+**（a）真 bug：RLE 编解码互不自洽（已修）。** 原实现把游程写成
+`<计数><字节>` 而计数位数不固定，于是：
+
+```text
+codec_rle_encode("555")  ->  "35"        // 计数 3 + 字节 '5'
+codec_rle_decode("35")   ->  ""          // 解码器把 "35" 读成"计数 35", 然后发现缺字节
+```
+
+即**编码器的输出解码器读不回来**，而且 `"aaabbc"` 这种"数字字节紧跟游程"的输入更容易踩。
+修法是让格式无歧义：**计数固定 3 位十进制**（`001`..`999`，`k>999` 拆段），
+单次出现的**数字字符**也用 `001` 前缀，其余单字节原样输出。于是
+`"abc"→"abc"`、`"aa"→"002a"`、`"555"→"0035"`、`"aaabbc"→"003a002bc"`，
+解码只需看当前字节是不是数字。代价是牺牲了"单字节不膨胀"，换来可证明的唯一解码。
+
+**（b）工具坑：测试源码里的 `\xFF` 被 Python 吃掉了。** 最初的测试文件用
+普通字符串写 CIN 源码：
+
+```python
+SRC = ''' ... codec_hex_encode("\xFF") ... '''     # 错
+SRC = r''' ... codec_hex_encode("\xFF") ... '''    # 对
+```
+
+Python 会把 `\xFF` 解释成 **U+00FF**，再以 UTF-8 写出**两个字节**
+（`C3 BF`），于是被测的输入根本不是单字节 `0xFF`，期望值当然对不上 ——
+13 个用例里 12 个是红的，而**库本身是对的**（作者自己在探针里用的是 `\\xFF`，
+所以探针过、测试挂，这个反差折腾了很久）。
+**教训：写"喂给被测程序"的源码时一律用原始字符串**，
+`tests/test_lib_codec.py` 现在把这原因写在文件头注释里。
+
+**（c）顺带的流程教训**：这个库的测试里有若干断言依赖"字节 0 可表示"
+（`hex_encode("\x00") == "00"`、`base64_encode("\x00") == "AA=="` 等），
+而这些断言在 CIN 里**不可能成立**（见 §5.11）。
+**测试的期望值必须从语言语义推导，或者实测得出**，不能凭直觉写 ——
+本次是先用一个"逐条独立求值"的探针把 43 条断言全部实测过（发现 5 条不成立，
+其中 3 条是我自己的错误预期、2 条是 RLE 真 bug），再据此写测试的。
+
+
 ---
 
 ## 8. 环境类问题（影响贡献者，不是仓库缺陷）
@@ -782,6 +833,15 @@ int matrix[N][N]
    （多个子任务都踩到，表现为"文件刚创建就被删 / Load Error"）。
    `tmp_path` 之外还有这个竞态。**建议**：把 `_clean_tmp` 改成只清理本会话自己的子目录
    （按 session id 分目录），而不是整个 `.pytest_tmp`。
+7. **文档里"标准库数量"这类易漂移数字仍有 4 处未刷**。本轮已把**面向使用者的页面**
+   全部对齐到 36：`docs/stdlib/index.md`、`docs/stdlib/reference.md`（36 个库，
+   含 `codec` 一节）、`docs/language/modules.md`、`docs/language/builtins.md`。
+   仍写着旧数字的是**开发者/枢纽页**：`docs/dev/structure.md`（3 处：内置库 20、
+   `test_libs.py` 行的 19 个模块、`tests/` 目录树的 33 个 `test_*.py`，实测 **58** 个）、
+   `docs/dev/packaging.md`（1 处：`codecin/lib/*.cin` 20 个）、
+   `docs/index.md`（2 处：首页卡片与导航表）。
+   **建议**：这类数字要么加一条 CI 检查（比对 `codecin/lib/*.cin` 与 `tests/test_*.py` 的真实数量），
+   要么在文档里改成"见目录"而不是写死数字。
 
 ---
 

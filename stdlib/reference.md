@@ -1,15 +1,12 @@
 ---
-description: Code CIN 35 个官方标准库的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
+description: Code CIN 36 个官方标准库的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
 ---
 
 # 逐库函数参考
 
-本页覆盖 `codecin/lib/` 下全部 35 个官方标准库，共 502 个函数（按各库「函数名 | 签名 | 返回值」
-表的行数统计，不含 `math` 一节的 `f_round`↔内建 对照行）。每个库一节，先说明用途与
-`import` 语句，再以表格列出**该库的全部函数**，最后给出一个可直接运行的 CIN 示例。
-
-`codecin/lib/` 目录下现有 36 个 `.cin` 文件，其中 `codec.cin` 的逐函数参考小节尚在补齐，
-因此本页当前为 35 个库；该小节补入后其余内容无需改动。
+本页覆盖 `codecin/lib/` 下全部 **36 个**官方标准库（`codecin/lib/` 目录里就是 36 个 `.cin`），
+每个库一节，先说明用途与 `import` 语句，再以表格列出**该库的全部函数**，
+最后给出一个可直接运行的 CIN 示例。
 
 约定与阅读提示：
 
@@ -301,6 +298,62 @@ function main() -> int {
     bs_and(1)
     println("and count = " + int_to_str(bs_count()))        // and count = 1
     println("equals slot1 = " + int_to_str(bs_equals(1)))   // equals slot1 = 0
+    return 0
+}
+```
+
+## codec
+
+纯 CIN 编解码与简单密码（不依赖宿主能力，三条路径一致）。只用语言内建
+（`strlen` / `substr` / `strcmp` / `s[i]` / `int_to_str` / `idiv`）。
+
+::: warning 两条必须先知道的限制
+**1. 字节 0 不可表示。** `string` 是 NUL 结尾的，所以 `"\x00"` 本身就是空串：
+`codec_hex_encode("\x00")` / `codec_base64_encode("\x00")` 都返回 `""`（不是
+`"00"` / `"AA=="`），XOR 结果里的字节 0 会被**静默丢弃**（`codec_xor_cipher("hello","key")` 只剩 4 字节）。
+需要 0..255 全值域请用 `int[]`。
+
+**2. RLE 的计数是固定 3 位十进制**（见下表 `codec_rle_encode`）。
+:::
+
+```c
+import "codec.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `codec_hex_encode` | `codec_hex_encode(string s)` | `string` | 字节串 → 小写十六进制，无分隔；空串返回 `""` |
+| `codec_hex_decode` | `codec_hex_decode(string h)` | `string` | 长度奇数或含非法字符返回 `""`；`"00"` 解出的字节 0 无法表示 |
+| `codec_hex_digit` | `codec_hex_digit(int c)` | `int` | 十六进制字符 → 数值；非法返回 `-1` |
+| `codec_url_encode` | `codec_url_encode(string s)` | `string` | 只保留 `A-Za-z0-9-_.~`，其余编码成 `%XX`（大写） |
+| `codec_url_decode` | `codec_url_decode(string s)` | `string` | `+` 视为空格；非法 `%` 序列返回 `""` |
+| `codec_rot13` | `codec_rot13(string s)` | `string` | 只转 ASCII 字母，大小写各自保持；自反 |
+| `codec_caesar` | `codec_caesar(string s, int shift)` | `string` | `shift` 可为负，按 26 取模；非字母原样保留 |
+| `codec_decaesar` | `codec_decaesar(string s, int shift)` | `string` | 等价 `codec_caesar(s, -shift)` |
+| `codec_xor_cipher` | `codec_xor_cipher(string s, string key)` | `string` | 逐字节异或，密钥循环；密钥为空返回原串；结果中的字节 0 被丢弃 |
+| `codec_base64_encode` | `codec_base64_encode(string s)` | `string` | 标准字母表 + `=` 填充；空串返回 `""` |
+| `codec_base64_decode` | `codec_base64_decode(string b)` | `string` | 长度/字符非法返回 `""`；解出的字节 0 无法表示 |
+| `codec_rle_encode` | `codec_rle_encode(string s)` | `string` | 行程编码：连续 `k>=2` 次重复 → **3 位十进制计数 + 该字节**（`k>999` 拆段）；单次出现的数字字符也用 `001` 前缀；其余原样。`"abc"`→`"abc"`、`"aa"`→`"002a"`、`"555"`→`"0035"`、`"aaabbc"`→`"003a002bc"` |
+| `codec_rle_decode` | `codec_rle_decode(string s)` | `string` | 计数不足 3 位 / 含非数字 / 计数为 `000` / 缺字节都返回 `""` |
+| `codec_morse_encode` | `codec_morse_encode(string s)` | `string` | 字母/数字 → 摩尔斯码，字母间单空格、单词间 `/`；不支持的字节跳过 |
+| `codec_reverse_bytes` | `codec_reverse_bytes(string s)` | `string` | 按字节反转（会打乱非 ASCII 的多字节序列） |
+| `codec_char_at` | `codec_char_at(string s, int i)` | `string` | 第 `i` 个**字节**组成的单字符字符串；越界返回 `""`（与内置 `s[i]` 不同：本函数做边界检查且返回字符串） |
+
+> 另有若干内部辅助（`codec_chr_of` / `codec_hex_byte` / `codec_rle_count` /
+> `codec_is_digit` / `codec_is_url_safe` / `codec_b64_ok` / `codec_morse_of` 等），
+> 属于**非稳定接口**，不保证跨版本兼容。
+
+```c
+import "codec.cin"
+
+function main() -> int {
+    println(codec_hex_encode("AB"))        // 4142
+    println(codec_base64_encode("Man"))    // TWFu
+    println(codec_url_encode("a b&c"))     // a%20b%26c
+    println(codec_rot13("Hello, World!"))  // Uryyb, Jbeyq!
+    string r = codec_rle_encode("aaabbc")
+    println(r)                             // 003a002bc
+    println(codec_rle_decode(r))           // aaabbc
     return 0
 }
 ```
