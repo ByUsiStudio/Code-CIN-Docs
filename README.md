@@ -69,7 +69,7 @@ docs/
 
   == CIN
 
-  ```c
+  ```cin
   println("hi")
   ```
 

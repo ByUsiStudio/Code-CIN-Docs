@@ -22,7 +22,8 @@ export default defineConfig({
     'BUILDING.md',
     'REMOTE_DEBUG.md',
     'SUGGESTIONS.md',
-    'SUGGESTIONS_NEXT.md'
+    'SUGGESTIONS_NEXT.md',
+    'SUGGESTIONS_ROUND3.md'
   ],
 
   lastUpdated: true,
@@ -39,7 +40,131 @@ export default defineConfig({
       md.use(tabsMarkdownPlugin)
     },
     lineNumbers: false,
-    theme: { light: 'github-light', dark: 'github-dark' }
+    theme: { light: 'github-light', dark: 'github-dark' },
+    languages: [
+      {
+        name: 'cin',
+        scopeName: 'source.cin',
+        patterns: [
+          { include: '#comments' },
+          { include: '#strings' },
+          { include: '#numbers' },
+          { include: '#storage' },
+          { include: '#keywords' },
+          { include: '#types' },
+          { include: '#builtins' },
+          { include: '#functions' },
+          { include: '#operators' }
+        ],
+        repository: {
+          comments: {
+            patterns: [
+              { name: 'comment.line.double-slash.cin', match: '//.*$' },
+              {
+                name: 'comment.block.cin',
+                begin: '/\\*',
+                end: '\\*/'
+              }
+            ]
+          },
+          strings: {
+            patterns: [
+              {
+                name: 'string.quoted.double.cin',
+                begin: '"',
+                end: '"',
+                patterns: [
+                  { name: 'constant.character.escape.cin', match: '\\\\.' }
+                ]
+              },
+              {
+                name: 'string.quoted.single.cin',
+                begin: "'",
+                end: "'",
+                patterns: [
+                  { name: 'constant.character.escape.cin', match: '\\\\.' }
+                ]
+              }
+            ]
+          },
+          numbers: {
+            patterns: [
+              {
+                name: 'constant.numeric.cin',
+                match:
+                  '\\b(?:0[xX][0-9a-fA-F]+|0[bB][01]+|\\d+\\.\\d*(?:[eE][+-]?\\d+)?|\\d+(?:[eE][+-]?\\d+)?)'
+              }
+            ]
+          },
+          storage: {
+            patterns: [
+              {
+                name: 'storage.type.cin',
+                match: '\\b(?:function|struct|enum|const)\\b'
+              },
+              {
+                name: 'storage.modifier.cin',
+                match: '\\b(?:unsigned)\\b'
+              }
+            ]
+          },
+          keywords: {
+            patterns: [
+              {
+                name: 'keyword.control.cin',
+                match:
+                  '\\b(?:if|else|while|do|for|switch|case|default|break|continue|return|import|in)\\b'
+              },
+              {
+                name: 'constant.language.cin',
+                match: '\\b(?:true|false)\\b'
+              }
+            ]
+          },
+          types: {
+            patterns: [
+              {
+                name: 'storage.type.primitive.cin',
+                match:
+                  '\\b(?:int|float|bool|string|void|char|short|long)\\b'
+              }
+            ]
+          },
+          builtins: {
+            patterns: [
+              {
+                name: 'support.function.builtin.cin',
+                match:
+                  '\\b(?:print|println|input|assert|exit|sizeof|abs|sqrt|pow|sin|cos|tan|floor|ceil|round|min|max|idiv|rand|srand|time|strlen|strcmp|strcpy|substr|indexof|upper|lower|trim|ltrim|rtrim|atoi|itoa|int_to_str|float_to_str|ftoa|bool_to_str)\\b'
+              },
+              {
+                // 宿主能力内建 (需要 Go 原生运行时的那一批)
+                name: 'support.function.host.cin',
+                match:
+                  '\\b(?:file_read|file_write|file_append|file_exists|file_delete|file_size|file_copy|file_move|file_mtime|mkdir|dir_list|dir_remove|is_dir|chdir|temp_dir|path_join|path_basename|path_dirname|path_abs|exec|exec_output|getenv|setenv|os_name|hostname|username|cwd|home_dir|time_ms|sleep_ms|cpu_count|arch_name|mem_info|is_android|canvas|set_color|fill_rect|fill_circle|draw_line|draw_text|save_png|show_canvas|audio_play|audio_stop|audio_volume|audio_wait|http_get|http_post|download|sha256|base64_encode|base64_decode|clipboard_get|clipboard_set|notify|open_url|key_hit|get_key|key_flush)\\b'
+              }
+            ]
+          },
+          functions: {
+            patterns: [
+              {
+                name: 'entity.name.function.cin',
+                match: '\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()'
+              }
+            ]
+          },
+          operators: {
+            patterns: [
+              {
+                name: 'keyword.operator.cin',
+                match:
+                  '->|==|!=|<=|>=|&&|\\|\\||<<=|>>=|<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|[+\\-*/%<>=!&|^~?:]'
+              }
+            ]
+          }
+        }
+      }
+    ]
   },
 
   themeConfig: {
