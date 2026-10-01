@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 动态更新日志: 从 GitHub Releases 拉取并渲染。
+ * 动态更新日志: 从 GitHub Releases 拉取, 并把 release notes **渲染成 HTML**。
  *
  * 用法 (markdown 里直接写标签即可, 组件已在 theme/index.ts 全局注册):
  *
@@ -8,12 +8,16 @@
  *   <GithubReleases :per-page="5" />
  *   <GithubReleases repo="owner/repo" include-prereleases />
  *
- * 失败/限流/离线时只显示一行提示 + 跳转链接, 页面其余内容(静态更新日志)照常可用。
+ * 渲染安全: body 交给 renderMarkdown() —— 它**先 HTML 转义再格式化**,
+ * 只输出自己构造的标签, 且链接走 URL 白名单 (见 composables/renderMarkdown.mjs)。
+ * 因此这里的 v-html 只可能渲染出该渲染器产生的结构。
+ *
+ * 失败/限流/离线时只显示一行提示 + 跳转链接, 页面其余内容照常可用。
  */
+import { renderMarkdown } from '../composables/renderMarkdown.mjs'
 import {
   formatDate,
   formatSize,
-  parseBody,
   useGithubReleases
 } from '../composables/useGithubReleases'
 
@@ -40,6 +44,9 @@ const { releases, loading, error, fromCache, releasesUrl, reload } =
     perPage: props.perPage,
     includePrereleases: props.includePrereleases
   })
+
+/** 渲染后的 HTML (渲染器已保证只输出安全标签)。 */
+const bodyHtml = (body: string): string => renderMarkdown(body)
 </script>
 
 <template>
@@ -85,15 +92,12 @@ const { releases, loading, error, fromCache, releasesUrl, reload } =
           <span class="cin-releases__date">{{ formatDate(rel.published_at) }}</span>
         </div>
 
-        <div v-if="showBody && rel.body" class="cin-releases__body">
-          <template v-for="(block, i) in parseBody(rel.body)" :key="i">
-            <p v-if="block.kind === 'h'" class="cin-releases__h">{{ block.text }}</p>
-            <p v-else-if="block.kind === 'li'" class="cin-releases__li">
-              {{ block.text }}
-            </p>
-            <p v-else class="cin-releases__p">{{ block.text }}</p>
-          </template>
-        </div>
+        <!-- eslint-disable-next-line vue/no-v-html -- 渲染器已做转义 + URL 白名单 -->
+        <div
+          v-if="showBody && rel.body"
+          class="cin-releases__body cin-md"
+          v-html="bodyHtml(rel.body)"
+        />
 
         <div v-if="showAssets && rel.assets.length" class="cin-releases__assets">
           <a
@@ -195,26 +199,8 @@ const { releases, loading, error, fromCache, releasesUrl, reload } =
 }
 .cin-releases__body {
   margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.7;
-}
-.cin-releases__h {
-  margin: 8px 0 2px;
-  font-weight: 600;
-  color: var(--vp-c-text-1);
-}
-.cin-releases__li {
-  margin: 2px 0 2px 14px;
-  position: relative;
-}
-.cin-releases__li::before {
-  content: '·';
-  position: absolute;
-  left: -10px;
-  color: var(--vp-c-text-3);
-}
-.cin-releases__p {
-  margin: 2px 0;
+  font-size: 13.5px;
+  line-height: 1.75;
   color: var(--vp-c-text-2);
 }
 .cin-releases__assets {
@@ -242,5 +228,90 @@ const { releases, loading, error, fromCache, releasesUrl, reload } =
 .cin-releases__asset-meta {
   font-size: 11px;
   color: var(--vp-c-text-3);
+}
+
+/* v-html 生成的节点不会被 scoped 样式命中, 必须用 :deep()。 */
+.cin-releases__body :deep(h1),
+.cin-releases__body :deep(h2),
+.cin-releases__body :deep(h3),
+.cin-releases__body :deep(h4),
+.cin-releases__body :deep(h5),
+.cin-releases__body :deep(h6) {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  border: none;
+  padding: 0;
+}
+.cin-releases__body :deep(.cin-md-p) {
+  margin: 6px 0;
+}
+.cin-releases__body :deep(.cin-md-list) {
+  margin: 6px 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+.cin-releases__body :deep(ol.cin-md-list) {
+  list-style: decimal;
+}
+.cin-releases__body :deep(.cin-md-list li) {
+  margin: 2px 0;
+}
+.cin-releases__body :deep(.cin-md-list li input[type='checkbox']) {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.cin-releases__body :deep(code) {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--vp-c-default-soft);
+  font-size: 12.5px;
+}
+.cin-releases__body :deep(.cin-md-pre) {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+}
+.cin-releases__body :deep(.cin-md-pre code) {
+  padding: 0;
+  background: none;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.cin-releases__body :deep(.cin-md-quote) {
+  margin: 8px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--vp-c-divider);
+  color: var(--vp-c-text-3);
+}
+.cin-releases__body :deep(.cin-md-hr) {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--vp-c-divider);
+}
+.cin-releases__body :deep(.cin-md-table-wrap) {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.cin-releases__body :deep(.cin-md-table) {
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.cin-releases__body :deep(.cin-md-table th),
+.cin-releases__body :deep(.cin-md-table td) {
+  padding: 4px 10px;
+  border: 1px solid var(--vp-c-divider);
+  text-align: left;
+}
+.cin-releases__body :deep(img) {
+  max-width: 100%;
+}
+.cin-releases__body :deep(a) {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
 }
 </style>

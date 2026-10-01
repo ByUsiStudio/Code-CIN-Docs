@@ -205,36 +205,3 @@ export function formatDate(iso: string): string {
   if (!iso || iso.length < 10) return '—'
   return iso.slice(0, 10)
 }
-
-export interface BodyBlock {
-  kind: 'h' | 'li' | 'p'
-  text: string
-}
-
-/**
- * 把 release body (Markdown 原文) 切成最小可渲染块。
- *
- * **只做识别, 不做转换**: 输出的是纯文本块, 由组件用文本插值渲染,
- * 因此不存在 HTML/Markdown 注入面。支持的语法仅:
- * `#`~`######` 标题、`-`/`*`/`+` 列表项、其余按段落。
- */
-export function parseBody(body: string): BodyBlock[] {
-  const out: BodyBlock[] = []
-  const lines = (body || '').replace(/\r\n?/g, '\n').split('\n')
-  for (const raw of lines) {
-    const line = raw.trimEnd()
-    if (!line.trim()) continue
-    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
-    if (heading) {
-      out.push({ kind: 'h', text: heading[2].trim() })
-      continue
-    }
-    const item = /^\s*[-*+]\s+(.*)$/.exec(line)
-    if (item) {
-      out.push({ kind: 'li', text: item[1].trim() })
-      continue
-    }
-    out.push({ kind: 'p', text: line.trim() })
-  }
-  return out
-}
