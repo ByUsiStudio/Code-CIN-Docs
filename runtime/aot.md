@@ -118,14 +118,15 @@ AOT build 完成: D:\...\prog.exe
 3. **编译**：`CINCompiler().compile()` 产出指令、标签与数据段写入，失败报 `编译失败: ...`；
 4. **编码字节码**：`encode_program()` 生成 UCBC 段（与 `.bin` 里的字节码段同格式）；
 5. **生成初始内存镜像**：默认 65536 字节（`--mem-size` 覆盖），下限 256；数据段写入按地址落到镜像里；
-6. **生成临时包**：在 `codecin/native/` 内建 `.aotbuild-<随机十六进制>/`，写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.mem`；
-7. **交叉编译**：`CGO_ENABLED=0` + `GOOS`/`GOARCH` 执行
+6. **清扫陈旧残留**：建新目录之前先调 `aot.sweep_stale_build_dirs()`，删掉 `codecin/native/` 下**超过 6 小时**的 `.aotbuild-*` / `.aotprobe-*` 残留（清理是尽力而为，失败绝不影响本次构建）；
+7. **生成临时包**：在 `codecin/native/` 内建 `.aotbuild-<随机十六进制>/`，写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.mem`；
+8. **交叉编译**：`CGO_ENABLED=0` + `GOOS`/`GOARCH` 执行
 
    ```text
    go build -trimpath -tags netgo,osusergo -ldflags "-s -w" -o <输出> ./.aotbuild-xxxx
    ```
 
-8. **清理**：默认删除临时目录；`--build-keep-temp` 时保留并打印 `AOT 临时目录保留: <tmp>`。
+9. **清理**：默认删除临时目录；`--build-keep-temp` 时保留并打印 `AOT 临时目录保留: <tmp>`。删除失败会记一条 **warning**（残留目录的**绝对路径** + 失败原因 + 手动删除命令），不再静默吞掉。
 
 生成的入口 shell 极薄——把两个资源文件 `//go:embed` 进去，然后交给 `aot.Main`：
 
@@ -142,6 +143,35 @@ func main() {
 ```
 
 同一份模板被 Go 侧（`codecin/native/aot/aot.go`）与 Python 侧（`codecin/aot.py`）共用，避免模板漂移；`tests/test_aot.py` 断言两边都引用 `stub_main.go.txt`。
+
+### 临时构建目录的生命周期
+
+`go build` 需要一个真实的包目录，所以每次构建都会在 `codecin/native/` 下建一个
+`.aotbuild-<随机十六进制>/`（`tempfile.mkdtemp` 的 0700 权限在受限环境里会被拒绝写入，
+因此用 `os.makedirs`）。这些目录的生命周期规则如下：
+
+| 阶段 | 行为 |
+| --- | --- |
+| **每次构建之前** | 先清扫 `codecin/native/` 下**超过 6 小时**（`DEFAULT_STALE_AGE_SECONDS = 6 * 3600`）的 `.aotbuild-*` / `.aotprobe-*` 残留，再建新目录 |
+| 正常结束 | 删除本次的临时目录 |
+| 删除失败 | 记 **warning**（不再静默）：残留目录**绝对路径** + 失败原因 + 手动删除命令 |
+| `--build-keep-temp` | 保留本次目录并打印 `AOT 临时目录保留: <tmp>`；**它同样会被之后的构建清扫**（超过 6 小时即删） |
+| 打包 | 这些残留不会进 wheel（见 [打包与发布](/dev/packaging) 的 `exclude-package-data`） |
+
+清扫只处理 `codecin/native/` 的**直接子目录**（不递归），名字必须带 `.aotbuild-` /
+`.aotprobe-` 前缀，且**不是符号链接**；普通文件、别处的目录、指向别处的链接一律跳过。
+`max_age_seconds=0` 会删除全部匹配目录，并发构建时不要这么用。
+
+清理失败的 warning 形如（路径是绝对路径，提示里给出两个平台的删除命令）：
+
+```text
+AOT: 残留临时目录清理失败: D:\...\codecin\native\.aotbuild-1a2b3c4d5e6f (7.3 小时前, [WinError 5] 拒绝访问。); 请手动删除该目录 —— Windows PowerShell: Remove-Item -LiteralPath "D:\...\codecin\native\.aotbuild-1a2b3c4d5e6f" -Recurse -Force ; Linux/macOS: rm -rf "D:\...\codecin\native\.aotbuild-1a2b3c4d5e6f"
+```
+
+::: tip 沙箱 / 只读 ACL 环境
+清理失败说明"这一层目录删不掉"，但**构建本身照常进行**——清扫与删除都是尽力而为，
+任何异常都被降级为 warning。真正需要人工介入时按提示里的命令删一次即可。
+:::
 
 ### 依赖闭包如何在编译期展开
 
@@ -235,7 +265,7 @@ GOCACHE=/tmp/gocache python cpu.py prog.cin --build-exe prog
 python cpu.py prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
 ```
 
-`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`、`program.ucbc` 与 `program.mem`；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。
+`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`、`program.ucbc` 与 `program.mem`；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。
 
 :::
 

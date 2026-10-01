@@ -49,7 +49,8 @@ print(Syscall.PRINT_STR)              # 24
 其余子系统需要按模块导入 (它们都是包的公开模块, 只是不在顶层短名单里):
 
 ```python
-from codecin import native, aot, crom, disasm, stats, jit, memory, registers
+from codecin import (native, aot, crom, disasm, stats, jit, memory, registers,
+                     version)
 from codecin.cin import CINCompiler
 from codecin.assembler import Assembler
 from codecin.errors import PageFaultError
@@ -232,29 +233,32 @@ except CPUSimulatorError as e:
 
 `codecin/version.py` 把版本号从"一个字符串"升级为可编程、可自检的设施。
 **唯一真源始终是 `codecin/__init__.py` 的 `__version__`**，本模块只做解析、比较与探测。
+`version` 是包的公开子模块，但**不在** `codecin.__all__` 里（顶层短名单只导出 `CPU` /
+`Config` 等），用 `from codecin import version` 或 `import codecin.version` 导入。
 
 | 接口 | 说明 |
 |------|------|
-| `current_version()` | 返回 `__version__` 字符串 |
-| `version_info(text=None)` | 解析为 `(major, minor, patch)` 整数元组；非 `x.y.z` 抛 `VersionError` |
+| `current_version()` | 返回 `__version__` 字符串（每次动态读取） |
+| `version_info()` | 当前版本的 `(major, minor, patch)`；非 `x.y.z` 抛 `VersionError` |
+| `version_tuple(text)` | 解析任意版本串为整数三元组（纯函数，允许 `v` 前缀与 `-` / `+` 后缀） |
 | `try_version_tuple(text)` | 同上但失败返回 `None`（不抛异常） |
-| `is_version_string(text)` | 是否是合法 `x.y.z` |
-| `compare(a, b)` | 版本比较，返回 `-1` / `0` / `1` |
+| `is_version_string(text)` | 是否是合法版本串（与 `version_tuple` 接受的形式一致） |
+| `compare(a, b)` | 只比较 `x.y.z` 三段数值，返回 `-1` / `0` / `1`；任一入参非法抛 `VersionError` |
 | `jit_available()` | JIT 是否可用 |
 | `build_info()` | 运行环境字典，**永不抛异常** |
 | `format_build_info(info=None)` | 渲染成 `--build-info` 的多行文本 |
 | `build_info_json(info=None)` | 渲染成可 `json.loads` 的 JSON 字符串 |
-| `VersionError` | `version_info()` 解析失败时抛出 |
+| `VersionError` | `version_tuple()` / `version_info()` 解析失败时抛出（`ValueError` 子类） |
 
 `build_info()` 的字段:
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `version` | str | 当前版本 |
-| `version_info` | tuple \| None | 解析结果（解析不了就是 `None`） |
+| `version_info` | list[int] \| None | 解析结果（解析不了就是 `None`） |
 | `python` / `python_implementation` | str | 解释器版本 / 实现名 |
-| `platform` | str | `"<system>/<machine>"` 形式 |
-| `system` / `machine` | str | 拆分后的两个字段 |
+| `platform` | str | `"<sys.platform>/<machine>"` 形式（本机为 `win32/AMD64`） |
+| `system` / `machine` | str | `platform.system()` / `platform.machine()`（如 `Windows` / `AMD64`） |
 | `native` | bool | 原生库是否**可用** |
 | `native_version` | str \| None | 原生库自报版本串原文 |
 | `native_path` | str \| None | 实际加载的库文件路径 |
@@ -276,9 +280,10 @@ if info['native_version_matches'] is False:
 
 ::: tip 发布流程
 `python script/bump_version.py x.y.z` 会一次性改真源 → 重新生成 Go 侧
-`engine/version_gen.go` → 在 `CHANGELOG.md` 插入新版本小节骨架，任一步失败自动回滚；
-加 `--dry-run` 可先预演。仓库里有测试强制 `CHANGELOG.md` 必须出现当前版本号，
-所以"提了版本但忘写更新日志"会在 CI 上失败。
+`engine/version_gen.go` → 在 `CHANGELOG.md` 插入新版本小节骨架，**先校验后落盘**、任一步
+失败按字节备份回滚（自检失败时 Go 生成物可能已更新，脚本会提示）；加 `--dry-run` 可先预演，
+`--date` / `--root` 可指定小节日期与目标仓库副本。仓库里有测试强制 `CHANGELOG.md` 必须出现
+当前版本号，所以"提了版本但忘写更新日志"会在 CI 上失败。
 :::
 
 ## Go 原生库: `codecin.native`

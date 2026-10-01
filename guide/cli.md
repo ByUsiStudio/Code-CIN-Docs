@@ -1,5 +1,5 @@
 ---
-description: Code CIN 命令行完整参考：位置参数、执行路径、日志调试、性能资源、编译与 CROM、AOT 构建、退出码与环境变量。
+description: Code CIN 命令行完整参考：位置参数、版本与构建信息、执行路径、日志调试、性能资源、编译与 CROM、AOT 构建、退出码与环境变量。
 ---
 
 # 命令行参考
@@ -31,7 +31,7 @@ codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障�
 |------|------|------|
 | `--version` / `-V` | — | 打印 `Code CIN <x.y.z>` 并退出 0 |
 | `--build-info` | — | 打印多行构建信息并退出 0,**不需要**位置参数 |
-| `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用返回 2 |
+| `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用会向 **stderr** 打印一行提示并返回 2 |
 
 `--build-info` 的字段包含版本、Python 实现与版本、平台/架构、JIT 可用性、包路径,
 以及**原生库是否可用、自报版本号、是否与包版本一致** —— 排查"原生库过期/未加载"时
@@ -43,21 +43,37 @@ Code CIN 构建信息 (build info) - 5.6.0
   version_info     : (5, 6, 0)
   python           : 3.14.6 (CPython)
   platform         : win32/AMD64
+  system           : Windows
+  machine          : AMD64
   native           : 可用: codecin-native 5.6.0 (Go)
+  native version   : codecin-native 5.6.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
   jit              : 可用
   package path     : D:\...\codecin
+  executable       : C:\...\python.exe
 ```
 
+原生库不可用时 `native` 行为 `不可用 (回退纯 Python 解释执行)`, `native matches` 行为
+`(未知)`; 版本字段无法解析为 `x.y.z` 时 `version_info` 显示 `(无法解析为 x.y.z)` ——
+**这个命令永远以退出码 0 结束**, 不会因为原生库缺失而失败。
+
 `--build-info --json` 输出同一份信息的 JSON (可直接 `json.loads`),
-适合脚本判断"原生库是否需要重建"。
+适合脚本判断"原生库是否需要重建":
+
+```bash
+python cpu.py --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
+```
 
 ## 位置参数
 
 | 参数 | 说明 |
 |------|------|
 | `program` | 程序源文件或字节码: `.cin` / `.pl` / `.asm` / `.bin`。省略时打印错误并返回 1 |
+
+`program` 是**可选**位置参数, 只有真正要运行程序时才需要它: `--help` / `--version` /
+`--build-info` 都在读取位置参数之前就退出, 所以 `codecin --build-info` 不带任何程序文件
+也能成功运行 (退出码 0)。`--json` 只作为 `--build-info` 的修饰符, 不能代替位置参数。
 
 ## 执行路径
 
