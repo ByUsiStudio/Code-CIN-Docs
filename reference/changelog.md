@@ -8,6 +8,20 @@ description: Code CIN 完整更新日志, 与主仓库 CHANGELOG.md 同步, 覆�
 保持同步, 内容以主仓库为准。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 与
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 最新发布 (动态)
+
+下面这块内容**实时**取自
+[GitHub Releases](https://github.com/ByUsiStudio/Code-CIN/releases), 因此不需要等文档站重新构建
+就能看到刚发布的版本与它的下载文件。请求在浏览器里发出, 结果缓存 10 分钟。
+
+<GithubReleases :per-page="6" />
+
+::: tip 获取不到时怎么办
+GitHub 未鉴权 API 有**每 IP 每小时 60 次**的限流; 离线或被拦截时这块会显示一行提示。
+无论哪种情况, **下面的静态更新日志都照常可用** (它是随文档站一起构建的离线回退)。
+也可以直接打开 [Releases 页面](https://github.com/ByUsiStudio/Code-CIN/releases) 查看。
+:::
+
 ## 版本一览
 
 | 版本 | 日期 | 主线 |

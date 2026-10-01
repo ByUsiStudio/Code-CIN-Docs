@@ -62,6 +62,18 @@ export default defineConfig({
       },
       { text: '标准库', link: '/stdlib/', activeMatch: '^/stdlib/' },
       {
+        text: '发布',
+        activeMatch: '^/reference/changelog',
+        items: [
+          { text: '更新日志 (动态)', link: '/reference/changelog' },
+          { text: '下载发布文件', link: '/guide/installation' },
+          {
+            text: '全部 Releases (GitHub)',
+            link: 'https://github.com/ByUsiStudio/Code-CIN/releases'
+          }
+        ]
+      },
+      {
         text: '运行时',
         activeMatch: '^/runtime/',
         items: [

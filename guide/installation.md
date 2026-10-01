@@ -20,6 +20,16 @@ Python 侧提供唯一命令行入口 `codecin`, 语言实现 (Go 编译器 / �
 > `rich` 是唯一的第三方运行时依赖, `pip` 会自动装上。**没有 Go 工具链也能安装成功**,
 > 只是不会生成原生库, 运行时会记一条 warning 并回退到纯 Python 解释执行。
 
+## 下载发布文件 (动态)
+
+下面列出的是**最新发布**里可下载的文件 (实时取自 GitHub Releases), 适合离线安装或直接用二进制:
+
+<ReleaseDownloads :per-page="5" />
+
+> 需要历史版本或某个具体平台的文件? 见
+> [全部 Releases](https://github.com/ByUsiStudio/Code-CIN/releases) 与
+> [更新日志](/reference/changelog)。
+
 ## 安装方式
 
 ::: tabs
