@@ -1,5 +1,5 @@
 ---
-description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理，以及 20 个官方库清单。"
+description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理，以及 36 个官方库清单。"
 ---
 
 # 模块与标准库
@@ -92,7 +92,7 @@ function main() -> int {
 
 ## 官方标准库清单
 
-内置库位于 `codecin/lib/`, 随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
+内置库位于 `codecin/lib/`, 共 36 个, 随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
 
 | 库 | 前缀 | 主要函数 |
 |----|------|----------|
@@ -116,6 +116,22 @@ function main() -> int {
 | `validate.cin` | `val_` | `val_is_digit` `val_is_alpha` `val_is_alnum` `val_is_hex` `val_is_space` `val_is_upper` `val_is_lower` `val_is_int` `val_is_float` `val_is_ident` `val_is_blank` `val_is_hex_color` `val_count_char` `val_clamp_int` `val_parse_int` |
 | `matrix.cin` | `mat_` | `mat_zero` `mat_identity` `mat_get` `mat_set` `mat_add` `mat_sub` `mat_scale` `mat_mul` `mat_transpose` `mat_trace` `mat_sum` `mat_equals` `mat_is_symmetric` `mat_det` `mat_print` |
 | `queue.cin` | `queue_` `stack_` | `queue_clear` `queue_push` `queue_pop` `queue_front` `queue_back` `queue_size` `queue_is_empty` `queue_is_full` `queue_capacity` + `stack_clear` `stack_push` `stack_pop` `stack_peek` `stack_size` `stack_is_empty` `stack_capacity` |
+| `bigint.cin` | `bi_` | `bi_from_str` `bi_to_str` `bi_from_int` `bi_add` `bi_sub` `bi_mul` `bi_pow` `bi_fact` |
+| `bitset.cin` | `bs_` | `bs_set` `bs_clear` `bs_test` `bs_count` `bs_first_set` `bs_shift_left` `bs_and` `bs_not` |
+| `codec.cin` | `codec_` | `codec_hex_encode` `codec_hex_decode` `codec_url_encode` `codec_base64_encode` `codec_base64_decode` `codec_rle_encode` `codec_morse_encode` `codec_rot13` |
+| `combin.cin` | `comb_` | `comb_gcd` `comb_is_prime` `comb_sieve` `comb_fact` `comb_choose` `comb_catalan` `comb_fib` `comb_mod_pow` |
+| `csv.cin` | `csv_` | `csv_count` `csv_get` `csv_get_int` `csv_get_float` `csv_has` `csv_quote` `csv_escape` `csv_line_add` |
+| `dp.cin` | `dp_` | `dp_fib` `dp_fact` `dp_knapsack01` `dp_lcs` `dp_edit_distance` `dp_coin_change` `dp_lis` `dp_max_subarray` |
+| `fmt.cin` | `fmt_` | `fmt_thousands` `fmt_float_dec` `fmt_percent` `fmt_align` `fmt_center` `fmt_bar` `fmt_cell` `fmt_border` |
+| `frac.cin` | `fr_` | `fr_make` `fr_add` `fr_sub` `fr_mul` `fr_div` `fr_cmp` `fr_to_str` `fr_to_float` |
+| `graph.cin` | `graph_` | `graph_reset` `graph_add_edge` `graph_bfs` `graph_dfs` `graph_topo_order` `graph_dijkstra` `graph_component_count` `graph_is_cyclic` |
+| `heap.cin` | `heap_` | `heap_reset` `heap_push` `heap_pop` `heap_peek` `heap_build` `heap_sort` `heap_is_valid` |
+| `path.cin` | `path_` | `path_str_join` `path_str_basename` `path_str_dirname` `path_ext` `path_stem` `path_normalize` `path_within` `path_change_ext` |
+| `set.cin` | `set_` | `set_add` `set_remove` `set_contains` `set_union_into` `set_intersect_into` `set_diff_into` `set_is_subset` `set_to_str` |
+| `text.cin` | `txt_` | `txt_replace` `txt_replace_first` `txt_slice` `txt_insert` `txt_delete_range` `txt_title` `txt_word_count` `txt_swap_case` |
+| `token.cin` | `tok_` | `tok_count` `tok_get` `tok_len` `tok_find` `tok_first` `tok_last` `tok_word_count` `tok_word_get` |
+| `tree.cin` | `tree_` | `tree_insert` `tree_contains` `tree_min` `tree_max` `tree_height` `tree_inorder_str` `tree_preorder_str` |
+| `unionfind.cin` | `uf_` | `uf_reset` `uf_find` `uf_union` `uf_connected` `uf_count` `uf_size` |
 
 ::: warning 依赖宿主能力的库
 `io.cin` / `gui.cin` / `termux.cin` / `key.cin` 封装的是宿主能力 (文件、画布、Termux API、键盘轮询), 因此
@@ -137,7 +153,7 @@ function main() -> int {
 
 ## 相关页面
 
-- [标准库概览](/stdlib/) — 20 个库的定位与依赖
+- [标准库概览](/stdlib/) — 36 个库的定位与依赖
 - [标准库参考](/stdlib/reference) — 全部函数签名
 - [宿主能力](/language/host-abilities) — `io` / `gui` / `termux` / `key` 的底层内建
 - [示例程序集](/guide/examples) — `modules_demo.cin`、`stdlib_demo.cin`

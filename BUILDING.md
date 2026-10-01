@@ -322,8 +322,8 @@ codecin build basic.cin -o basic --target windows/amd64              # 全 Go �
 |------|------|
 | 入口 shell | `codecin/native/aot/stub_main.go.txt` (Go 与 Python 侧共用同一份模板) |
 | 运行时 | `codecin/native/aot/aot.go` 的 `aot.Main(bytecode, memImage)` |
-| 构建器 | Go: `codecin/native/aot/build.go`; Python: `codecin/aot.py` |
-| 临时包 | 模块内 `.aotbuild-<rand>/`; Go 忽略以 `.` 开头的目录, 故不影响 `go build ./...` |
+| 构建器 | Python: `codecin/aot.py` (唯一实现; 生成临时包后调用 `go build`) |
+| 临时包 | 模块内 `.aotbuild-<rand>/`; Go 忽略以 `.` 开头的目录, 故不影响 `go build ./...`。每次构建前会清扫超过 6 小时的 `.aotbuild-*` / `.aotprobe-*` 残留 (`codecin.aot.sweep_stale_build_dirs`), 清理失败会记 warning 并给出绝对路径与手动删除命令 |
 | 静态链接 | `CGO_ENABLED=0` (+ `-tags netgo,osusergo`), Linux 产物无 `PT_INTERP`, 不依赖 glibc |
 | 体积 | `-trimpath -ldflags "-s -w"`, 空程序约 6 MB (含 Go 运行时与 VM) |
 | 前置条件 | 仅需 Go 工具链 (1.26+); 产物本身不需要任何运行时 |

@@ -133,11 +133,20 @@ function roll() -> int {
 | `strlen(s)` | int | 字节长度 (不含 NUL) |
 | `strcmp(a, b)` | int | 字典序比较 (`<0` / `0` / `>0`) |
 | `strcpy(s)` | string | 复制为新堆块 |
-| `substr(s, start, len)` | string | 子串 (新堆块, 越界自动裁剪) |
-| `indexof(hay, needle)` | int | 首次出现位置, 未找到 `-1` |
+| `substr(s, start, len)` | string | 子串 (新堆块, 越界自动裁剪)。**按字节索引**, 与 `strlen` / `s[i]` 一致 |
+| `indexof(hay, needle)` | int | 首次出现的**字节下标**, 未找到 `-1` |
 | `upper(s)` / `lower(s)` | string | 大小写转换 (新堆块)。**Unicode 感知**: 非 ASCII 字符也会转换, 因此结果字节长度可能变化 |
 | `trim(s)` / `ltrim(s)` / `rtrim(s)` | string | 去首尾 / 前导 / 尾部空白 (新堆块) |
 | `atoi(s)` | int | 字符串 → 十进制整数 (前导空白忽略, 失败为 `0`) |
+
+::: tip 字符串内建是字节语义, 只有大小写转换是 Unicode 感知
+`strlen` / `substr` / `indexof` / `s[i]` / 拼接 `+` 全程按**字节**处理, 不会先做 UTF-8
+解码 —— 所以非法字节序列不会被替换成 `U+FFFD`, 长度与下标在解释器 / JIT / Go 原生 VM
+三条路径下完全一致 (例如 `"a\xE4\xB8b"` 的 `strlen` 是 4, `indexof(s, "\xE4\xB8")` 是 1)。
+
+`upper` / `lower` 是刻意的例外: 它们做 Unicode 大小写映射 (`café` → `CAFÉ`), 由于映射
+结果可能变长, 不要假设"转换后长度不变"。
+:::
 
 ## 类型转换
 

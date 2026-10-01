@@ -1,5 +1,5 @@
 ---
-description: CIN struct 定义、点号成员访问、嵌套 struct 值内嵌、整体赋值与传参的语义、固长数组字段与默认全零实例化。
+description: CIN struct 定义、点号成员访问、嵌套 struct 值内嵌、聚合初始化（花括号）、整体赋值/传参/返回的值语义、字段限制与默认全零实例化。
 ---
 
 # struct
@@ -29,7 +29,7 @@ struct Rectangle {
 }
 ```
 
-字段之间以换行或 `;` 分隔，字段可以带固长数组维度（`int grades[5]`）。struct 定义只描述布局，本身不产生存储；存储来自变量声明。
+字段之间以换行或 `;` 分隔，字段可以带固长数组维度（`int grades[5]`），但数组**元素必须是标量**——`Point items[3]` 这类 struct 元素数组不能作字段，见 [字段限制](#字段限制)。struct 定义只描述布局，本身不产生存储；存储来自变量声明。
 
 ::: tabs
 
@@ -125,7 +125,8 @@ function main() -> int {
 | 定义 | 说明 |
 |------|------|
 | `Point top_left` | 内嵌一个完整 `Point`（两个 `float` 槽） |
-| `Point corners[2]` | 内嵌两个 `Point`（固长数组字段） |
+| `int grades[5]` | ✅ 标量元素的固长数组字段（值内嵌） |
+| `Point corners[2]` | ❌ 编译期报错：struct 元素固长数组**不能作字段**（见 [字段限制](#字段限制)） |
 | `string name` | 一个指针槽（字符串本身在堆上） |
 
 ```c
@@ -150,14 +151,55 @@ function main() -> int {
 }
 ```
 
+## 聚合初始化：花括号
+
+声明 struct 变量时可以用花括号一次性给字段赋值，按**字段声明顺序**逐个对应：
+
+```c
+struct P { int x
+    int y }
+
+function main() -> int {
+    P p = {3, 4}                     // p.x = 3, p.y = 4
+    println(int_to_str(p.x) + "," + int_to_str(p.y))     // 3,4
+    return 0
+}
+```
+
+| 写法 | 说明 |
+|------|------|
+| `P p = {3, 4}` | 按声明顺序写字段 |
+| `P q = {9}` | **字段不足时其余字段保持默认值**（这里是 `q.y == 0`，因为对象已全零） |
+| `Out o = { {5, 6}, 7}` | 嵌套 struct 用嵌套花括号；内层也可以省略（摊平后按叶子字段顺序对应） |
+| `P ps[2] = { {1, 2}, {3, 4} }` | struct 数组：每个元素一个花括号 |
+| `P ps[2] = {1, 2}` | 元素不足时其余元素保持默认（全零），等价于只初始化 `ps[0]` |
+
+字段不足是允许的（其余取默认值），**初始化器过多是编译期错误**：
+
+```text
+Compiler error: Too many initializers for struct P: got 3, expected at most 2
+Compiler error: Too many initializers for struct array ps: got 3, expected at most 2
+```
+
+- 每个值都按目标字段类型转换：`int` 字段收到 `3.7` 会**向零截断**为 `3`；
+- 全局 struct 的聚合初始化同样要求**常量表达式**，否则报
+  `Non-constant global initializer: var`；局部可以写任意表达式；
+- 初始化只作用于对象自身的槽，**不改变值语义**：`P b = {1, 2}` 得到的仍是一个与任何
+  其它对象互不影响的新对象。
+
+::: warning 顺序 = 字段声明顺序，没有指定初始化器
+CIN 没有 C 那样的 `{.y = 4}` 具名初始化器，所以 `{3, 4}` 永远按 `struct` 里字段出现的
+顺序对应。**调整字段声明顺序会同时改变所有聚合初始化器的含义**，跟 C 一样要注意。
+:::
+
 ## 值语义：整体赋值、传参、返回
 
 | 操作 | 语义 | 示例 |
 |------|------|------|
-| 整体赋值 `P b = a` | **值拷贝**（逐槽复制），之后互不影响 | `b.x = 7` 不改 `a.x` |
-| 作为函数参数 | **引用可见**（同一块存储） | 函数内 `p.x = 99` 调用方可见 |
-| 作为返回值 | 值拷贝返回（经 `x0`） | `P q = make(4)` |
-| 作为数组元素 | 值内嵌 | `P ps[3]` 是 3 份完整 `P` |
+| 整体赋值 `P b = a` / `b = a` | **值拷贝**（逐槽复制到各自对象），之后互不影响 | `b.x = 7` 不改 `a.x` |
+| 作为函数参数 | **引用可见**（同一块存储，不复制） | 函数内 `p.x = 99` 调用方可见 |
+| 作为返回值 | 值拷贝返回：**每次调用都是新对象** | 两次 `make(4)` 得到互不影响的两个对象 |
+| 作为 struct 数组元素 | 每个元素是**独立的完整 struct 对象** | `P ps[3]` 是 3 份完整 `P`；`ps[1] = ps[0]` 同样是值拷贝 |
 | 作为数组参数元素 | 引用可见 | 函数内 `ps[0].x = 1` 可见 |
 
 ::: tabs
@@ -222,7 +264,8 @@ function main() -> int {
 
 ## 固长数组字段
 
-字段可以是固长数组，数组元素**值内嵌**在 struct 里（`_type_slots` 会按 `维度 × 元素槽数` 展开）。
+字段可以是固长数组，数组**元素是标量**时值内嵌在 struct 里（`_type_slots` 会按
+`维度 × 元素槽数` 展开）。
 
 ```c
 struct Student {
@@ -252,17 +295,48 @@ struct Grid {
 }
 ```
 
+::: danger struct 元素的固长数组字段不受支持
+`struct Bag { Point items[3] }` 会在**编译期**直接失败（而不是留到运行期出错）：
+
+```text
+Compiler error: struct array field Bag.items is not supported (elements would need
+separate objects); use a fixed array of struct variables instead
+```
+
+原因是每个 struct 元素都是**独立对象**，没法内嵌在父对象的一段连续槽里。替代写法是把
+数组**提升为独立的 struct 数组变量**，让每个元素各自成为完整对象，需要成组传递时再用
+下标关联（或自己维护一个计数字段）：
+
+```c
+struct Point { int x
+    int y }
+
+Point items[3]            // 独立 struct 数组变量: 3 个完整的 Point
+
+function main() -> int {
+    items[0].x = 1
+    items[0].y = 2
+    items[2].x = 5
+    println(int_to_str(items[0].x) + "," + int_to_str(items[0].y)
+            + " " + int_to_str(items[1].x) + " " + int_to_str(items[2].x))   // 1,2 0 5
+    return 0
+}
+```
+
+标量数组字段（`int grades[5]`、`int cell[3][4]`）不受影响，照常可用。
+:::
+
 ## 字段限制
 
 | 允许的字段 | 说明 |
 |------------|------|
 | 标量 `int` `float` `bool` `string` | `string` 本身只占一个指针槽 |
 | 嵌套 struct | 值内嵌，占满内层全部槽 |
-| 固长数组 `T[n]`、`T[n][m]` | 值内嵌，占 `n × 元素槽数` |
-| struct 类型固长数组 `Point ps[3]` | 值内嵌 |
+| 固长数组 `T[n]`、`T[n][m]`（**元素为标量**） | 值内嵌，占 `n × 元素槽数` |
 
 | 不支持的用法 | 说明 |
 |--------------|------|
+| struct 元素的固长数组字段 `Point items[3]` | **编译期报错** `struct array field X.items is not supported`；改用独立的 struct 数组变量（见上） |
 | 变长指针数组字段 `T[]` | 官方限制，**不要依赖**（见 `docs/CIN_GUIDE.md` §14 限制 5）；需要变长集合请用固长数组上限 + 长度字段 |
 | 字段带初始化器 | 字段只声明类型与名字，没有默认初始化表达式 |
 | 方法 / 构造函数 / 继承 | 语言不提供，用普通函数接收 struct 实现 |
@@ -282,7 +356,7 @@ struct Bag {
 
 ## 实例化与默认全零
 
-`StructName 变量名` 声明即分配存储，**所有字段默认为类型默认值**（`int` → `0`、`float` → `0.0`、`bool` → `false`、`string` → 空串、嵌套 struct 递归全零）。
+`StructName 变量名` 声明即分配存储，**所有字段默认为类型默认值**（`int` → `0`、`float` → `0.0`、`bool` → `false`、`string` → 空串、嵌套 struct 递归全零）；这块存储由编译器**显式清零**，不是"碰巧是新的堆内存"。
 
 ```c
 struct Point { int x
@@ -299,8 +373,12 @@ function main() -> int {
 }
 ```
 
-- 全局 struct 变量同样全零，且只能是全零（全局初始化器必须是常量）。
-- 局部 struct 变量在进入所在块时分配，离开块后释放。
+- 全局 struct 变量默认同样全零；要非零初值就写**常量**聚合初始化器
+  （`Point origin = {1, 2}`），非常量表达式仍报 `Non-constant global initializer: var`。
+- 局部 struct 变量在**进入所在块时分配对象并显式清零**：编译器发出 `MALLOC` 后逐槽写 0，
+  不依赖"堆恰好是新的"内存。因此局部 struct 的**字段默认值可靠**；局部标量与局部固长
+  数组则不然 —— 那两者是栈帧残留值（见 [变量与作用域 · 默认值](/language/variables#默认值)）。
+  离开块后对象释放。
 
 ::: tabs
 
@@ -311,7 +389,7 @@ struct Point { int x
     int y }
 
 function main() -> int {
-    Point p           // 栈上分配, 全零
+    Point p           // 进入块时分配对象并清零
     p.x = 1
     return p.x
 }
@@ -435,7 +513,9 @@ avg = 75
 | `Struct P has no field y` | 访问了不存在的字段 | 检查字段名拼写 |
 | `Member access on non-struct type: int` | 对 int/float 用 `.` | 只有 struct 变量能用 `.` |
 | `Undefined variable: s` | struct 变量未声明 | 先 `Point s` 声明 |
-| `Non-constant global initializer: ...` | 全局 struct 用了非常量初始化 | 全局留空、在函数内赋值 |
+| `struct array field Bag.items is not supported` | struct 元素数组不能作字段 | 改用独立的 struct 数组变量（见 [字段限制](#字段限制)） |
+| `Too many initializers for struct P: got 3, expected at most 2` | 聚合初始化器多于字段 | 删掉多余的初始化器；缺省字段会自动取默认值 |
+| `Non-constant global initializer: var` | 全局 struct 用了非常量初始化 | 全局只写常量聚合初始化器，或在函数内赋值 |
 | `Expected RBRACE ... at line N` | 字段块括号不配对 | 检查 struct 定义 |
 
 ## 相关页面

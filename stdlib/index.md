@@ -1,10 +1,10 @@
 ---
-description: Code CIN 官方标准库总览：20 个内置库的用途、前缀约定、宿主能力依赖与快速上手。
+description: Code CIN 官方标准库总览：36 个内置库的用途、前缀约定、宿主能力依赖与快速上手。
 ---
 
 # 标准库总览
 
-Code CIN 官方标准库由 20 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
+Code CIN 官方标准库由 36 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
 它们本身是**用 CIN 语言写成的模块**，不是宿主内建函数：编译器在编译主文件时按需展开，
 因此函数签名、边界行为和返回值都可以直接阅读源码核对。
 
@@ -56,6 +56,22 @@ Code CIN 官方标准库由 20 个 `.cin` 源文件组成，随 pip 包一起分
 | `val_` | `validate.cin` | 校验与安全解析 |
 | `mat_` | `matrix.cin` | matrix 方阵 |
 | `queue_` / `stack_` | `queue.cin` | 环形队列 / 栈 |
+| `bi_` | `bigint.cin` | big integer 任意精度整数 |
+| `bs_` | `bitset.cin` | bit set 多字位集合（512 位） |
+| `codec_` | `codec.cin` | 编码与简单加密 |
+| `comb_` | `combin.cin` | 数论与组合数学 |
+| `csv_` | `csv.cin` | 单行 CSV 解析与生成 |
+| `dp_` | `dp.cin` | dynamic programming 动态规划 |
+| `fmt_` | `fmt.cin` | format 排版与格式化输出 |
+| `fr_` | `frac.cin` | fraction 有理数（分数） |
+| `graph_` | `graph.cin` | 定长图（邻接矩阵） |
+| `heap_` | `heap.cin` | 定长二叉堆 |
+| `path_` | `path.cin` | 纯字符串路径处理（含 `path_str_*`） |
+| `set_` | `set.cin` | 整数集合（位图） |
+| `txt_` | `text.cin` | text 文本处理 |
+| `tok_` | `token.cin` | token 切分 / 分词 |
+| `tree_` | `tree.cin` | 定长二叉搜索树 |
+| `uf_` | `unionfind.cin` | union-find 并查集 |
 
 ::: warning `t_` 前缀冲突
 `codecin/lib/time.cin` 与 `codecin/lib/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
@@ -73,12 +89,12 @@ Code CIN 官方标准库由 20 个 `.cin` 源文件组成，随 pip 包一起分
 | `str.cin` | `s_` | 7 | 大小写、包含/前后缀、计数、重复 | 否 |
 | `array.cin` | `a_` | 14 | 整数数组求和/最值/查找/反转/填充/拷贝 | 否 |
 | `sort.cin` | `sort_` `bin_` | 7 | 冒泡/选择/插入/快速排序、有序判定、二分查找 | 否 |
-| `conv.cin` | `c_` | 11 | 十六进制/二进制转换、填充、字符与浮点解析 | 否 |
+| `conv.cin` | `c_` | 12 | 十六进制/二进制转换、填充、字符与浮点解析 | 否 |
 | `vec.cin` | `v_` | 12 | 浮点向量求和/均值/方差/点积/范数/归一化 | 否 |
 | `rand.cin` | `r_` | 7 | 区间随机、随机浮点、洗牌、随机取元素 | 否（依赖内建 `rand`） |
 | `json.cin` | `j_` | 6 | 扁平 JSON 字段取值（字符串/整数/浮点/布尔） | 否 |
 | `time.cin` | `t_` | 6 | 时间戳、`HH:MM:SS`/`MM:SS`、时长拆解与人性化 | 否（依赖内建 `time`） |
-| `bits.cin` | `bits_` | 16 | popcount/clz/ctz、位读写、循环移位、位序与字节序反转 | 否 |
+| `bits.cin` | `bits_` | 17 | popcount/clz/ctz、位读写、循环移位、位序与字节序反转 | 否 |
 | `stat.cin` | `stat_` | 15 | 整数顺序统计：中位数/众数/百分位/直方图/方差 | 否 |
 | `hash.cin` | `hash_` | 7 | djb2 / FNV-1a / sdbm、整数混合、桶下标映射 | 否 |
 | `validate.cin` | `val_` | 15 | 字符类别、整型/浮点/标识符/颜色校验、限幅、安全解析 | 否 |
@@ -88,11 +104,27 @@ Code CIN 官方标准库由 20 个 `.cin` 源文件组成，随 pip 包一起分
 | `key.cin` | `k_` `K_` | 3 | 键盘轮询：键码常量、Ctrl 组合、扩展键判定、阻塞等一键 | **是**（Go 原生） |
 | `io.cin` | `io_` | 15 | 文件读写/追加/删除/大小、目录、路径、按行与按分隔取值 | **是**（Go 原生） |
 | `gui.cin` | `g_` | 9 | 画布建面/清屏/边框、柱状图与折线图、导出 PNG、弹窗查看 | **是**（Go 原生） |
-| `termux.cin` | `tx_` | 18 | Termux 通知/Toast/剪贴板/振动/TTS/短信/电池/定位/WiFi | **是**（Go 原生） |
+| `termux.cin` | `tx_` | 19 | Termux 通知/Toast/剪贴板/振动/TTS/短信/电池/定位/WiFi | **是**（Go 原生） |
+| `bigint.cin` | `bi_` | 34 | 任意精度十进制整数：四则、幂、阶乘、比较、饱和与溢出标志 | 否 |
+| `bitset.cin` | `bs_` | 35 | 512 位位集合（双槽）：置位/计数/位移/逻辑运算 | 否 |
+| `codec.cin` | `codec_` | 26 | 十六进制/URL/Base64/RLE/摩尔斯编解码、凯撒与 XOR | 否 |
+| `combin.cin` | `comb_` | 26 | 素数筛、阶乘/排列/组合、卡特兰数、数论判定、进制转换 | 否 |
+| `csv.cin` | `csv_` | 23 | 单行 CSV 解析与生成：引号转义、字段取值、行缓冲 | 否 |
+| `dp.cin` | `dp_` | 13 | 0/1 背包、LCS、编辑距离、LIS、零钱、网格最小路径和 | 否 |
+| `fmt.cin` | `fmt_` | 21 | 定点小数、千位分隔、对齐居中、比例条、表格单元格与边框 | 否 |
+| `frac.cin` | `fr_` | 19 | 有理数（分数）精确运算与比较、自动约分 | 否 |
+| `graph.cin` | `graph_` | 20 | 邻接矩阵图：BFS/DFS/拓扑排序/Dijkstra/连通性判定 | 否 |
+| `heap.cin` | `heap_` | 14 | 定长二叉堆（最小/最大）与就地堆排序 | 否 |
+| `path.cin` | `path_` | 18 | 纯字符串路径：分段、扩展名、规范化、公共前缀、包含判定 | 否 |
+| `set.cin` | `set_` | 26 | 整数集合（位图，128 元素三槽）：并/交/差与集合查询 | 否 |
+| `text.cin` | `txt_` | 22 | 大小写无关比较、替换、切片/插入/删除、标题化与词数 | 否 |
+| `token.cin` | `tok_` | 10 | 按分隔串或空白切分取 token（计数、取值、取长、查找） | 否 |
+| `tree.cin` | `tree_` | 15 | 二叉搜索树：插入、查询、三种遍历、高度与叶子数 | 否 |
+| `unionfind.cin` | `uf_` | 8 | 并查集（按秩合并 + 路径压缩） | 否 |
 
 ## 纯 CIN 库与宿主能力库
 
-纯 CIN 库（上表「依赖宿主能力 = 否」的 16 个）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
+纯 CIN 库（上表「依赖宿主能力 = 否」的 32 个）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
 只用数组与循环，`codecin/lib/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们的行为在
 **Go 原生 VM / JIT / 纯 Python 解释器**三条路径下完全一致，可直接用 `--no-native` 验证：
 
@@ -101,8 +133,8 @@ python cpu.py prog.cin                # 自动选择原生/JIT/解释 (默认)
 python cpu.py prog.cin --no-native    # 强制纯 Python 解释器
 ```
 
-宿主能力库（`io.cin` / `gui.cin` / `termux.cin`）转调 `file_*`、`canvas`/`draw_line`、
-`termux_*` 等内建，这些内建**全部由 Go 原生引擎实现**，在解释器下会给出明确错误。
+宿主能力库（`io.cin` / `gui.cin` / `termux.cin` / `key.cin`）转调 `file_*`、`canvas`/`draw_line`、
+`termux_*`、`key_hit`/`get_key` 等内建，这些内建**全部由 Go 原生引擎实现**，在解释器下会给出明确错误。
 另有两个库处于中间地带：
 
 - `rand.cin` 依赖内建 `rand()`，`time.cin` 依赖内建 `time()`——它们由运行时的 `SYS` 指令实现，

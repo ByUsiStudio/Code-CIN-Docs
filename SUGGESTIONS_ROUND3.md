@@ -19,7 +19,7 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 
 ---
 
-## 0. 摘要：先看这 11 条
+## 0. 摘要：先看这 16 条
 
 | # | 问题 | 影响 | 状态 |
 |---|------|------|------|
@@ -34,9 +34,37 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 | R3-9 | 纯 Python 路径的 `+` / `substr` / `indexof` 先做 UTF-8 解码，非法字节序列被替换成 U+FFFD | **同一程序两条路径结果不同**（实测 `strlen` 9 vs 3） | **本轮已修复**（见 §4） |
 | R3-10 | `upper` / `lower` 实际是 **Unicode 感知**的，而 `builtins.md` 写「ASCII 大小写转换」 | 文档承诺 ≠ 实际行为（两路径一致，只是文档错） | **仅报告**（见 §5.5） |
 | R3-11 | 受限环境下 `pytest` 的 `tmp_path` 不可用，导致 5 个用例在 setup 阶段 ERROR | 本机全量结果无法解释，容易掩盖真实缺陷 | **本轮已修复**（改用 `workdir`，见 §8.1） |
+| R3-12 | 纯 Python 解释路径极慢：192×192 的 LCS 单次要 **79 s**，2 万次空循环 11.7 s | 标准库容量被迫从 192/256 降到 128/64；教学场景的 `O(n²)` 代码体感很差 | **仅报告**（见 §5.6） |
+| R3-13 | `for (P q : ps)` 的循环变量是**别名**，而 C/C++ 里它是一次值拷贝 | 与刚统一的「整体赋值 = 值拷贝」不一致 | **仅报告**（见 §5.8） |
+| R3-14 | 用户自定义函数与内建/宿主内建**同名时永远不会被调用**，两条路径结论还不同 | 用户意图被静默忽略 + 路径分歧 | **本轮已修复**（见 §4.2） |
+| R3-15 | struct 形参**不做类型检查**：把 `float` 传给 `fr_equals(Frac, Frac)` 能编译，运行期才越界 | 类型安全缺口，错误推迟到运行期且信息难懂 | **仅报告**（见 §5.10） |
+| R3-16 | `string` 以 NUL 结尾，**无法包含字节 0**；`strlen("\x00\x01\x02")` 实测 **0** | 与"字节语义"承诺存在缺口；导致新库 `codec.cin` 整张字节表退化为空串 | **仅报告**（见 §5.11） |
 
 已修复的条目都同时覆盖了三条执行路径（interp / native / JIT），
-回归护栏为 `tests/test_aggregate_and_const.py`（99 个用例）与原有测试。
+回归护栏为 `tests/test_aggregate_and_const.py`（138 个用例）与原有测试。
+
+## 0.1 本轮验证结果（证据）
+
+| 项目 | 本轮结束时 | 会话开始时（同一台机器） |
+|------|-----------|--------------------------|
+| `python -m pytest -q` | **1034 passed / 3 failed / 49 skipped** | 565 passed / 3 failed / 49 skipped / **5 errors** |
+| `tests/test_aggregate_and_const.py`（新） | **138 passed**（interp / native / JIT） | — |
+| `tests/test_struct_value_semantics.py`（新） | **194 用例**，与上者合计 314 passed | — |
+| `python script/check_paths.py` | **6/6 passed**（三条路径逐字节一致） | 6/6 passed |
+| `python script/gen_native_isa.py --check` | 三个生成文件 **up to date** | 通过 |
+| `python script/gen_isa_docs.py --check` | ISA 文档 **up to date** | 通过 |
+| `python -m ruff check codecin cpu.py script tests` | **All checks passed** | 通过 |
+| `tests/test_version.py` | **30 passed** | 4 passed |
+
+::: warning 仅剩的 3 个失败是环境限制，不是仓库缺陷
+`tests/test_aot.py` 的 `test_build_host_executable`、`test_build_respects_error_exit_code`、
+`test_cross_compile_linux_amd64_is_static` 都停在
+`os.makedirs('codecin/native/.aotbuild-…')` 的 `PermissionError: [WinError 5]`，
+**发生在调用 `go` 之前**（见 §8.3 的 Low integrity 根因）。
+会话开始时是同样的 3 个失败 —— 本轮既没有引入也没有消除它们（无法在沙箱内消除）。
+**会话开始时还有的 5 个 `tmp_path` ERROR 已在本轮清零**（见 §8.1）。
+:::
+
 
 ---
 
@@ -129,7 +157,7 @@ function main() -> int { return o.x * 10 + o.y }
 | 修复前 | `43980465111040`（对象指针被字面量覆盖后当整数读） |
 | 修复后 | `34` |
 
-同类：全局 `P ps[2] = {{1,2},{3,4}}` 修复前返回 `6473924464345088`，修复后 `34`。
+同类：全局 <span v-pre>`P ps[2] = {{1,2},{3,4}}`</span> 修复前返回 `6473924464345088`，修复后 `34`。
 
 ---
 
@@ -177,7 +205,7 @@ struct In  { int a; int b }
 struct Out { In i; int c }      // 修复前: c 的偏移 = 1, 与 i.b 重叠
 ```
 
-**实测**：`Out o = {{5,6},7}; return o.i.a*100+o.i.b*10+o.c` → 修复前 `560`，修复后 `567`。
+**实测**：<span v-pre>`Out o = {{5,6},7}; return o.i.a*100+o.i.b*10+o.c`</span> → 修复前 `560`，修复后 `567`。
 
 **修复**：新增 `_struct_slots(t, structs)`（嵌套 struct 按内层 `size_slots` 内嵌），
 `_parse_struct` 改用它；嵌套 struct 若在字段位置**尚未定义**，现在给出明确错误
@@ -196,8 +224,8 @@ struct Out { In i; int c }      // 修复前: c 的偏移 = 1, 与 i.b 重叠
 return rows if rows else current        # 旧实现
 ```
 
-对 `{{5, 6}, 7}`：`rows = [[5,6]]`，而 `7` 被收进 `current` 后**整段丢掉**。
-即 `Out o = {{5,6}, 7}` 里的 `7` 凭空消失，导致 `o.c` 保持 0。
+对 <span v-pre>`{{5, 6}, 7}`</span>：`rows = [[5,6]]`，而 `7` 被收进 `current` 后**整段丢掉**。
+即 <span v-pre>`Out o = {{5,6}, 7}`</span> 里的 `7` 凭空消失，导致 `o.c` 保持 0。
 
 修复：`rows` 非空时把 `current` 也作为一行追加（`[[5,6],[7]]`），
 本轮的单元测试 `nested_array_literal_trailing` 固化该行为。
@@ -218,9 +246,9 @@ objects); use a fixed array of struct variables instead
 
 ---
 
-## 4. P0 — 字符串字节语义：Python 路径的 UTF-8 解码造成两路径分歧（本轮已修复 R3-9）
+## 4. P0 — 两处「同一程序两条路径结果不同」（本轮已修复）
 
-### R3-9 `substr` / `indexof` / `+` 在非法字节序列上两条路径结论不同 ⭐
+### 4.1 R3-9 字符串字节语义：Python 路径的 UTF-8 解码造成分歧
 
 **根因**：`codecin/memory.py` 的 `read_string()` 是
 `bytes(chars).decode('utf-8', errors='replace')`。字符串内建里凡是「读出来再编码回去」的
@@ -257,6 +285,7 @@ elif call_id == Syscall.STR_CONCAT:
 
 ```powershell
 python .scratch\probe_utf8_divergence.py     # 修复后 4 个用例全部 SAME
+python -m pytest tests/test_aggregate_and_const.py -q -k byte_semantics
 python -m pytest tests/test_lib_text.py tests/test_lib_token.py -q -p no:cacheprovider
 ```
 
@@ -265,6 +294,46 @@ python -m pytest tests/test_lib_text.py tests/test_lib_token.py -q -p no:cachepr
 `strings.ToUpper` / `strings.ToLower` / `strings.TrimSpace`（Unicode 感知），
 Python 侧的 `str.upper()` / `str.strip()` 与它们行为一致，改反而会制造新的分歧。
 这留下一个文档问题，见 §5.5。
+:::
+
+### 4.2 R3-14 用户函数与内建同名时被静默忽略，且两条路径结论不同 ⭐
+
+**发现途径**：写 `path.cin` 时想提供 `path_join` / `path_basename` / `path_dirname`
+（纯字符串版本，不依赖宿主能力），结果这三个名字**永远不会被调用**——
+它们恰好是宿主能力内建名（`isa.py` 的 `PATHJOIN` / `PATHBASENAME` / `PATHDIRNAME`）。
+
+**根因**：`CodeGen._gen_call` 的分派顺序是「内建/宿主内建 → … → 用户函数」，
+用户函数在**最后**。所以任何与内建同名的用户函数都形同不存在。
+
+**实测**（用户自己定义 `file_read`，让它返回 `"user"`）：
+
+| 路径 | 结果 |
+|------|------|
+| `--no-native` | `Execution error: host builtins … require the native Go runtime` |
+| 原生 VM | 静默调用**宿主**实现，返回宿主结果 |
+
+即同一个程序：一条路径报错、另一条路径安静地做另一件事。
+`user_path_join` 同样两条路径不一致（返回 2 而不是 1）。
+
+**为什么这是 P0**：它同时踩中本项目两条红线——
+"用户写的代码被静默忽略"和"同一程序两条路径结论不同"。
+而且触发条件很自然：`path_*` / `file_*` / `exec` / `abs` / `strlen` 这些名字
+都是写库或写示例时很容易撞上的。
+
+**修复**：把**用户函数的分派提到 `_gen_call` 最前面**，
+内建（含宿主能力内建）只在没有同名用户函数时才生效。
+这与既有先例一致（`exit` 之前就用 `name not in self.functions` 做过同样的事，
+本轮把它推广到全部内建）。
+
+回归护栏：`tests/test_aggregate_and_const.py` 新增 `test_user_function_shadows_builtin`
+（6 组用例 × interp/native/JIT），覆盖宿主内建名（`path_join`/`file_read`）、
+普通内建名（`abs`/`strlen`/`atoi`）、以及"没有同名用户函数时内建仍然生效"的控制组。
+
+::: warning 顺带的影响
+`codecin/lib/path.cin` 因此把三个函数命名为
+`path_str_join` / `path_str_basename` / `path_str_dirname`。
+修复之后，即使改回 `path_join` 等原名也能正常工作；
+是否改名由你决定（保留 `path_str_*` 更明确地表达"纯字符串、不碰宿主"）。
 :::
 
 ---
@@ -389,7 +458,7 @@ Python 侧 `cpu.py` 的 `MALLOC` 与 Go 侧 `vm.go` 的 `sysMALLOC` 都只推进
 若你希望它是 ASCII-only（更符合"字节语义"的整体设计），
 那两侧要一起改成只处理 `a-z` / `A-Z` 的字节映射，并在文档里说明。
 
-### 5.7 纯 Python 解释路径的绝对速度：`O(n²)` 算法在默认容量下会变成分钟级
+### 5.6 纯 Python 解释路径的绝对速度：`O(n²)` 算法在默认容量下会变成分钟级
 
 本轮写 `dp.cin` / `graph.cin` 时实测（同一台机器，`--no-native` 强制解释执行）：
 
@@ -424,13 +493,17 @@ R3-9 是"两条路径结果不同"，这条是"三条路径都对，但其中一
 两者都会把使用者推离"默认路径"，而三路径一致性的价值恰恰建立在默认路径好用的前提上。
 :::
 
-### 5.6 堆不回收：字节级重建的规模上限比想象中低
+### 5.7 堆不回收：字节级重建的规模上限比想象中低
 
 字符串拼接每个新堆块**都不回收**（`MALLOC` 只推进 `heap_ptr`），
 所以"重建字符串"类函数的堆开销是输入长度的平方级。
 本轮 `text.cin` 的实测边界：对 `'ab '×30`（90 字节）连续做
 `txt_reverse` + `txt_swap_case` + `txt_title` 可以通过，
 对 `'ab '×40`（120 字节）会以 `Stack overflow (collides with heap)` 结束。
+
+**建议**：这是一个**应该写进文档的具体数字**（现在 `stdlib` 文档只说"循环拼接会占堆"，
+没给量级），并且值得考虑让 `--mem-size` 的推荐值出现在这条错误信息里
+（当前报错只说与堆相撞，没有提示"可以用 `--mem-size` 放宽"）。
 
 ### 5.8 range-for 的 struct 循环变量是别名（与 C/C++ 不同）
 
@@ -461,7 +534,7 @@ function main() -> int {
 
 | 限制 | 现状 | 说明 |
 |------|------|------|
-| 三层以上花括号字面量 `{{{5},6},7}` | 报 `Unexpected token LBRACE` | 解析器既有边界；深层嵌套可用逐字段写入 + 整体赋值绕过 |
+| 三层以上花括号字面量 <span v-pre>`{{{5},6},7}`</span> | 报 `Unexpected token LBRACE` | 解析器既有边界；深层嵌套可用逐字段写入 + 整体赋值绕过 |
 | 多维 struct 数组 `P ps[2][3]` | 编译期明确拒绝 | 本轮改为**报错**而非按错误步长静默算，并提示 flatten 成一维 |
 | `struct Bag { P items[3] }`（struct 数组字段） | 编译期明确拒绝 | 与上一轮文档「值内嵌」冲突，`structs.md` 已校正 |
 | struct 写入标量槽 `int a[2]; P p; a[0] = p;` | 本轮新增编译期错误 | 原先静默把指针当整数存进数组 |
@@ -473,6 +546,88 @@ R3-1 ～ R3-9 与上面这张表是同一件事的不同侧面：**struct 的"�
 "槽里存对象指针 + 整体赋值逐槽拷贝 + 传参引用"，
 并把所有无法自洽的写法（多维数组、数组字段、跨类型赋值、struct 写标量）
 从"静默算错"改成"编译期报错"——这是本轮**最重要的结构性改进**。
+:::
+
+### 5.10 R3-15 struct 形参不做类型检查，错误推迟到运行期
+
+写 `frac.cin` 时发现：**把 `float` 传给需要 `Frac` 的函数可以编译通过**，
+运行期才炸，而且报的是内存越界而不是类型错误：
+
+```c
+struct Frac { int num; int den }
+function fr_equals(Frac a, Frac b) -> int { return a.num * b.den == b.num * a.den }
+
+function main() -> int {
+    Frac x = {1, 2}
+    return fr_equals(1.5, x)      // 编译通过!
+}
+```
+
+| 阶段 | 表现 |
+|------|------|
+| 编译 | 无任何报错 |
+| 运行 | `Execution error: Address 0x3fd0000000000000 out of bounds` |
+
+`0x3fd0000000000000` 正是 `1.5` 的 IEEE-754 位模式被当成 struct 指针去解引用。
+
+**根因**：`_gen_call` 对用户函数的实参只做 `_convert(at, _param_promote(ptype))`，
+而 `_convert` 对「标量 → struct 指针」是**无操作**（注释写着 "string/struct/array
+指针无需转换"），于是 float 的位模式被原样当成对象指针传了进去。
+
+**建议**：在 `_gen_call` 的实参处理里加一条编译期检查——
+目标形参是 struct（或数组）而实参类型是标量/string 时报
+`Cannot pass <src> to parameter of type <struct>`。这是纯编译期检查，
+约 5 行，不影响任何合法程序的语义，但能把一类"看不懂的越界报错"变成一句话。
+
+**注**：本轮已顺带把两个更严重的同类静默错误改成编译期报错
+（跨 struct 类型赋值、struct 写入标量槽，见 §5.9），
+**形参这一处是同一族里剩下的最后一个缺口**。
+
+### 5.11 R3-16 `string` 无法包含字节 0 —— 字节语义里的一个洞
+
+`strlen` / `substr` / `s[i]` 在 5.6.0 起都统一成**字节**语义，但 `string` 是
+**NUL 结尾**的，所以**字节 0 不可表示**。实测：
+
+| 程序 | 结果 |
+|------|------|
+| `strlen("\x00\x01\x02")` | **0**（整个字面量在第一个字节就被截断成空串） |
+| `strlen("A\x00B")` | **1** |
+| `strlen("\xFF")` | 1（非 0 字节正常） |
+
+**这条限制本轮造成了一个真实的坏库**：新写的 `codec.cin` 想用一张 256 字节的
+"字节 ↔ 字符"双向表来把整数值还原成单字节字符串：
+
+```c
+string codec_bytes = "\x00\x01\x02…\xFF"      // 本意是 256 字节
+// 实际 strlen(codec_bytes) == 0 —— 整张表是空的
+function codec_chr_of(int b) -> string { return substr(codec_bytes, b & 0xFF, 1) }
+```
+
+于是 `codec_chr_of()` 恒返回空串，`codec_rot13("Uryyb")` 得不到 `"Hello"`，
+13 个用例里 12 个是红的。作者（子任务）按照"字节语义"的直觉写，却撞上了一个
+字节语义**覆盖不到**的洞。
+
+**影响面**：任何"输出任意字节"的函数在语义上都不可能完备——
+`codec_hex_decode` / `codec_base64_decode` / `codec_xor_cipher` 都无法产出字节 0，
+所以"解码 → 编码往返一致"这类性质**在含 NUL 的输入上必然不成立**。
+这不只是 codec 的问题：任何二进制处理（压缩、校验、协议打包）都会撞上它。
+
+**建议**（按代价）：
+
+1. **先写进文档**（必须做）：在 `docs/language/strings.md` 的字节语义一节点明
+   「字符串以 NUL 结尾，**不能包含字节 0**；需要真正的二进制数据请用 `int[]` 或
+   `\x01..\xFF` 的可表示子集」，并给出一条实测例子；
+2. **在词法层给个警告**（推荐）：字面量里出现 `\x00` 且**后面还有内容**时，
+   编译期给一条 warning（现在完全静默地截断，是最难查的一类）；
+3. **库作者约定**（推荐写进 `stdlib` 文档）：需要 0..255 全值域的场景用
+   `int[]` 传字节，而不是 `string`；
+4. 可选：让 `strlen`/`substr` 接受显式长度参数（`strnlen(s, n)` / `substr_n(s, start, len, n)`），
+   这样二进制串就能用 `string` 表示——但这会改动既有内建语义，属于较大的设计决策。
+
+::: tip 这一条与 R3-9 是同一个"字节语义"主题的两端
+R3-9 修的是"字节语义没落实"（解释器偷偷做 UTF-8 解码）；
+R3-16 指出的是"字节语义的边界"（NUL 结尾让字节 0 不可表示）。
+两者都说明：**"字节语义"目前是部分成立的，文档值得把边界写清楚**。
 :::
 
 ---
@@ -544,7 +699,8 @@ int matrix[N][N]
 | `script/bump_version.py x.y.z` | 一步完成：改 `codecin/__init__.py` → 重新生成 Go 侧 `engine/version_gen.go` → 在 `CHANGELOG.md` 插入新版本小节骨架 → 三处自检；**先校验后落盘**，任一步失败按字节备份回滚；支持 `--dry-run` / `--date` / `--root` |
 | 发布门禁测试 | `test_changelog_lists_current_version`：`__version__` 提升而 `CHANGELOG.md` 没有对应 `## [x.y.z]` 小节即失败 |
 
-**这一条解决的是真实缺口**：上一轮报告 §5.5 指出 `release.yml` 只比对 tag 与
+**这一条解决的是真实缺口**：上一轮报告 `SUGGESTIONS_NEXT.md` 的 §5.5 指出
+`release.yml` 只比对 tag 与
 `__init__.py`，**可以发布一个完全没有变更日志的版本**。现在这个缺口由测试兜住了。
 
 顺带确认：`CHANGELOG.md` 里**已经有** `## [5.6.0]`，所以本轮没有补写条目；

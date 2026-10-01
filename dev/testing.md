@@ -44,6 +44,12 @@ python -m pytest --cov=codecin --cov-report=term-missing --cov-fail-under=70
 `tests/conftest.py` 提供会话级的 `workdir` 夹具, 落在仓库内的 `.pytest_tmp/`
 (会话结束清理), 这样在沙箱环境里也能安全写文件。
 
+**不要用 pytest 的 `tmp_path`**: 受限沙箱下子进程无法 `scandir` 系统临时目录,
+`tmp_path` 会在 setup 阶段就 `PermissionError`。仓库统一约定用 `workdir`;
+`tests/test_keyboard.py`、`tests/test_p0_fixes.py` 已从 `tmp_path` 迁到 `workdir`,
+`tests/test_aot.py` 的临时目录用例也用 `workdir` + `monkeypatch` 把
+`aot._NATIVE_DIR` 指向假 `native/`, 而不是真去写 `codecin/native/`。
+
 依赖原生库的用例 (`test_three_paths.py`、`test_cin_host.py`、`test_cin_system.py`、
 `test_libs.py`、`test_native_hardening.py`) 用
 `pytest.mark.skipif(native.get_engine() is None)` 跳过。**没编译原生库时它们会静默
@@ -183,7 +189,7 @@ python -m pytest ../tests/test_no_go_cli.py
 |------|--------|
 | `conftest.py` | 会话级工作目录夹具 (`workdir` → 仓库内 `.pytest_tmp/`, 会话结束清理) |
 | `helpers.py` | 测试辅助: `reg`/`imm`/`mem` 操作数构造、`new_cpu`、`run_program`、`run_cin_source`、`run_cin_file`、`asm_program`、`snapshot` |
-| `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux ELF 无 `PT_INTERP` (静态)、非法 `--target` 报 `AotError` |
+| `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux ELF 无 `PT_INTERP` (静态)、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
 | `test_assembler_ext.py` | 汇编器 `.equ` 常量、立即数/偏移表达式、符号算术、数据段表达式 |
 | `test_cache.py` | 缓存命中/缺失计数与 `stats` 单元行为 |
 | `test_cin_host.py` | CIN 宿主能力 (GUI 画布 / 联网音频); 依赖原生库, 无则 skip |
@@ -214,7 +220,7 @@ python -m pytest ../tests/test_no_go_cli.py
 | `test_paths_consistency.py` | 源码级三路径一致性 (跑 `examples/*.cin` 逐字节比对 stdout) |
 | `test_switch_semantics.py` | switch 语义回归 (Go 与 Python 双编译器对齐) |
 | `test_three_paths.py` | 解释 / JIT / 原生终态快照一致; 原生批量记账口径与逐条一致 |
-| `test_version.py` | 版本单一真源: pyproject 无静态 version、Go `BuildVersion` 同步、semver、`--version` |
+| `test_version.py` | 版本设施: pyproject 无静态 version、Go `BuildVersion` 同步、semver、`--version`/`--build-info`; `build_info()` 字段齐全且**永不抛异常** (原生库缺失 / dlopen 失败 / 平台探测异常都降级); `bump_version.py` 的 dry-run 不落盘、非法与不递增版本被拒、副本里真实跑通全链路; **CHANGELOG 门禁**: `CHANGELOG.md` 必须含当前版本小节 |
 | `test_workflows.py` | 工作流静态校验: YAML 可解析、表达式函数白名单 (无 `replace`)、`matrix.*` 已声明、job/step 形状、artifact 名唯一 |
 
 ## CI 作业

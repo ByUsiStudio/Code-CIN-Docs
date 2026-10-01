@@ -163,13 +163,37 @@ sh build.sh
 python -c "from codecin import native; print(native.get_engine())"
 ```
 
-打印出对象即加载成功，例如 `NativeEngine`；打印 `None` 表示回退纯 Python。第二条自查：
+打印出对象即加载成功，例如 `NativeEngine`；打印 `None` 表示回退纯 Python。
+
+**判断"库是否过期、是否与包版本一致"请用构建信息，不要再手工比对两串版本号**：
 
 ```bash
-python -c "from codecin import native; e = native.get_engine(); print(e.version() if e else None)"
+python cpu.py --build-info
 ```
 
-输出的版本串来自**库自身的构建注入**（`codecin_version`）。若它与 `codecin --version` 不一致，说明你目录里放的是旧库——此时 `get_engine()` 通常仍会成功，但请重建以免格式/符号漂移。
+输出里的 `native` / `native version` / `native library` / `native matches` 四行就是答案：
+
+```text
+  native           : 可用: codecin-native 5.6.0 (Go)
+  native version   : codecin-native 5.6.0 (Go)
+  native library   : D:\...\codecin\codecin_native.dll
+  native matches   : 一致
+```
+
+`native matches` 为 `不一致 (原生库可能过期)` 说明旁边放的是旧库 —— 此时 `get_engine()`
+通常仍会成功（符号齐全），但请重建以免格式/符号漂移。若 `native` 行显示
+`不可用 (回退纯 Python 解释执行)`，说明库根本没加载成功（`native library` 会是 `(未知)`）。
+脚本里判断请用 JSON 形式：
+
+```bash
+python cpu.py --build-info --json
+# 字段 native / native_version / native_path / native_version_matches
+```
+
+`native matches` 的判定方式很朴素：原生库自报版本串（来自 `codecin_version`，即
+`engine.BuildVersion`）里**是否包含** `codecin.__version__`。原生库不可用、或版本串无法
+判定时该字段为 `null`（文本形式显示 `(未知)`）—— `--build-info` **永远以退出码 0 结束**，
+它不会因为库缺失而失败。
 
 ## 何时不会走原生路径
 
@@ -254,7 +278,8 @@ Go 原生   (默认)               Execution Time  0.5044s  17,844,649 instr/s
 
 | 症状 | 处理 |
 | --- | --- |
-| 打印 `None` / 日志出现回退 warning | 确认库位于 `codecin/` 或 `codecin/native/`（或设了 `CODECIN_NATIVE_LIB`）；确认架构与 Python 位数匹配（64 位 Python 配 `x64` 库、不要与 `arm64` 库混放）；用 `--log-level DEBUG` 看 `Failed to load native library <path>: <e>`——`OSError` 多为架构/依赖问题，`AttributeError` 多为旧库缺符号；最后重建（`sh build.sh`，Windows 用 `.\build.ps1`） |
+| 打印 `None` / 日志出现回退 warning | 先跑 `python cpu.py --build-info` 看 `native` 与 `native matches`（`native library` 给出实际尝试加载的路径）；仍是 `None` 时确认库位于 `codecin/` 或 `codecin/native/`（或设了 `CODECIN_NATIVE_LIB`）；确认架构与 Python 位数匹配（64 位 Python 配 `x64` 库、不要与 `arm64` 库混放）；用 `--log-level DEBUG` 看 `Failed to load native library <path>: <e>`——`OSError` 多为架构/依赖问题，`AttributeError` 多为旧库缺符号；最后重建（`sh build.sh`，Windows 用 `.\build.ps1`） |
+| `native matches` 显示 `不一致` | 目录里放的是旧版本库；重新构建原生库（见 [编译 Go 原生库](/dev/build-native)），无需改任何配置 |
 | 构建脚本报 Go / 编译器缺失 | 需要 Go 1.26+ 与 cgo 可用的 C 编译器；Windows 把 MinGW-w64 / TDM-GCC 的 `gcc` 放进 `PATH`，Linux/Termux 用发行版的 `golang` + `gcc` |
 
 ::: warning 修改指令集后必须同步三处

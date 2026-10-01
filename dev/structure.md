@@ -15,7 +15,7 @@ CIN 编译器、字节码 VM、CROM、AOT 运行时)、以及 **`docs/` 官方�
 UCPU/
 ├── cpu.py                    # 唯一 CLI 入口 (转发到 codecin.cli: main)
 ├── codecin/                  # Python 主包
-│   ├── lib/                  # 内置标准库 (20 个 .cin, 随包分发)
+│   ├── lib/                  # 内置标准库 (36 个 .cin, 随包分发)
 │   ├── native/               # Go 原生库源码 (module codecin-native)
 │   └── ...
 ├── tests/                    # pytest 套件 (33 个 test_*.py + helpers/conftest)
@@ -59,6 +59,7 @@ UCPU/
 | `debugger.py` | 交互式调试会话、断点、状态渲染、远程调试服务 (`DebugServer`) |
 | `console.py` | rich 适配层: `Console` / `Table` / `Panel` / `Colors` (模块禁止直接 `print`) |
 | `logger.py` | rich 日志器: DEBUG/INFO/WARNING/ERROR + `trace` / `dump` / `hexdump` |
+| `version.py` | 版本设施: `version_tuple` / `compare` / `version_info` (纯函数) 与 `build_info()` 环境自检 (永不抛异常), 驱动 `--build-info` 与 `bump_version.py` |
 | `errors.py` | 异常层次: `CPUSimulatorError` 及子类 |
 
 ```text
@@ -169,7 +170,7 @@ Python JIT  ← --jit (与 --debug/--step 互斥)
 | `test_native_lib_lookup.py` | 原生库查找顺序: 架构专属名优先于通用名 |
 | `test_no_go_cli.py` | 架构门禁: Go 侧只作为库存在, 无额外 `package main` |
 | `test_packaging.py` | 打包设计门禁: package-data / MANIFEST / 只发 sdist / `BuildPyWithNative` |
-| `test_version.py` | 版本号单一真源: pyproject dynamic / Go `BuildVersion` / semver / `--version` |
+| `test_version.py` | 版本设施: pyproject dynamic / Go `BuildVersion` / semver / `--version` / `--build-info`; `build_info()` 绝不抛异常; `bump_version.py` 全链路; `CHANGELOG.md` 必须含当前版本小节 |
 | `test_workflows.py` | GitHub Actions 工作流静态校验 (表达式函数、matrix 引用、job/step 形状) |
 | `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux 静态链接 (无 `PT_INTERP`)、目标解析 |
 
@@ -230,7 +231,7 @@ Python JIT  ← --jit (与 --debug/--step 互斥)
 |------------|----------------|------|
 | 新增/删除一条指令 | `isa.py` (`Opcode`/`OPCODE_NAMES`/`ARG_COUNTS`/`BRANCH_OPS`/`FP_OPS`) → `cpu.py` 的 `_op_*` → `jit.py` → `engine/vm.go` → `assembler.py` | `python script/gen_isa_docs.py`、`python script/gen_native_isa.py`、重编原生库、`pytest` |
 | 新增一个 SYS 功能号 | `isa.py: Syscall` → `cpu.py: _op_sys` → `engine/vm.go: doSyscall` → `cin.py: HOST_BUILTINS` (若暴露给 CIN) + `compiler/codegen.go: hostBuiltins` | 同上 (编号四处必须一致) |
-| 改了版本号 | `codecin/__init__.py: __version__` (唯一真源) → 重新生成 `version_gen.go`; `CHANGELOG.md` 加 `## [x.y.z]` 条目 | `python script/gen_native_isa.py`、`pytest tests/test_version.py` |
+| 改了版本号 | `codecin/__init__.py: __version__` (唯一真源) → 重新生成 `version_gen.go`; `CHANGELOG.md` 加 `## [x.y.z]` 条目 | `python script/bump_version.py x.y.z` (先 `--dry-run` 预演)、`pytest tests/test_version.py` |
 | 改了内置标准库 | `codecin/lib/*.cin` (package-data 自动覆盖) | `pytest tests/test_libs.py tests/test_libs_ext.py` |
 | 改了打包配置 | `pyproject.toml` / `MANIFEST.in` / `setup.py` / `build.sh` / `build.bat` | `pytest tests/test_packaging.py` |
 | 改了 CI 工作流 | `.github/workflows/*.yml` | `pytest tests/test_workflows.py` |
