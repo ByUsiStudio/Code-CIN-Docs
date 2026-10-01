@@ -228,6 +228,59 @@ except CPUSimulatorError as e:
     print('其它 Code CIN 错误:', e.message, e.detail)
 ```
 
+## 版本与环境: `codecin.version`
+
+`codecin/version.py` 把版本号从"一个字符串"升级为可编程、可自检的设施。
+**唯一真源始终是 `codecin/__init__.py` 的 `__version__`**，本模块只做解析、比较与探测。
+
+| 接口 | 说明 |
+|------|------|
+| `current_version()` | 返回 `__version__` 字符串 |
+| `version_info(text=None)` | 解析为 `(major, minor, patch)` 整数元组；非 `x.y.z` 抛 `VersionError` |
+| `try_version_tuple(text)` | 同上但失败返回 `None`（不抛异常） |
+| `is_version_string(text)` | 是否是合法 `x.y.z` |
+| `compare(a, b)` | 版本比较，返回 `-1` / `0` / `1` |
+| `jit_available()` | JIT 是否可用 |
+| `build_info()` | 运行环境字典，**永不抛异常** |
+| `format_build_info(info=None)` | 渲染成 `--build-info` 的多行文本 |
+| `build_info_json(info=None)` | 渲染成可 `json.loads` 的 JSON 字符串 |
+| `VersionError` | `version_info()` 解析失败时抛出 |
+
+`build_info()` 的字段:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `version` | str | 当前版本 |
+| `version_info` | tuple \| None | 解析结果（解析不了就是 `None`） |
+| `python` / `python_implementation` | str | 解释器版本 / 实现名 |
+| `platform` | str | `"<system>/<machine>"` 形式 |
+| `system` / `machine` | str | 拆分后的两个字段 |
+| `native` | bool | 原生库是否**可用** |
+| `native_version` | str \| None | 原生库自报版本串原文 |
+| `native_path` | str \| None | 实际加载的库文件路径 |
+| `native_version_matches` | bool \| None | 自报串是否包含包版本；无法判定为 `None` |
+| `jit` | bool | JIT 是否可用 |
+| `package_path` | str | 包目录 |
+| `executable` | str | 当前解释器可执行文件 |
+
+```python
+from codecin import version
+
+info = version.build_info()          # 原生库缺失/加载失败也会正常返回
+print(info['native'], info['native_version_matches'])
+
+# 判断"原生库是否需要重建"
+if info['native_version_matches'] is False:
+    print('原生库版本与包不一致, 建议重新构建')
+```
+
+::: tip 发布流程
+`python script/bump_version.py x.y.z` 会一次性改真源 → 重新生成 Go 侧
+`engine/version_gen.go` → 在 `CHANGELOG.md` 插入新版本小节骨架，任一步失败自动回滚；
+加 `--dry-run` 可先预演。仓库里有测试强制 `CHANGELOG.md` 必须出现当前版本号，
+所以"提了版本但忘写更新日志"会在 CI 上失败。
+:::
+
 ## Go 原生库: `codecin.native`
 
 `codecin/native.py` 是 ctypes 桥接层。库文件按

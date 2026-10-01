@@ -19,7 +19,7 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 
 ---
 
-## 0. 摘要：先看这 8 条
+## 0. 摘要：先看这 11 条
 
 | # | 问题 | 影响 | 状态 |
 |---|------|------|------|
@@ -29,11 +29,14 @@ description: "Code CIN 第三轮优化与缺陷审查报告：struct 聚合初�
 | R3-4 | 全局 `P o = {3, 4}` 覆盖对象指针槽 | 静默读到地址垃圾 | **本轮已修复** |
 | R3-5 | struct **整体赋值 / 声明即初始化**是指针别名，而 `structs.md` 承诺「值拷贝，之后互不影响」 | 文档承诺 ≠ 实际行为，静默串改 | **本轮已修复**（见 §2） |
 | R3-6 | 嵌套 struct 字段只按 **1 槽**推进偏移 → `struct Out { In i; int c }` 的 `c` 压在 `i.b` 上 | 静默字段覆盖 | **本轮已修复** |
-| R3-7 | 局部固长数组**不是**全零（栈帧复用），而 `types.md` 把它列进「可靠：全零」 | 文档承诺 ≠ 实际行为 | **仅报告**（建议见 §4.1） |
-| R3-8 | `main()` 的返回值不进入进程退出码，但 `stdlib/reference.md` 写「可直接 `return t_report()` 作为 `main` 的退出码」 | 两处文档互相矛盾，`test.cin` 文档用法空转 | **仅报告**（建议见 §4.2） |
+| R3-7 | 局部固长数组**不是**全零（栈帧复用），而 `types.md` 把它列进「可靠：全零」 | 文档承诺 ≠ 实际行为 | **本轮已修复**（改文档，见 §5.1） |
+| R3-8 | `main()` 的返回值不进入进程退出码，但 `stdlib/reference.md` 写「可直接 `return t_report()` 作为 `main` 的退出码」 | 两处文档互相矛盾，`test.cin` 文档用法空转 | **仅报告**（建议见 §5.2） |
+| R3-9 | 纯 Python 路径的 `+` / `substr` / `indexof` 先做 UTF-8 解码，非法字节序列被替换成 U+FFFD | **同一程序两条路径结果不同**（实测 `strlen` 9 vs 3） | **本轮已修复**（见 §4） |
+| R3-10 | `upper` / `lower` 实际是 **Unicode 感知**的，而 `builtins.md` 写「ASCII 大小写转换」 | 文档承诺 ≠ 实际行为（两路径一致，只是文档错） | **仅报告**（见 §5.5） |
+| R3-11 | 受限环境下 `pytest` 的 `tmp_path` 不可用，导致 5 个用例在 setup 阶段 ERROR | 本机全量结果无法解释，容易掩盖真实缺陷 | **本轮已修复**（改用 `workdir`，见 §8.1） |
 
-已修复的 6 条都同时覆盖了三条执行路径（interp / native / JIT），并新增
-[tests/test_aggregate_and_const.py](#) 作为回归护栏。
+已修复的条目都同时覆盖了三条执行路径（interp / native / JIT），
+回归护栏为 `tests/test_aggregate_and_const.py`（99 个用例）与原有测试。
 
 ---
 
@@ -215,9 +218,60 @@ objects); use a fixed array of struct variables instead
 
 ---
 
-## 4. P1 — 仅报告（本轮未改，附建议）
+## 4. P0 — 字符串字节语义：Python 路径的 UTF-8 解码造成两路径分歧（本轮已修复 R3-9）
 
-### 4.1 R3-7 局部固长数组不是全零，与 `types.md` 冲突
+### R3-9 `substr` / `indexof` / `+` 在非法字节序列上两条路径结论不同 ⭐
+
+**根因**：`codecin/memory.py` 的 `read_string()` 是
+`bytes(chars).decode('utf-8', errors='replace')`。字符串内建里凡是「读出来再编码回去」的
+实现，都会把**非法 UTF-8 字节序列**变成 U+FFFD（每个 3 字节）：
+
+```python
+# 修复前 codecin/cpu.py
+elif call_id == Syscall.STR_CONCAT:
+    sa = self.memory.read_string(x0)          # 有损解码
+    sb = self.memory.read_string(x1)
+    data = (sa + sb).encode('utf-8') + b'\x00'   # U+FFFD 被编成 EF BF BD
+```
+
+而 Go 侧 `vm.go` 的 `sysSUBSTR` 直接切 `[]byte`、`sysINDEXOF` 用 `strings.Index`
+（字节下标）、`sysCONCAT` 直接拼字节。CIN 的 `strlen` / `substr` / `s[i]` 又都**明确是字节语义**，
+所以 Python 侧的有损解码是缺陷。
+
+**实测**（`"中"` 的 UTF-8 是 `E4 B8 AD`，从字节 1 或 2 处切片必然产生非法序列）：
+
+| 程序 | 解释器 | 原生 VM | 结论 |
+|------|--------|---------|------|
+| `strlen(substr("中",2,1) + substr("中",1,1))` | `6` | `2` | **分歧** |
+| `strlen(substr("中",1,2) + substr("中",2,1))` | `9` | `3` | **分歧** |
+| `strlen("中")` | `3` | `3` | 一致（合法序列不受影响） |
+
+**为什么这条特别要紧**：`substr(s, i, 1)` 切多字节字符的中间字节是**正常的字节级操作**，
+而它恰好是分词/逐字节处理的标准手法——本轮新增的 `text.cin` / `token.cin` 就需要这样做。
+写库的人只能绕开 `indexof`、手写逐字节匹配、并且"按连续同类段整段搬运"来规避它
+（见 §6 的库实现说明）。也就是说：**这不是冷门角落，而是字节级字符串处理的地基。**
+
+**修复**：`Memory` 新增 `read_cstr_bytes()`（不做解码，直接读原始字节），
+`cpu.py` 的 `STR_CONCAT` / `SUBSTR` / `INDEXOF` 全部改用字节路径，
+与 Go 侧逐字节对齐。回归：
+
+```powershell
+python .scratch\probe_utf8_divergence.py     # 修复后 4 个用例全部 SAME
+python -m pytest tests/test_lib_text.py tests/test_lib_token.py -q -p no:cacheprovider
+```
+
+::: tip 顺带说明
+`TOUPPER` / `TOLOWER` / `TRIM` 等**没有**改成字节语义：Go 侧用的是
+`strings.ToUpper` / `strings.ToLower` / `strings.TrimSpace`（Unicode 感知），
+Python 侧的 `str.upper()` / `str.strip()` 与它们行为一致，改反而会制造新的分歧。
+这留下一个文档问题，见 §5.5。
+:::
+
+---
+
+## 5. P1 — 仅报告（本轮未改或只改文档，附建议）
+
+### 5.1 R3-7 局部固长数组不是全零（本轮已改文档）
 
 `docs/language/types.md` 的默认值表把它列为可靠：
 
@@ -249,7 +303,14 @@ function main()  -> int { dirty(); return probe() }
 
 本项目一向把「文档承诺 ≠ 实际行为」当硬伤，所以无论选哪条，都建议同轮把文档与实现对齐。
 
-### 4.2 R3-8 `main()` 返回值不进入进程退出码，而标准库文档承诺它是
+**本轮选择：改文档**（第 1 条）。已改 `docs/language/types.md` 与
+`docs/language/variables.md`：把默认值表拆成「全局默认值 / 局部默认值」两列，
+标明局部固长数组与局部标量都不可靠，并各给一个可复现的实测例子
+（`dirty()` 填 `111/222/333/444` 后另一个函数读到 `1110`）。
+**没有**改实现去清零局部数组，因为那要给每个函数序言加一段清零循环，
+对 `int a[600]` 这类缓冲会明显增加指令数与调用开销——这个取舍留给你决定。
+
+### 5.2 R3-8 `main()` 返回值不进入进程退出码，而标准库文档承诺它是
 
 `codecin/cli.py` 的退出码只有三种来源：`execution_failed → 1`、参数错误 `→ 2`、
 其余 `→ 0`（`cli.py` 末尾 `if getattr(cpu, 'execution_failed', False): return 1; return 0`）。
@@ -289,7 +350,7 @@ python cpu.py t2.cin; Write-Output $LASTEXITCODE     # 0   <- 不是 4
 本轮实现了 `exit(code)`（三路径一致地立即终止、`x0` 保留终止码），
 **但没有改退出码传播**，因为那涉及 CLI 与 AOT 两侧的约定，属于需要你拍板的破坏性改动。
 
-### 4.3 `MALLOC` 不清零 + 静态缓冲借用堆区（上一轮 §4.4 仍未闭环）
+### 5.3 `MALLOC` 不清零 + 静态缓冲借用堆区（上一轮 §4.4 仍未闭环）
 
 Python 侧 `cpu.py` 的 `MALLOC` 与 Go 侧 `vm.go` 的 `sysMALLOC` 都只推进 `heap_ptr`，
 **不清零**（两端一致，所以不是差分问题）。本轮已据此把 **struct 对象**在序言里显式清零
@@ -301,17 +362,50 @@ Python 侧 `cpu.py` 的 `MALLOC` 与 Go 侧 `vm.go` 的 `sysMALLOC` 都只推进
 本轮用一个 16 字节的复现没触发它（需要更大分配量），所以**本轮未修**，维持上一轮结论：
 建议把静态缓冲移到内存顶端独立区，或让它也走堆分配语义。
 
-### 4.4 `exit()` 之后没有 `_epilogue`：栈不平衡，但已终止
+### 5.4 `exit()` 之后没有 `_epilogue`：栈不平衡，但已终止
 
 `exit(code)` 直接 `HALT`，不执行函数尾声。这是**有意的**（终止语义），
 但要注意两点：`--profile` / `--debug` 的收尾统计仍会正常输出；
 `exit()` 出现在被 `assert` 消息求值的表达式里时不会有额外副作用。已在测试中覆盖。
 
+### 5.5 R3-10 `upper` / `lower` 是 Unicode 感知的，文档写的是 ASCII
+
+`docs/language/builtins.md` 的字符串表格写：
+
+> `upper(s)` / `lower(s)` | string | ASCII 大小写转换 (新堆块)
+
+实际两侧都是 **Unicode 感知**的：
+
+| 路径 | 实现 | `upper("é")` |
+|------|------|--------------|
+| 解释器 | `str.upper()`（Unicode） | `"É"`（2 字节） |
+| Go 原生 | `strings.ToUpper`（Unicode） | `"É"`（2 字节） |
+
+两条路径**一致**，所以这不是差分问题，只是**文档写错了**。但它会让写库的人误以为
+"只动 ASCII、字节数不变"——本轮新增的 `text.cin` 就不得不只在纯 ASCII 字母段上调用它们。
+
+**建议**：把 `builtins.md` 的描述改成
+「Unicode 感知的大小写转换（非 ASCII 字符可能改变字节长度）」；
+若你希望它是 ASCII-only（更符合"字节语义"的整体设计），
+那两侧要一起改成只处理 `a-z` / `A-Z` 的字节映射，并在文档里说明。
+
+### 5.6 堆不回收：字节级重建的规模上限比想象中低
+
+字符串拼接每个新堆块**都不回收**（`MALLOC` 只推进 `heap_ptr`），
+所以"重建字符串"类函数的堆开销是输入长度的平方级。
+本轮 `text.cin` 的实测边界：对 `'ab '×30`（90 字节）连续做
+`txt_reverse` + `txt_swap_case` + `txt_title` 可以通过，
+对 `'ab '×40`（120 字节）会以 `Stack overflow (collides with heap)` 结束。
+
+**建议**：这是一个**应该写进文档的具体数字**（现在 `stdlib` 文档只说"循环拼接会占堆"，
+没给量级），并且值得考虑给字符串操作加一条"临时缓冲"约定或让 `--mem-size` 的
+推荐值出现在错误信息里（当前报错只说与堆相撞，没提示 `--mem-size`）。
+
 ---
 
-## 5. 本轮新增功能（`const` / 聚合初始化 / `string +=` / `exit()`）
+## 6. 本轮新增功能（`const` / 聚合初始化 / `string +=` / `exit()`）
 
-### 5.1 `const` 命名常量（此前是裸 `KeyError` 崩溃）
+### 6.1 `const` 命名常量（此前是裸 `KeyError` 崩溃）
 
 **修复前实测**：
 
@@ -328,7 +422,7 @@ Python 侧 `cpu.py` 的 `MALLOC` 与 Go 侧 `vm.go` 的 `sysMALLOC` 都只推进
 非常量初值、常量除零都是清晰的 `CompilerError`。
 局部变量可以**遮蔽**同名 `const`（正常词法作用域）；全局变量与 `const` 同名则明确报错。
 
-### 5.2 数组维度接受整型常量表达式（此前只认裸字面量）
+### 6.2 数组维度接受整型常量表达式（此前只认裸字面量）
 
 **修复前**：`int a[N]`、`int a[2 + 3]` 都报 `Expected RBRACKET`；
 `enum` 成员能在循环边界里用，却**不能**当数组维度。
@@ -341,31 +435,31 @@ const int N = 5
 int matrix[N][N]
 ```
 
-### 5.3 `string +=`
+### 6.3 `string +=`
 
 **修复前**：`s += "b"` → `Cannot apply '+=' to type: string`。
 
 **本轮**：字符串 `+=` 支持右侧任意可字符串化的值（`s += 42` 得到 `"n=42"`），
 其余 `-=` / `*=` / `/= ` 仍明确拒绝。
 
-### 5.4 `exit(code)`
+### 6.4 `exit(code)`
 
 **修复前**：`Unknown function: exit`。
 
 **本轮**：`exit(code)` 立即终止程序（`MOV x0, code; HALT`），
 解释器 / JIT / Go 原生 VM 三条路径一致；`exit` 只有在用户未自定义同名函数时才生效；
-参数个数不匹配报编译错误。进程退出码的传播见 §4.2。
+参数个数不匹配报编译错误。进程退出码的传播见 §5.2。
 
-### 5.5 顺带修掉的静默行为：局部 struct 不再依赖「堆恰好干净」
+### 6.5 顺带修掉的静默行为：局部 struct 不再依赖「堆恰好干净」
 
-`MALLOC` 不清零（§4.3），所以「`P p` 的字段默认全零」在修复前只是巧合。
+`MALLOC` 不清零（§5.3），所以「`P p` 的字段默认全零」在修复前只是巧合。
 现在 `_alloc_struct_slot` 在分配后显式清零 `size_slots` 个槽，使
 `docs/language/structs.md` 的「实例化与默认全零」对**局部 struct** 也成立
 （全局 struct 本来就在清零的数据段里）。
 
 ---
 
-## 6. 本轮新增标准库
+## 7. 本轮新增标准库
 
 标准库从 20 个扩到 **37 个**（全部为纯 CIN，只依赖语言内建，三条路径一致；
 `io` / `gui` / `termux` / `key` 四库仍依赖 Go 原生运行时）：
@@ -388,14 +482,16 @@ int matrix[N][N]
 
 ---
 
-## 7. 环境类问题（影响贡献者，不是仓库缺陷）
+## 8. 环境类问题（影响贡献者，不是仓库缺陷）
 
-1. **`tmp_path` 在受限沙箱下不可用**。DSH 沙箱的子进程无法 `scandir` 会话音量下的临时目录，
-   `pytest` 的 `tmp_path` 因此在 setup 阶段就 `PermissionError`。
+1. **`tmp_path` 在受限沙箱下不可用（本轮已修复）**。DSH 沙箱的子进程无法 `scandir`
+   会话音量下的临时目录，`pytest` 的 `tmp_path` 因此在 setup 阶段就 `PermissionError`。
    本仓库已有应对（`tests/conftest.py` 的 `workdir` 夹具，指向仓库内 `.pytest_tmp/`），
    但 `tests/test_keyboard.py`、`tests/test_p0_fixes.py` 仍直接用 `tmp_path`，
-   在本机表现为 **5 个 ERROR**。**建议**：把这两个文件的 `tmp_path` 换成 `workdir`，
-   或在 `conftest.py` 里统一覆盖 `tmp_path` 夹具——这样受限环境下的测试结果才可信。
+   在本机表现为 **5 个 ERROR**。
+   **本轮修复**：这两个文件改用 `workdir` 夹具（原因写在测试注释里）。
+   于是本机全量测试只剩 `tests/test_aot.py` 的 3 个环境性失败，
+   其余失败都能直接归因到代码——这本身就是一条重要的可观测性改进。
 2. **AOT 临时目录建在源码树内且静默清理失败**（上一轮 §3.3）。实测本机
    `tests/test_aot.py` 有 **3 个 PermissionError 失败**，且 `codecin/native/` 下会累积
    `.aotbuild-*` 残留；残留目录一旦权限异常，`git status --ignored`、
@@ -405,10 +501,17 @@ int matrix[N][N]
 3. **字符串 `==` 比较的是指针而不是内容**——这一条**文档已经写清楚了**
    （`docs/language/strings.md` 的 danger 提示），不是缺陷；但它是新增库测试里
    最容易踩的坑：`s != "abc"` 恒为真，必须用 `strcmp(s, "abc") == 0`、判空用 `strlen(s) == 0`。
+4. **多个 agent 并发改同一工作区时的 git 污染**。本轮为并行加速，同时有多个子任务在
+   同一个工作区里写文件；其中有子任务在收尾时执行了 `git add -A && git commit`，
+   于是：别人的**在途半成品**被一起提交；只能算是探针的临时文件（如 `tt_probe/`）
+   被提交；`HEAD` 里出现过"同一文件的修正前版本"（例如 `tests/test_lib_text.py`）。
+   **这不是仓库缺陷，但它是并行开发流程的真实风险**：给自动提交加上
+   "只提交自己新建/修改的路径"或干脆禁止子任务提交，就能避免。
+   本轮后续的子任务已明确禁止执行任何 git 写操作。
 
 ---
 
-## 8. 本轮实测命令（可复现）
+## 9. 本轮实测命令（可复现）
 
 ```powershell
 # 本轮新增回归（99 个用例，覆盖 interp / native / JIT）
@@ -430,7 +533,7 @@ python -m pytest tests/test_aggregate_and_const.py -q -k nested_literal
 python -m pytest tests/test_aggregate_and_const.py -q -k const
 
 # R3-7 局部数组默认值（实测 1110，文档承诺 0）
-#   见 §4.1 的 dirty()/probe() 片段
+#   见 §5.1 的 dirty()/probe() 片段
 
 # R3-8 退出码不传播（两者都是 0）
 Set-Content t.cin 'function main() -> int { return 3 }'; python cpu.py t.cin; $LASTEXITCODE
@@ -443,20 +546,20 @@ python script/gen_isa_docs.py --check
 
 ---
 
-## 9. 建议的落地顺序
+## 10. 建议的落地顺序
 
 **第一批（文档与实现二选一，避免继续误导使用者）**
 
-1. §4.1 局部固长数组默认值：改 `types.md`，或实现序言清零；
-2. §4.2 退出码：先改 `reference.md` 的 `t_report()` 说法，再决定是否让
+1. §5.1 局部固长数组默认值：改 `types.md`，或实现序言清零；
+2. §5.2 退出码：先改 `reference.md` 的 `t_report()` 说法，再决定是否让
    `exit(code)` / `main` 的返回值进入进程退出码（含 AOT 侧）；
 3. §3 的 `struct Bag { Point items[3] }`：实现它，或把 `structs.md` 第 262 行改为不支持。
 
 **第二批（工程与治理）**
 
-4. §7.1 把 `tests/test_keyboard.py`、`tests/test_p0_fixes.py` 的 `tmp_path` 换成 `workdir`，
-   让受限环境下的全量测试结果可解释；
-5. §4.3 `_sys_buffer` 归还堆区（上一轮 §4.4）；
+4. §8.1 把 `tests/test_keyboard.py`、`tests/test_p0_fixes.py` 的 `tmp_path` 换成 `workdir`，
+   让受限环境下的全量测试结果可解释（**本轮已完成**）；
+5. §5.3 `_sys_buffer` 归还堆区（上一轮 §4.4）；
 6. 给新增的 17 个库补一条「全部库同时 import」的合并用例（已验证其中一批无符号冲突）。
 
 **第三批（可选增强）**
@@ -468,7 +571,7 @@ python script/gen_isa_docs.py --check
 
 ---
 
-## 10. 本轮未核实的部分
+## 11. 本轮未核实的部分
 
 - **`_sys_buffer` 与 `MALLOC` 的重叠**：只证明了机制（静态缓冲不推进 `heap_ptr`），
   本轮的小复现没有触发重叠，未做规模化的触发实验（上一轮已把它列为未决）。

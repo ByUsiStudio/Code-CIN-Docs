@@ -22,7 +22,36 @@ Supported formats:
 ```bash
 codecin --help          # 彩色帮助 (intro + argparse 全量选项)
 codecin --version       # 打印当前版本
+codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障用)
 ```
+
+## 版本与构建信息
+
+| 选项 | 默认 | 说明 |
+|------|------|------|
+| `--version` / `-V` | — | 打印 `Code CIN <x.y.z>` 并退出 0 |
+| `--build-info` | — | 打印多行构建信息并退出 0,**不需要**位置参数 |
+| `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用返回 2 |
+
+`--build-info` 的字段包含版本、Python 实现与版本、平台/架构、JIT 可用性、包路径,
+以及**原生库是否可用、自报版本号、是否与包版本一致** —— 排查"原生库过期/未加载"时
+先看这里, 不必再手工比对 `codecin --version` 与原生库自报串:
+
+```text
+Code CIN 构建信息 (build info) - 5.6.0
+  version          : 5.6.0
+  version_info     : (5, 6, 0)
+  python           : 3.14.6 (CPython)
+  platform         : win32/AMD64
+  native           : 可用: codecin-native 5.6.0 (Go)
+  native library   : D:\...\codecin\codecin_native.dll
+  native matches   : 一致
+  jit              : 可用
+  package path     : D:\...\codecin
+```
+
+`--build-info --json` 输出同一份信息的 JSON (可直接 `json.loads`),
+适合脚本判断"原生库是否需要重建"。
 
 ## 位置参数
 
@@ -142,7 +171,7 @@ codecin prog.cin --sandbox --no-io          # 限制宿主访问
 
 | 退出码 | 含义 |
 |--------|------|
-| `0` | 正常结束 (`HALT` / 程序自然结束), 或 `--help` / `--version` / `--compile-only` / `--build-exe` 成功 |
+| `0` | 正常结束 (`HALT` / 程序自然结束), 或 `--help` / `--version` / `--build-info` / `--compile-only` / `--build-exe` 成功 |
 | `1` | 加载/汇编/编译/运行错误, 或 AOT 构建失败 (错误以 rich 红色面板打印) |
 | `2` | 参数错误 (未知选项、非法枚举值等, 由 argparse 输出 usage) |
 

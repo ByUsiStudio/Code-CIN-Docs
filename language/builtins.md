@@ -135,7 +135,7 @@ function roll() -> int {
 | `strcpy(s)` | string | 复制为新堆块 |
 | `substr(s, start, len)` | string | 子串 (新堆块, 越界自动裁剪) |
 | `indexof(hay, needle)` | int | 首次出现位置, 未找到 `-1` |
-| `upper(s)` / `lower(s)` | string | ASCII 大小写转换 (新堆块) |
+| `upper(s)` / `lower(s)` | string | 大小写转换 (新堆块)。**Unicode 感知**: 非 ASCII 字符也会转换, 因此结果字节长度可能变化 |
 | `trim(s)` / `ltrim(s)` / `rtrim(s)` | string | 去首尾 / 前导 / 尾部空白 (新堆块) |
 | `atoi(s)` | int | 字符串 → 十进制整数 (前导空白忽略, 失败为 `0`) |
 
