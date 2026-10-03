@@ -24,7 +24,14 @@
   scrollbar-width: thin;
 }
 
-/* 长参考表 (指令表 / 标准库函数表) 紧凑一些 */
+/* 长参考表 (指令表 / 标准库函数表) 紧凑一些; 过宽时由 .table-scroll 容器横向滑动 */
+.vp-doc .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* iOS 惯性滚动 */
+  overscroll-behavior-x: contain; /* 滑到尽头时不带动整页横滚 */
+  scrollbar-width: thin;
+}
+
 .vp-doc table {
   display: table;
   width: 100%;
