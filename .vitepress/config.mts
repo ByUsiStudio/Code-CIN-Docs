@@ -38,6 +38,14 @@ export default defineConfig({
     // vitepress-plugin-tabs: 解析 ::: tabs / == 标题 容器
     config(md) {
       md.use(tabsMarkdownPlugin)
+
+      const defaultTableRenderer = md.renderer.rules.table
+      md.renderer.rules.table = (tokens, idx, options, env, self) => {
+        const html = defaultTableRenderer
+          ? defaultTableRenderer(tokens, idx, options, env, self)
+          : self.renderToken(tokens, idx, options)
+        return `<div class="table-scroll">${html}</div>`
+      }
     },
     lineNumbers: false,
     theme: { light: 'github-light', dark: 'github-dark' },
