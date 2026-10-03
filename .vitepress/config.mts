@@ -39,12 +39,19 @@ export default defineConfig({
     config(md) {
       md.use(tabsMarkdownPlugin)
 
-      const defaultTableRenderer = md.renderer.rules.table
-      md.renderer.rules.table = (tokens, idx, options, env, self) => {
-        const html = defaultTableRenderer
-          ? defaultTableRenderer(tokens, idx, options, env, self)
+      const defaultTableOpen = md.renderer.rules.table_open
+      const defaultTableClose = md.renderer.rules.table_close
+      md.renderer.rules.table_open = (tokens, idx, options, env, self) => {
+        const open = defaultTableOpen
+          ? defaultTableOpen(tokens, idx, options, env, self)
           : self.renderToken(tokens, idx, options)
-        return `<div class="table-scroll">${html}</div>`
+        return `<div class="table-scroll">` + open
+      }
+      md.renderer.rules.table_close = (tokens, idx, options, env, self) => {
+        const close = defaultTableClose
+          ? defaultTableClose(tokens, idx, options, env, self)
+          : self.renderToken(tokens, idx, options)
+        return close + `</div>`
       }
     },
     lineNumbers: false,
