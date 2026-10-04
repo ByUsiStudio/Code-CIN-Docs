@@ -1,4 +1,4 @@
-# Sample workflow for building and deploying a site to GitHub Pages
+# Sample workflow for building and deploying a VitePress site to GitHub Pages
 name: Deploy with GitHub Pages
 
 on:
@@ -47,10 +47,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # 根据实际情况修改为你的构建输出目录，常见的有：
-          # docs/.vitepress/dist  (VitePress)
-          # docs/dist             (VuePress)
-          # dist                  (通用)
           path: './docs/.vitepress/dist'
 
   # Deployment job
