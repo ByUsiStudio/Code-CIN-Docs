@@ -17,7 +17,7 @@ Code CIN 的交互式调试由 `codecin/debugger.py` 的 `DebugSession` 类实�
 
 ```bash
 # 每条指令执行前暂停, 提示符为 step>
-python cpu.py examples/control_flow.cin --step --no-native
+codecin examples/control_flow.cin --step --no-native
 ```
 
 == 断点会话 (需预先设断点)
@@ -34,7 +34,7 @@ cpu.run()
 == 远程调试 (--debug-server)
 
 ```bash
-python cpu.py examples/control_flow.cin --debug-server 9999
+codecin examples/control_flow.cin --debug-server 9999
 ```
 
 :::
@@ -167,7 +167,7 @@ Breakpoints:
 下例假设宿主已按上一节预先在 `0x2` 设了断点。输出为 rich 表格/面板，这里按文本形式记录并省略边框字符；具体地址与数值随程序而变，**格式与实际渲染一致**。
 
 ```text
-$ python cpu.py examples/control_flow.cin --no-native
+$ codecin examples/control_flow.cin --no-native
 08:37:15 INFO     CIN compiled: 30 instructions
          INFO     Starting program execution
 Breakpoint hit at PC=0x2
@@ -203,7 +203,7 @@ dbg> q
 `step>` 模式无需任何前置断点，是纯命令行即可完整复现的交互记录（结构与 `dbg>` 一致，仅提示符与首屏不同）：
 
 ```text
-$ python cpu.py examples/control_flow.cin --step --no-native
+$ codecin examples/control_flow.cin --step --no-native
 Step Execution
 Current Instruction
   ADD X0, X1, #2
@@ -219,7 +219,7 @@ step> c
 == 本地交互会话 (DebugSession)
 
 ```bash
-python cpu.py prog.cin --step            # 提示符 step> (无需断点)
+codecin prog.cin --step            # 提示符 step> (无需断点)
 ```
 
 ```python
@@ -232,7 +232,7 @@ cpu.add_breakpoint(0x10); cpu.run()      # 预先设断点, 命中后提示符 d
 == 远程驱动会话 (DebugServer.drive)
 
 ```bash
-python cpu.py prog.cin --debug-server 9999
+codecin prog.cin --debug-server 9999
 ```
 
 - 由 TCP 客户端逐行发命令，程序加载后不自动运行；

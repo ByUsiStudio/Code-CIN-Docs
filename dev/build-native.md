@@ -319,7 +319,7 @@ if e is not None:
 想看查找与失败的细节, 传个 DEBUG 级别的 logger:
 
 ```powershell
-python cpu.py --log-level DEBUG examples\control_flow.cin *>&1 |
+codecin --log-level DEBUG examples\control_flow.cin *>&1 |
   Select-String -Pattern 'native|原生'
 ```
 

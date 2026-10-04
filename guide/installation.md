@@ -94,8 +94,8 @@ cd Code-CIN
 cd codecin/native && sh build.sh      # Windows: .\build.ps1
 cd ../..
 
-python cpu.py basic.cin                # 直接运行, 自动优先使用原生库
-python cpu.py --help
+codecin basic.cin                # 直接运行, 自动优先使用原生库
+codecin --help
 pip install -e .                       # 可选: 以可编辑模式装上 codecin 命令
 ```
 
@@ -168,7 +168,7 @@ pip cache purge                   # 需要时可清理 wheel/sdist 缓存
 | `ImportError: DLL load failed` / `cannot open shared object file` | 原生库依赖的系统 C 运行时缺失 (如 Windows 缺 MinGW 运行库) | 用 `--no-native` 先跑通, 或改装预编译库 |
 | `get_engine()` 打印 warning 并返回 `None` | 库的架构/ABI 与当前解释器不符 | 换成对应平台的资产; 运行时不会因此失败 |
 | `import "math.cin"` 报 `Import file not found` | 装到了不含内置标准库的旧版本 | `pip install -U codecin` 后重试 |
-| `codecin: command not found` | 脚本目录不在 `PATH` | 用 `python -m codecin.cli` 或 `python cpu.py` 运行, 或把 `Scripts`/`bin` 加进 `PATH` |
+| `codecin: command not found` | 脚本目录不在 `PATH` | 用 `python -m codecin.cli` 或 `codecin` 运行, 或把 `Scripts`/`bin` 加进 `PATH` |
 | 想确认到底走了哪条路径 | — | 加 `--log-level DEBUG`, 初始化 dump 里会打印 `native` / `jit` 取值 |
 
 ## 下一步

@@ -39,7 +39,7 @@ function main() -> int {
 运行:
 
 ```bash
-python cpu.py hello.cin
+codecin hello.cin
 ```
 
 `main` 为入口 (不要求必须有 `main`, 程序从第一条指令开始执行, 按源码顺序先执行全局初始化)。
@@ -921,13 +921,13 @@ function cpu_ops() -> void {
 ## 13. 编译与运行
 
 ```bash
-python cpu.py prog.cin                    # 编译并运行 (自动选择原生/JIT/解释)
-python cpu.py prog.cin --no-native        # 强制纯 Python
-python cpu.py prog.cin --debug            # 超详细逐指令追踪 (rich)
-python cpu.py prog.cin --profile          # 性能统计
-python cpu.py prog.cin --compile-only     # 仅编译为 prog.bin (UCBC 字节码)
-python cpu.py prog.bin                    # 运行字节码
-python cpu.py prog.cin --save             # 运行后保存 prog.crom 内存镜像
+codecin prog.cin                    # 编译并运行 (自动选择原生/JIT/解释)
+codecin prog.cin --no-native        # 强制纯 Python
+codecin prog.cin --debug            # 超详细逐指令追踪 (rich)
+codecin prog.cin --profile          # 性能统计
+codecin prog.cin --compile-only     # 仅编译为 prog.bin (UCBC 字节码)
+codecin prog.bin                    # 运行字节码
+codecin prog.cin --save             # 运行后保存 prog.crom 内存镜像
 ```
 
 编译错误输出红色 rich 面板, 带 `文件:行号` 定位:
@@ -1044,7 +1044,7 @@ function main() -> int {
 **调试技巧**:
 
 ```bash
-python cpu.py prog.cin --debug           # 逐指令 rich 追踪, 定位崩溃点 PC
-python cpu.py prog.cin --step            # 交互式单步, print regs / mem / cache
-python cpu.py prog.cin --log-level DEBUG --log-file codecin.log   # 全量日志落盘
+codecin prog.cin --debug           # 逐指令 rich 追踪, 定位崩溃点 PC
+codecin prog.cin --step            # 交互式单步, print regs / mem / cache
+codecin prog.cin --log-level DEBUG --log-file codecin.log   # 全量日志落盘
 ```

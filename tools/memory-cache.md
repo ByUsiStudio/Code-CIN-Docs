@@ -27,7 +27,7 @@ description: "Code CIN 内存模型、LRU 缓存、MMU 分页与运行时行为�
 == 默认布局 (64 KiB)
 
 ```bash
-python cpu.py hello.cin --no-native
+codecin hello.cin --no-native
 ```
 
 `--debug` 的 CPU 初始化 dump 会打印实际取值：
@@ -43,7 +43,7 @@ DEBUG               CPU 初始化
 == 自定义内存大小
 
 ```bash
-python cpu.py hello.cin --no-native --mem-size 262144
+codecin hello.cin --no-native --mem-size 262144
 ```
 
 内存变大时栈顶与堆基址同步上移（`sp_init`、`heap_base` 都会变化）。
@@ -97,7 +97,7 @@ tag = addr // (16 * num_sets)      # 默认 num_sets=16 => tag = addr // 256
 - `CPU.run()` 结束时（以及远程调试会话结束）会 `cache.flush()` 清空缓存内容，统计值保留用于报告。
 
 ```bash
-python cpu.py bench.cin --no-native --cache-size 128 --cache-assoc 8 --profile
+codecin bench.cin --no-native --cache-size 128 --cache-assoc 8 --profile
 ```
 
 `--profile` 报告里的 `Cache Hit Rate` 直接反映参数效果，调参思路见 [/tools/profiling](/tools/profiling)。
@@ -105,7 +105,7 @@ python cpu.py bench.cin --no-native --cache-size 128 --cache-assoc 8 --profile
 ## MMU 分页 (`--mmu`)
 
 ```bash
-python cpu.py hello.cin --no-native --mmu
+codecin hello.cin --no-native --mmu
 ```
 
 `--mmu` 会给内存挂上 `Mmu`（页大小 `4 KiB`，`PAGE_BITS = 12`）：
@@ -148,7 +148,7 @@ identity(1B) | entry_count(4B) | [vpn(4B) ppn(4B) perms(3B)]* | blacklist_count(
 ## --bounds-check：CIN 数组越界检查
 
 ```bash
-python cpu.py arrays.cin --no-native --bounds-check
+codecin arrays.cin --no-native --bounds-check
 ```
 
 该开关在 CIN 代码生成阶段为**定长数组**的每次下标访问插入运行期检查（`0 <= index < size`），检查失败时走运行期中止：
@@ -176,7 +176,7 @@ python cpu.py arrays.cin --no-native --bounds-check
 
 ```bash
 # 越界读写会抛 MemoryAccessError 并终止程序
-python cpu.py prog.cin --no-native
+codecin prog.cin --no-native
 ```
 
 ```text
@@ -218,7 +218,7 @@ Memory protection violation at 0x8 for 'w'
 == 确定性执行
 
 ```bash
-python cpu.py dice.cin --no-native --seed 12345
+codecin dice.cin --no-native --seed 12345
 ```
 
 同一 `--seed` 下 `SYS RAND` 序列一致，适合做可复现的回归与测试。
@@ -226,7 +226,7 @@ python cpu.py dice.cin --no-native --seed 12345
 == 禁止宿主 I/O
 
 ```bash
-python cpu.py prog.cin --no-native --no-io --log-level ERROR
+codecin prog.cin --no-native --no-io --log-level ERROR
 ```
 
 程序仍会跑完，但 `IN`/`OUT` 都静默失效，stdout 上只剩日志（若级别允许）。
@@ -234,7 +234,7 @@ python cpu.py prog.cin --no-native --no-io --log-level ERROR
 == 演示减速
 
 ```bash
-python cpu.py prog.cin --no-native --execution-interval 0.05
+codecin prog.cin --no-native --execution-interval 0.05
 ```
 
 每条指令暂停 50 ms，便于肉眼观察寄存器/内存面板的变化。

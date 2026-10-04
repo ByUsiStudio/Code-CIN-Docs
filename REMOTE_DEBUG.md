@@ -11,7 +11,7 @@
 
 ```bash
 # 终端 1: 启动远程调试 (程序加载后等待客户端连接)
-python cpu.py examples/control_flow.cin --debug-server 9999
+codecin examples/control_flow.cin --debug-server 9999
 
 # 终端 2: 连接 (任选一种)
 nc localhost 9999          # 或

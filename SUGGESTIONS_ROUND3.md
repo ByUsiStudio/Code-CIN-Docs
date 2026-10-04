@@ -397,9 +397,9 @@ function main()  -> int { dirty(); return probe() }
 
 ```powershell
 Set-Content t.cin 'function main() -> int { return 3 }'
-python cpu.py t.cin; Write-Output $LASTEXITCODE      # 0   <- 不是 3
+codecin t.cin; Write-Output $LASTEXITCODE      # 0   <- 不是 3
 Set-Content t2.cin 'function main() -> int { exit(4); return 0 }'
-python cpu.py t2.cin; Write-Output $LASTEXITCODE     # 0   <- 不是 4
+codecin t2.cin; Write-Output $LASTEXITCODE     # 0   <- 不是 4
 ```
 
 而 `docs/stdlib/reference.md`（`## test` 一节）写着：
@@ -870,7 +870,7 @@ python -m pytest tests/test_aggregate_and_const.py -q -k const
 #   见 §5.1 的 dirty()/probe() 片段
 
 # R3-8 退出码不传播（两者都是 0）
-Set-Content t.cin 'function main() -> int { return 3 }'; python cpu.py t.cin; $LASTEXITCODE
+Set-Content t.cin 'function main() -> int { return 3 }'; codecin t.cin; $LASTEXITCODE
 
 # 三路径一致性门禁
 python script/check_paths.py

@@ -17,19 +17,19 @@ description: "Code CIN 性能分析: --profile 报告的统计指标、指令周
 == 解释执行
 
 ```bash
-python cpu.py hello.cin --no-native --profile
+codecin hello.cin --no-native --profile
 ```
 
 == JIT 路径
 
 ```bash
-python cpu.py hello.cin --no-native --jit --profile
+codecin hello.cin --no-native --jit --profile
 ```
 
 == Go 原生路径
 
 ```bash
-python cpu.py hello.cin --profile
+codecin hello.cin --profile
 ```
 
 :::
@@ -181,9 +181,9 @@ Cache Hit Rate                0.0%
 == 选执行路径
 
 ```bash
-python cpu.py bench.cin --profile              # Go 原生 (默认, 需已构建原生库)
-python cpu.py bench.cin --no-native --jit --profile   # Python JIT
-python cpu.py bench.cin --no-native --profile # 纯解释 (基准线)
+codecin bench.cin --profile              # Go 原生 (默认, 需已构建原生库)
+codecin bench.cin --no-native --jit --profile   # Python JIT
+codecin bench.cin --no-native --profile # 纯解释 (基准线)
 ```
 
 优先使用原生库；原生库不可用时再开 `--jit`（基本块动态编译，命中缓存的块整块执行并批量记账）。纯解释路径作为对照基准。
@@ -191,7 +191,7 @@ python cpu.py bench.cin --no-native --profile # 纯解释 (基准线)
 == 按需开 JIT
 
 ```bash
-python cpu.py bench.cin --no-native --jit --profile
+codecin bench.cin --no-native --jit --profile
 ```
 
 `--jit` 与调试开关互斥：`--debug`、`--step` 下不会创建 JIT 编译器；遇到不支持的指令时 JIT 会回退解释执行该条指令。
@@ -199,8 +199,8 @@ python cpu.py bench.cin --no-native --jit --profile
 == 调整缓存参数
 
 ```bash
-python cpu.py bench.cin --cache-size 128 --cache-assoc 8 --profile
-python cpu.py bench.cin --mem-size 262144 --profile
+codecin bench.cin --cache-size 128 --cache-assoc 8 --profile
+codecin bench.cin --mem-size 262144 --profile
 ```
 
 `--cache-size` 默认 64 行、`--cache-assoc` 默认 4 路（行大小固定 16 字节，组数 = 行数 ÷ 关联度，最小 8 行）。扩大容量或提高关联度可减少冲突缺失，报告里的 `Cache Hit Rate` 会直接反映效果。

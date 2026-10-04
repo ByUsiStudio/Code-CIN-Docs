@@ -111,19 +111,19 @@ msg: ASCIZ "Hello, Code CIN!"
 == 解释执行 (纯 Python)
 
 ```bash
-python cpu.py hello.cin --no-native
+codecin hello.cin --no-native
 ```
 
 == JIT 基本块编译
 
 ```bash
-python cpu.py hello.cin --jit --no-native
+codecin hello.cin --jit --no-native
 ```
 
 == Go 原生 VM (最快)
 
 ```bash
-python cpu.py hello.cin
+codecin hello.cin
 ```
 
 :::
@@ -148,7 +148,7 @@ python cpu.py hello.cin
 |------|------|
 | 当前版本 | 以 `codecin --version` 为准 |
 | 语言实现 | Go 侧是唯一核心 (CIN 编译器 / 字节码 VM / CROM / AOT 运行时), **Go 侧不提供 CLI** |
-| 唯一命令行入口 | `python cpu.py <程序> [选项]` 或安装后的 `codecin <程序> [选项]` |
+| 唯一命令行入口 | `codecin <程序> [选项]` 或安装后的 `codecin <程序> [选项]` |
 | 依赖 | Python 3.8+ 与 `rich` (唯一第三方运行时依赖); Go 1.26+ 仅用于编译原生库/AOT |
 | 代码仓库 | [ByUsiStudio/Code-CIN](https://github.com/ByUsiStudio/Code-CIN) |
 | 文档仓库 | [ByUsiStudio/Code-CIN-Docs](https://github.com/ByUsiStudio/Code-CIN-Docs) (本站在 `docs/` 下, 以 git submodule 方式内嵌于主仓库) |

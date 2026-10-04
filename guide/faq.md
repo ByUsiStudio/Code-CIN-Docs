@@ -29,7 +29,7 @@ console script 的目录不在 `PATH` 里。三种替代写法:
 
 ```bash
 python -m codecin.cli prog.cin     # 模块方式
-python cpu.py prog.cin             # 源码树方式
+codecin prog.cin             # 源码树方式
 python -c "from codecin.cli import main; raise SystemExit(main(['prog.cin']))"
 ```
 

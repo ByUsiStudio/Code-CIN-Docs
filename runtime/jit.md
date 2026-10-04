@@ -11,8 +11,8 @@ description: Code CIN 的 Python JIT：--jit 开关、基本块动态编译与 e
 ## 启用与优先级
 
 ```bash
-python cpu.py program.cin --jit              # JIT（原生路径会被跳过）
-python cpu.py program.cin --jit --no-native  # 显式声明只用 Python，行为相同
+codecin program.cin --jit              # JIT（原生路径会被跳过）
+codecin program.cin --jit --no-native  # 显式声明只用 Python，行为相同
 ```
 
 | 相关开关 | 作用 |
@@ -102,7 +102,7 @@ def block(cpu, mem, R):
 == 日志（DEBUG）
 
 ```bash
-python cpu.py program.cin --jit --log-level DEBUG
+codecin program.cin --jit --log-level DEBUG
 ```
 
 ```text
@@ -150,8 +150,8 @@ print(cpu.jit.get_stats())
 `--jit --no-native` 与解释执行的对照示例（本机 Windows/x64，`for` 循环 300000 次累加，`--profile --log-level ERROR`）：
 
 ```bash
-python cpu.py bench.cin --no-native --profile
-python cpu.py bench.cin --jit --no-native --profile
+codecin bench.cin --no-native --profile
+codecin bench.cin --jit --no-native --profile
 ```
 
 ```text

@@ -33,8 +33,8 @@ AOT 是**面向源码检出**的构建期功能。发行 wheel / 独立 CLI 里�
 ## 基本用法
 
 ```bash
-python cpu.py program.cin --build-exe program      # 本机平台
-python cpu.py program.cin --build-exe              # 省略路径: 输出 <程序名>[.exe]
+codecin program.cin --build-exe program      # 本机平台
+codecin program.cin --build-exe              # 省略路径: 输出 <程序名>[.exe]
 ```
 
 | 选项 | 说明 |
@@ -65,7 +65,7 @@ AOT build 完成: D:\...\program.exe
 == 本机平台 (Windows)
 
 ```powershell
-python cpu.py hello.cin --build-exe hello-aot
+codecin hello.cin --build-exe hello-aot
 .\hello-aot.exe
 ```
 
@@ -82,7 +82,7 @@ Hello, Code CIN!
 == 交叉编译 Linux
 
 ```bash
-python cpu.py hello.cin --build-exe hello-linux --build-target linux/amd64
+codecin hello.cin --build-exe hello-linux --build-target linux/amd64
 ```
 
 产物是 ELF，**无 `PT_INTERP`**：不依赖 glibc，可拷到任意同架构 Linux（含 Alpine/musl）直接运行。
@@ -90,7 +90,7 @@ python cpu.py hello.cin --build-exe hello-linux --build-target linux/amd64
 == 交叉编译 macOS
 
 ```bash
-python cpu.py hello.cin --build-exe hello-mac --build-target darwin/arm64
+codecin hello.cin --build-exe hello-mac --build-target darwin/arm64
 ```
 
 产物是 Mach-O；Go 交叉编译不需要 macOS 本机。
@@ -98,7 +98,7 @@ python cpu.py hello.cin --build-exe hello-mac --build-target darwin/arm64
 == 带依赖库的程序
 
 ```bash
-python cpu.py prog.cin --build-exe prog --mem-size 1048576
+codecin prog.cin --build-exe prog --mem-size 1048576
 ```
 
 ```text
@@ -229,7 +229,7 @@ $ echo $?
 触发方式通常是超过默认内存的数据（例如一个 70000 字符的字符串字面量）。按提示增大后即可通过：
 
 ```bash
-python cpu.py bigstr.cin --build-exe bigstr2 --mem-size 1048576
+codecin bigstr.cin --build-exe bigstr2 --mem-size 1048576
 ```
 
 注意这一点**只在构建期检查数据段**；运行期对栈/堆的越界行为与解释器一致（需要检查时用 `--bounds-check`，见 [CIN 语言限制与常见错误](/language/errors)）。`--mem-size` 小于 256 会被抬到 256。
@@ -254,7 +254,7 @@ go build 失败 (目标 <os>/<arch>): ...
 也可以自己指定：
 
 ```bash
-GOCACHE=/tmp/gocache python cpu.py prog.cin --build-exe prog
+GOCACHE=/tmp/gocache codecin prog.cin --build-exe prog
 ```
 
 :::
@@ -262,7 +262,7 @@ GOCACHE=/tmp/gocache python cpu.py prog.cin --build-exe prog
 ::: details 想看 `go build` 到底在做什么
 
 ```bash
-python cpu.py prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
+codecin prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
 ```
 
 `--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`、`program.ucbc` 与 `program.mem`；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。

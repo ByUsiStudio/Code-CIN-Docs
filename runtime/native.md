@@ -21,7 +21,7 @@ Go 原生运行时是 Code CIN 的**加速与宿主能力层**：它把 CIN 编�
 **Go 侧不提供任何 CLI**。`codecin/native/` 下唯一允许的 `package main` 是 cgo 的 c-shared 库入口 `codecin/native/main.go`，它只导出 C ABI 符号并提供一个空的 `main()`；`tests/test_no_go_cli.py` 与 CI 都会断言"Go 源码树里没有第二个 `package main`"。唯一的命令行入口是 Python 侧：
 
 ```bash
-python cpu.py program.cin      # 源码树
+codecin program.cin      # 源码树
 codecin program.cin            # pip 安装后的 console script
 ```
 
@@ -168,7 +168,7 @@ python -c "from codecin import native; print(native.get_engine())"
 **判断"库是否过期、是否与包版本一致"请用构建信息，不要再手工比对两串版本号**：
 
 ```bash
-python cpu.py --build-info
+codecin --build-info
 ```
 
 输出里的 `native` / `native version` / `native library` / `native matches` 四行就是答案：
@@ -186,7 +186,7 @@ python cpu.py --build-info
 脚本里判断请用 JSON 形式：
 
 ```bash
-python cpu.py --build-info --json
+codecin --build-info --json
 # 字段 native / native_version / native_path / native_version_matches
 ```
 
@@ -236,19 +236,19 @@ host builtins (GUI/audio/system/Termux) require the native Go runtime (run witho
 == 解释执行
 
 ```bash
-python cpu.py basic.cin --no-native
+codecin basic.cin --no-native
 ```
 
 == JIT
 
 ```bash
-python cpu.py basic.cin --jit --no-native
+codecin basic.cin --jit --no-native
 ```
 
 == Go 原生
 
 ```bash
-python cpu.py basic.cin
+codecin basic.cin
 ```
 
 :::
@@ -278,7 +278,7 @@ Go 原生   (默认)               Execution Time  0.5044s  17,844,649 instr/s
 
 | 症状 | 处理 |
 | --- | --- |
-| 打印 `None` / 日志出现回退 warning | 先跑 `python cpu.py --build-info` 看 `native` 与 `native matches`（`native library` 给出实际尝试加载的路径）；仍是 `None` 时确认库位于 `codecin/` 或 `codecin/native/`（或设了 `CODECIN_NATIVE_LIB`）；确认架构与 Python 位数匹配（64 位 Python 配 `x64` 库、不要与 `arm64` 库混放）；用 `--log-level DEBUG` 看 `Failed to load native library <path>: <e>`——`OSError` 多为架构/依赖问题，`AttributeError` 多为旧库缺符号；最后重建（`sh build.sh`，Windows 用 `.\build.ps1`） |
+| 打印 `None` / 日志出现回退 warning | 先跑 `codecin --build-info` 看 `native` 与 `native matches`（`native library` 给出实际尝试加载的路径）；仍是 `None` 时确认库位于 `codecin/` 或 `codecin/native/`（或设了 `CODECIN_NATIVE_LIB`）；确认架构与 Python 位数匹配（64 位 Python 配 `x64` 库、不要与 `arm64` 库混放）；用 `--log-level DEBUG` 看 `Failed to load native library <path>: <e>`——`OSError` 多为架构/依赖问题，`AttributeError` 多为旧库缺符号；最后重建（`sh build.sh`，Windows 用 `.\build.ps1`） |
 | `native matches` 显示 `不一致` | 目录里放的是旧版本库；重新构建原生库（见 [编译 Go 原生库](/dev/build-native)），无需改任何配置 |
 | 构建脚本报 Go / 编译器缺失 | 需要 Go 1.26+ 与 cgo 可用的 C 编译器；Windows 把 MinGW-w64 / TDM-GCC 的 `gcc` 放进 `PATH`，Linux/Termux 用发行版的 `golang` + `gcc` |
 

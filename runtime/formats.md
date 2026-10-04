@@ -8,7 +8,7 @@ Code CIN 有两条不同的二进制产物线，用途完全不同：
 
 | 格式 | 是什么 | 谁产生 | 能否直接运行 |
 | --- | --- | --- | --- |
-| `.bin` | **程序**：CPUSA 容器 + UCBC 字节码 + 初始内存镜像 | `--compile` / `--compile-only` | 可以：`python cpu.py prog.bin` |
+| `.bin` | **程序**：CPUSA 容器 + UCBC 字节码 + 初始内存镜像 | `--compile` / `--compile-only` | 可以：`codecin prog.bin` |
 | `.crom` | **内存镜像**：某个时刻的整块内存快照（v3 带 CRC32，可 zlib 压缩） | `--save` | **不可以**：它要配合 `.pl`/`.asm` 用 `--crom` 载入 |
 
 两者魔数、版本号、头部布局都不一样，**互不通用**：把 `.crom` 当程序喂进去会失败，反之亦然。本页给出两种格式的准确字段、命令与限制。
@@ -104,8 +104,8 @@ magic[4] = 'UCBC' | version u8 (0x01) | entry u32 | instr_count u32
 == 编译 .bin
 
 ```bash
-python cpu.py basic.cin --compile-only -o basic.bin   # 仅编译, 不执行
-python cpu.py basic.cin --compile                     # 编译为 .bin 后继续执行
+codecin basic.cin --compile-only -o basic.bin   # 仅编译, 不执行
+codecin basic.cin --compile                     # 编译为 .bin 后继续执行
 ```
 
 ```text
@@ -117,8 +117,8 @@ Compiled to basic.bin
 == 运行 .bin
 
 ```bash
-python cpu.py basic.bin                 # 走默认（原生优先）路径
-python cpu.py basic.bin --no-native     # 纯解释执行同一份字节码
+codecin basic.bin                 # 走默认（原生优先）路径
+codecin basic.bin --no-native     # 纯解释执行同一份字节码
 ```
 
 ```text
@@ -129,8 +129,8 @@ Hello, Code CIN!
 == 保存 .crom
 
 ```bash
-python cpu.py basic.cin --save                 # 运行结束后保存 <程序名>.crom
-python cpu.py basic.cin --save --no-compress   # 不压缩
+codecin basic.cin --save                 # 运行结束后保存 <程序名>.crom
+codecin basic.cin --save --no-compress   # 不压缩
 ```
 
 ```text
@@ -140,14 +140,14 @@ INFO  .crom saved to basic.crom (131 bytes, compressed=True, mmu=False)
 == 加载 .crom
 
 ```bash
-python cpu.py basic.asm --crom basic.crom
+codecin basic.asm --crom basic.crom
 ```
 
 :::
 
 ::: warning `--save` 的输出路径由源文件名决定
 
-`--save` 写的永远是 `<程序名>.crom`（与源文件同目录），**`-o` 只影响 `.bin` 的输出**。实测 `python cpu.py hello.cin --save -o custom.crom` 仍然生成 `hello.crom`。
+`--save` 写的永远是 `<程序名>.crom`（与源文件同目录），**`-o` 只影响 `.bin` 的输出**。实测 `codecin hello.cin --save -o custom.crom` 仍然生成 `hello.crom`。
 
 :::
 
@@ -169,7 +169,7 @@ INFO  Loaded .crom v3: 65536 bytes, compressed=True, mmu=False
 
 ::: danger 别把 `.crom` 当可执行产物
 
-`.crom` 只是内存快照，不含入口点、不含程序语义。直接 `python cpu.py hello.crom` 会把文件当汇编源解析，最终以解码错误退出（退出码 1）。要跑程序用 `.bin` 或源码；`.crom` 请与 `--save`/`--crom` 成对使用，并注意它恢复的是**内存内容**，不恢复寄存器、PC 与已执行的宿主副作用。
+`.crom` 只是内存快照，不含入口点、不含程序语义。直接 `codecin hello.crom` 会把文件当汇编源解析，最终以解码错误退出（退出码 1）。要跑程序用 `.bin` 或源码；`.crom` 请与 `--save`/`--crom` 成对使用，并注意它恢复的是**内存内容**，不恢复寄存器、PC 与已执行的宿主副作用。
 
 :::
 
@@ -178,7 +178,7 @@ INFO  Loaded .crom v3: 65536 bytes, compressed=True, mmu=False
 `--disasm` 接受两种输入：`.bin`（CPUSA 容器）与**裸 UCBC 段**。它属于"看一眼就退出"的模式，成功退出码 0：
 
 ```bash
-python cpu.py basic.bin --disasm
+codecin basic.bin --disasm
 ```
 
 ::: tabs
@@ -212,7 +212,7 @@ python cpu.py basic.bin --disasm
 给出非 `.bin`/非 `UCBC` 的文件时报错并提示先编译：
 
 ```text
---disasm 需要 .bin (CPUSA 容器) 或 UCBC 字节码; 先用 `python cpu.py src.cin --compile-only -o out.bin` 生成
+--disasm 需要 .bin (CPUSA 容器) 或 UCBC 字节码; 先用 `codecin src.cin --compile-only -o out.bin` 生成
 ```
 
 :::

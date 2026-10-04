@@ -480,7 +480,7 @@ Assembler error: csel x0, x0, x0 -- Argument count mismatch for CSEL: expected 4
 ```
 
 ```bash
-python cpu.py prog.asm --strict --no-native
+codecin prog.asm --strict --no-native
 ```
 
 标记为"变长"(`ARG_COUNTS` 为 `-1`) 的指令不参与计数检查, 只有 `B`、`JALR`、`SYS` 三条。

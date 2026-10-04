@@ -103,7 +103,7 @@ codecin/native/
 **Go 侧不提供 CLI**: `codecin/native/` 下唯一的 `package main` 就是 c-shared 库入口
 `main.go` (见 `tests/test_no_go_cli.py` 与 CI `native` 作业的断言)。历史版本里的
 `cmd/codecin/` 全 Go CLI 已移除 —— 唯一的命令行入口是 Python
-(`python cpu.py` / 安装后的 `codecin` console script)。
+(`codecin` / 安装后的 `codecin` console script)。
 
 ## 三语言输入与三执行路径
 

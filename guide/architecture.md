@@ -12,7 +12,7 @@ UCPU 字节码 (UCBC), 再由 Go 原生 VM / JIT / Python 解释器三路径之�
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ 应用层    CLI (codecin / python cpu.py)   交互式调试器   性能分析器        │
+│ 应用层    CLI (codecin / codecin)   交互式调试器   性能分析器        │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ 编译层    CIN 编译器 (cin.py / Go compiler)   汇编器 (assembler.py)        │
 │           词法 → 语法 → 代码生成 → UCBC 字节码                             │
@@ -51,7 +51,7 @@ prog.asm ─┘                              │                        │
 
 ::: warning Go 侧不提供任何 CLI
 `codecin/native/` 下唯一的 `package main` 是 cgo 的 **c-shared 库入口** `main.go`。
-不存在 `codecin` 命令行二进制 —— 唯一入口是 Python 侧 (`codecin` / `python cpu.py`)。
+不存在 `codecin` 命令行二进制 —— 唯一入口是 Python 侧 (`codecin` / `codecin`)。
 这样做是为了避免历史上“两套 CLI、两套语义、产物不对应”的问题。
 :::
 

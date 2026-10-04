@@ -263,7 +263,7 @@ version = { attr = "codecin.__version__" }
 
 - Go 侧版本改为构建时注入：`go build -ldflags "-X main.version=$(VERSION)"`，或由 `script/gen_native_isa.py` 同源生成（该脚本已有生成 Go 常量的先例）。
 - CLI 加 `--version`（`argparse` 的 `action='version'`）。
-- 目前唯一的入口是 `python cpu.py`，而 `codecin/native/codecin.exe` 也叫 `codecin` —— 加 `[project.scripts]` 后要明确区分"Python CLI"与"Go CLI"。
+- 目前唯一的入口是 `codecin`，而 `codecin/native/codecin.exe` 也叫 `codecin` —— 加 `[project.scripts]` 后要明确区分"Python CLI"与"Go CLI"。
 
 ### 2.3 文档必须改的几处（都是可复现的误导）
 

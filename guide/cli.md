@@ -4,13 +4,13 @@ description: Code CIN 命令行完整参考：位置参数、版本与构建信�
 
 # 命令行参考
 
-唯一命令行入口是 Python 侧: 安装后的 `codecin`, 或源码树里的 `python cpu.py`。
+唯一命令行入口是 Python 侧: 安装后的 `codecin`, 或源码树里的 `codecin`。
 两者参数表完全相同 (源码中由 `codecin/cli.py` 的 `build_parser()` 单一来源定义, 因此
 `--help` 与本文档始终一致)。
 
 ```text
 Usage:
-  python cpu.py <program.[cin|pl|asm|bin]> [options]
+  codecin <program.[cin|pl|asm|bin]> [options]
 
 Supported formats:
   .cin   CIN 高级语言 (函数/struct/数组/浮点/字符串)
@@ -62,7 +62,7 @@ Code CIN 构建信息 (build info) - 5.6.0
 适合脚本判断"原生库是否需要重建":
 
 ```bash
-python cpu.py --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
+codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
 ```
 
 ## 位置参数

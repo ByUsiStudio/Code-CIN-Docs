@@ -26,7 +26,7 @@ Code CIN 的全部日志与错误输出基于 **rich**：彩色面板、表格�
 == 默认: 输出到 stdout
 
 ```bash
-python cpu.py hello.cin --no-native
+codecin hello.cin --no-native
 ```
 
 日志与程序输出**共用同一个 stdout**（程序文本由 `sys.stdout.write` 直接写出），因此重定向或管道里两者交织在一起。
@@ -34,7 +34,7 @@ python cpu.py hello.cin --no-native
 == 落盘: --log-file
 
 ```bash
-python cpu.py hello.cin --no-native --log-file logs/run.log
+codecin hello.cin --no-native --log-file logs/run.log
 ```
 
 文件 handler 以覆盖模式（`mode='w'`）写入 UTF-8 文本，目录会自动创建；文件记录**固定为 DEBUG 全量**，与 `--log-level` 无关。
@@ -66,7 +66,7 @@ python cpu.py hello.cin --no-native --log-file logs/run.log
 ### 默认（INFO）输出示例
 
 ```text
-$ python cpu.py hello.cin --no-native
+$ codecin hello.cin --no-native
 08:37:15 INFO     CIN compiled: 30 instructions
          INFO     Starting program execution
 Hello, Code CIN!
@@ -78,7 +78,7 @@ Hello, Code CIN!
 ### 只保留程序输出
 
 ```text
-$ python cpu.py hello.cin --no-native --log-level ERROR
+$ codecin hello.cin --no-native --log-level ERROR
 Hello, Code CIN!
 2 + 3 = 5
 ```
@@ -92,7 +92,7 @@ Hello, Code CIN!
 `--debug` 会把 DEBUG 埋点全部打开，典型首批输出（rich 面板 + DEBUG 行）：
 
 ```text
-$ python cpu.py hello.cin --no-native --debug
+$ codecin hello.cin --no-native --debug
 DEBUG               CPU 初始化
                     memory    0x10000 bytes
                     cache     64 lines x 4-way
@@ -164,11 +164,11 @@ PC=0x0004 #00000002 ADD X1=0x0(0) X2=0x1(1)  SP=0xfff8
 ## --log-file 落盘
 
 ```bash
-python cpu.py hello.cin --no-native --debug --log-file logs/hello.log
+codecin hello.cin --no-native --debug --log-file logs/hello.log
 ```
 
 ```powershell
-python cpu.py hello.cin --no-native --debug --log-file logs\hello.log
+codecin hello.cin --no-native --debug --log-file logs\hello.log
 ```
 
 | 项目 | 行为 |
@@ -213,12 +213,12 @@ python cpu.py hello.cin --no-native --debug --log-file logs\hello.log
 实测样例：
 
 ```text
-$ python cpu.py --version
+$ codecin --version
 Code CIN x.y.z
 $ echo $LASTEXITCODE      # 0
-$ python cpu.py --definitely-not-an-option
+$ codecin --definitely-not-an-option
 $ echo $LASTEXITCODE      # 2
-$ python cpu.py no_such_file.cin --log-level ERROR
+$ codecin no_such_file.cin --log-level ERROR
 $ echo $LASTEXITCODE      # 1
 ```
 
@@ -233,19 +233,19 @@ $ echo $LASTEXITCODE      # 1
 == 日常运行
 
 ```bash
-python cpu.py hello.cin --no-native --log-level ERROR
+codecin hello.cin --no-native --log-level ERROR
 ```
 
 == 排查编译/执行问题
 
 ```bash
-python cpu.py hello.cin --no-native --debug --log-file logs/hello.log
+codecin hello.cin --no-native --debug --log-file logs/hello.log
 ```
 
 == 只记录不刷屏
 
 ```bash
-python cpu.py hello.cin --no-native --log-level WARNING --log-file logs/hello.log
+codecin hello.cin --no-native --log-level WARNING --log-file logs/hello.log
 ```
 
 :::

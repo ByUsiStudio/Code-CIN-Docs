@@ -5,7 +5,7 @@ description: Code CIN 示例程序集：高级语言、struct/数组/标准库�
 # 示例程序集
 
 下面的示例都可以直接运行, 输出为实机运行结果 (使用 `--log-level ERROR` 过滤日志行)。
-把文件存成对应后缀, 用 `codecin <文件>` 或 `python cpu.py <文件>` 运行即可。
+把文件存成对应后缀, 用 `codecin <文件>` 或 `codecin <文件>` 运行即可。
 
 ## 1. Hello World
 

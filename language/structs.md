@@ -426,7 +426,7 @@ function main() -> int {
 ## 完整示例：Point / Rectangle / Student
 
 ```c
-// shapes.cin —— 运行: python cpu.py shapes.cin
+// shapes.cin —— 运行: codecin shapes.cin
 
 struct Point {
     float x

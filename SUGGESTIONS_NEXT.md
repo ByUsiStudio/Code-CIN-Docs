@@ -66,7 +66,7 @@
 
   | 路径 | 命令 | 结果 |
   |------|------|------|
-  | Python 编译器 | `python cpu.py t_global.cin` | `Compiler error: Bitwise NOT requires integer, got: float`，exit 1 |
+  | Python 编译器 | `codecin t_global.cin` | `Compiler error: Bitwise NOT requires integer, got: float`，exit 1 |
   | Go CLI / 原生库 / **AOT 产物** | `codecin t_global.cin` | `g=0`，**exit 0** |
 
 - **影响**：这是本项目最危险的类别——「同一程序两条路径结果不同，且错的那条不报错」。
@@ -105,10 +105,10 @@
 
   ```
   # t_utf8.cin: println("emoji: 😀 箭头: →")
-  python cpu.py t_utf8.cin   →  UnicodeEncodeError: 'gbk' codec can't encode character '\U0001f600'，exit 1
+  codecin t_utf8.cin   →  UnicodeEncodeError: 'gbk' codec can't encode character '\U0001f600'，exit 1
   codecin.exe t_utf8.cin     →  emoji: 😀 箭头: →，exit 0
   ```
-- **补充证据（字节级）**：同一个含 `é` 的程序，`python cpu.py x.cin > out.txt` 写出的是
+- **补充证据（字节级）**：同一个含 `é` 的程序，`codecin x.cin > out.txt` 写出的是
   **GBK 字节**（`68 A8 A6`），`codecin.exe x.cin > out.txt` 写出的是 **UTF-8 字节**（`68 C3 A9`）。
   即：即使不崩溃，两端产物也不是同一份字节，`diff_go_python.py` 的「产物等价」在非 ASCII 下不成立
   （它现在能过只是因为示例全是 ASCII）。
@@ -124,7 +124,7 @@
       self.emit('MOV', self.reg(0), self.imm(0))
       return 'int'
   ```
-- **实测**：`"42" | python cpu.py t_input.cin` → `a=0`（原生与 `--no-native` 都是 0）。
+- **实测**：`"42" | codecin t_input.cin` → `a=0`（原生与 `--no-native` 都是 0）。
 - **文档**：`docs/CIN_GUIDE.md:405` 写 `| input() | int | 读入一行并解析为整数 (失败为 0) |`。
   另外 `cpu.py:1391` 把 `self.input_buffer` 传给原生 VM，而 `input_buffer` 在 `cpu.py:121`
   初始化为 `""` 且**全仓无写入点**，原生 VM 的输入通道永远是空的。
@@ -155,8 +155,8 @@
 
   | 路径 | 结果 |
   |------|------|
-  | `python cpu.py t_big.cin`（原生） | `Load Error: Address 0x11940 out of bounds (memory size 0x10000)`，exit 1 |
-  | `python cpu.py t_big.cin --no-native` | 同上，exit 1 |
+  | `codecin t_big.cin`（原生） | `Load Error: Address 0x11940 out of bounds (memory size 0x10000)`，exit 1 |
+  | `codecin t_big.cin --no-native` | 同上，exit 1 |
   | `--build-exe` | 构建仍会走同一条 `build_program`（`aot.py:216` 静默截断） |
 
 - **相关**：AOT 完全忽略运行期配置——`aot.py:28` 硬编码 `DEFAULT_MEM_SIZE = 65536`，
@@ -177,7 +177,7 @@
 
   ```
   # t_sandbox.cin: exec("echo SANDBOX_ESCAPED") + file_write("zz_probe_sandbox.txt", ...)
-  python cpu.py t_sandbox.cin --sandbox
+  codecin t_sandbox.cin --sandbox
   → r=0 fw=0            # exec 真的执行了，file_write 真的返回成功
   → 文件被创建? True
   ```
@@ -213,7 +213,7 @@
 ### 3.1 `--build-exe` 的文档调用式在 Windows 上产出「跑不了的文件」
 - `README.md:440` 的注释写 `# Windows 自动加 .exe`，但 `cli.py:178` 是
   `out = ns.build_exe or (... + aot.exe_suffix(goos))` —— **显式给了路径就不加 `.exe`**。
-- **实测**：`python cpu.py examples/control_flow.cin --build-exe cf_aot` → 产出 `cf_aot`（无扩展名，
+- **实测**：`codecin examples/control_flow.cin --build-exe cf_aot` → 产出 `cf_aot`（无扩展名，
   6.5 MB）；`powershell -Command "& .\cf_aot"` 报「无法在管道中间运行文档」，
   `cmd /c cf_aot` 报「is not recognized as an internal or external command」。
   只有**省略** `--build-exe` 的值时才会得到 `cf2.exe`（实测通过）。
@@ -228,8 +228,8 @@
 
   | 命令 | 结果 |
   |------|------|
-  | `python cpu.py z:\nope.cin` | `Load Error` 面板，exit 1 |
-  | `python cpu.py z:\nope.cin --build-exe out` | **Python 裸 traceback**（`FileNotFoundError` 全栈），exit 1 |
+  | `codecin z:\nope.cin` | `Load Error` 面板，exit 1 |
+  | `codecin z:\nope.cin --build-exe out` | **Python 裸 traceback**（`FileNotFoundError` 全栈），exit 1 |
 
 - **建议**：AOT 分支前复用同一套存在性检查；`stub_source()`（`aot.py:82-85`）的 `open` 同样没有兜底。
 
@@ -258,7 +258,7 @@
 
 - **位置**：`codecin/native.py:314-336`，只 `except OSError`（`:330`）；
   `NativeEngine._configure()`（`native.py:184-207`）缺符号时抛 `AttributeError`
-- **实测**：`$env:CODECIN_NATIVE_LIB='C:\Windows\System32\msvcrt.dll'; python cpu.py t.cin`
+- **实测**：`$env:CODECIN_NATIVE_LIB='C:\Windows\System32\msvcrt.dll'; codecin t.cin`
   → `Unexpected Error` + 完整 traceback，`AttributeError: function 'codecin_run' not found`，exit 1。
 - **影响**：`native.py` 文件头明确承诺「库不存在或加载失败时自动回退纯 Python」。现实是
   旁边放一个旧 `codecin_native.dll`（**本仓库历史上真的发生过**，见上一轮 §2.1）就会让整个程序不可用，
@@ -381,8 +381,8 @@
 - `codecin/cli.py:15` 的 `HELP_INTRO` 写死 `'Code CIN v5.3'`：
 
   ```
-  python cpu.py --help    → Code CIN v5.3
-  python cpu.py --version → Code CIN 5.4.3
+  codecin --help    → Code CIN v5.3
+  codecin --version → Code CIN 5.4.3
   ```
   这是全仓**唯一**残留的版本串（README/BUILDING/CIN_GUIDE 已无版本号，Go 侧
   `engine/version_gen.go` = 5.4.3，`gen_native_isa.py --check` 通过 → 单一真源本身是成立的）。
@@ -456,7 +456,7 @@
 | 问题 | 结论 | 依据 |
 |------|------|------|
 | `requires-python >= 3.8` 下界 | **提到 `>= 3.9`** | `ast.parse(feature_version=(3,8))` 扫 57 个 `.py` 零语法错误（代码本身 3.8 干净），但 CI 矩阵是 3.9/3.11/3.13，且 3.8 已 EOL；3.8 上 `pytest>=7` 会解析到很旧的 8.3.x，与 3.13 腿差异过大。若坚持 3.8，必须加 `runs-on: ubuntu-22.04` 的 3.8 矩阵腿。 |
-| `codecin/native/tmpdump/` | **删除** | 功能已被 `codecin --dump-bytecode`、`python cpu.py --disasm` 与 `compiler`/`engine` 两个 go test 包覆盖；无参数校验（`os.Args[1]` 越界 panic）；现在还会被打进 wheel/sdist；并让 CI 守卫永久豁免。删时同步删 `.gitignore:36` 与 `ci.yml:39/41`。 |
+| `codecin/native/tmpdump/` | **删除** | 功能已被 `codecin --dump-bytecode`、`codecin --disasm` 与 `compiler`/`engine` 两个 go test 包覆盖；无参数校验（`os.Args[1]` 越界 panic）；现在还会被打进 wheel/sdist；并让 CI 守卫永久豁免。删时同步删 `.gitignore:36` 与 `ci.yml:39/41`。 |
 | 覆盖率门槛 | **`--cov-fail-under=70` 起步** | 实测基线 **75%**（6180 stmts / 1559 missed；最低：`debugger 40%`、`stats 49%`、`logger 54%`、`registers 56%`、`cpu 59%`）。留出 Linux/原生路径差异余量，稳定后提到 72-73%，不要直接设 75。 |
 | `go.mod` 降到 1.21 | **可以降** | 把 `go.mod` 改成 `go 1.21` 后 `go vet ./...` = 0、`go test ./...` 全绿（compiler 3.7s / engine 10.1s）。建议降级并在脚本加 `go env GOVERSION` 校验（对 1.20 及更老），或保留 1.26 但明确说明 `GOTOOLCHAIN=auto` 会自动下载、需要联网。 |
 | 解释器统计记账 | 见 §4.2 | 仍是解释执行的性能大头，但改口径要同步改 `tests/test_three_paths.py`。 |
@@ -518,25 +518,25 @@ python script/gen_native_isa.py --check               # 通过
 python script/gen_isa_docs.py --check                 # 通过
 
 # §1.1 全局初始化器
-python cpu.py t_global.cin                            # Compiler error: Bitwise NOT requires integer, got: float
+codecin t_global.cin                            # Compiler error: Bitwise NOT requires integer, got: float
 codecin.exe t_global.cin                              # g=0   ← 静默错误
 
 # §1.2 / §1.3 字符串与编码
-python cpu.py t_str.cin                               # ends_with(s,lo)=0   ← 应为 1
+codecin t_str.cin                               # ends_with(s,lo)=0   ← 应为 1
 codecin.exe t_str.cin                                 # ends_with(s,lo)=0
-python cpu.py t_utf8.cin                              # UnicodeEncodeError 'gbk'，exit 1
+codecin t_utf8.cin                              # UnicodeEncodeError 'gbk'，exit 1
 codecin.exe t_utf8.cin                                # 正常输出，exit 0
 
 # §1.5 sqrt
-python cpu.py t_sqrt.cin                              # sqrt(-1)=NaN
-python cpu.py t_sqrt.cin --no-native                  # Execution Error: expected a nonnegative input, got -1.0
+codecin t_sqrt.cin                              # sqrt(-1)=NaN
+codecin t_sqrt.cin --no-native                  # Execution Error: expected a nonnegative input, got -1.0
 
 # §2.1 sandbox
-python cpu.py t_sandbox.cin --sandbox                 # r=0 fw=0；文件真的被创建
+codecin t_sandbox.cin --sandbox                 # r=0 fw=0；文件真的被创建
 
 # §3.1 / §3.2 AOT
-python cpu.py examples\control_flow.cin --build-exe cf_aot    # 产出 cf_aot（无 .exe），cmd/PowerShell 都跑不起来
-python cpu.py z:\nope.cin --build-exe out                      # 裸 FileNotFoundError traceback
+codecin examples\control_flow.cin --build-exe cf_aot    # 产出 cf_aot（无 .exe），cmd/PowerShell 都跑不起来
+codecin z:\nope.cin --build-exe out                      # 裸 FileNotFoundError traceback
 
 # §3.3 残留目录
 Get-ChildItem codecin\native -Force -Directory -Filter '.aot*' # 6 个残留，5 个 Access is denied
@@ -544,23 +544,23 @@ icacls codecin\native\.aotbuild-90n5wyqb                       # Access is denie
 Remove-Item codecin\native\.aotbuild-90n5wyqb -Force -Recurse  # 失败：访问被拒绝
 
 # §3.4 原生库 ABI
-$env:CODECIN_NATIVE_LIB='C:\Windows\System32\msvcrt.dll'; python cpu.py t.cin
+$env:CODECIN_NATIVE_LIB='C:\Windows\System32\msvcrt.dll'; codecin t.cin
                                                       # AttributeError: function 'codecin_run' not found
 
 # §4.4 input()
-"42" | python cpu.py t_input.cin                      # a=0
+"42" | codecin t_input.cin                      # a=0
 
 # §6.1 标准库空集合边界（原生与解释器各跑一遍，结果一致）
-python cpu.py t_libedge.cin                           # n=0 全部返回 0 / -1，无异常
-python cpu.py t_libedge.cin --no-native               # 同上
+codecin t_libedge.cin                           # n=0 全部返回 0 / -1，无异常
+codecin t_libedge.cin --no-native               # 同上
 
 # §5.1 /packaging（等价站点包）
 python -c "sys.path.insert(0,'site'); from codecin.cin import CINCompiler; CINCompiler().compile('t_str.cin')"
                                                       # Import file not found: 'lib/str.cin'
 
 # §5.3 / §5.5 文档与版本
-python cpu.py --help                                  # 首行 Code CIN v5.3
-python cpu.py --version                               # Code CIN 5.4.3
+codecin --help                                  # 首行 Code CIN v5.3
+codecin --version                               # Code CIN 5.4.3
 Select-String CHANGELOG.md -Pattern '5\.4\.3'         # 0 命中
 ```
 

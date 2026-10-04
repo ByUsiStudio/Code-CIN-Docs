@@ -86,16 +86,16 @@ main:
 最简形式是直接给出程序文件, 由扩展名选择路径:
 
 ```bash
-python cpu.py test_asm.asm              # 汇编
-python cpu.py basic.cin                 # 高级语言
-python cpu.py prog.pl                   # PL 关键字风格
-python cpu.py prog.bin                  # 已编译字节码
+codecin test_asm.asm              # 汇编
+codecin basic.cin                 # 高级语言
+codecin prog.pl                   # PL 关键字风格
+codecin prog.bin                  # 已编译字节码
 ```
 
 文档中的示例统一使用纯 Python 解释路径, 以便在任何机器上复现:
 
 ```bash
-python cpu.py test_asm.asm --no-native --log-level ERROR
+codecin test_asm.asm --no-native --log-level ERROR
 ```
 
 ```text
@@ -118,7 +118,7 @@ Sum 1..10 = 55
 在 Windows PowerShell 中同样直接调用:
 
 ```powershell
-python cpu.py test_asm.asm --no-native --log-level ERROR
+codecin test_asm.asm --no-native --log-level ERROR
 ```
 
 ## 与 CIN 的关系
@@ -219,7 +219,7 @@ function main() -> int {
 ::: tip 从示例文件入手
 仓库里的 `test_asm.asm` 是端到端可运行的权威样例 (循环求和 + 字符串打印 + `.data` 段 + 间接寻址),
 `examples/asm_constants.asm` 演示 `.equ` 与表达式立即数。两个文件都可以直接用
-`python cpu.py <文件> --no-native` 运行。
+`codecin <文件> --no-native` 运行。
 :::
 
 ::: warning 文档中的旧示例

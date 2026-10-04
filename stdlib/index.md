@@ -129,8 +129,8 @@ Code CIN 官方标准库由 36 个 `.cin` 源文件组成，随 pip 包一起分
 **Go 原生 VM / JIT / 纯 Python 解释器**三条路径下完全一致，可直接用 `--no-native` 验证：
 
 ```bash
-python cpu.py prog.cin                # 自动选择原生/JIT/解释 (默认)
-python cpu.py prog.cin --no-native    # 强制纯 Python 解释器
+codecin prog.cin                # 自动选择原生/JIT/解释 (默认)
+codecin prog.cin --no-native    # 强制纯 Python 解释器
 ```
 
 宿主能力库（`io.cin` / `gui.cin` / `termux.cin` / `key.cin`）转调 `file_*`、`canvas`/`draw_line`、
@@ -163,7 +163,7 @@ function main() -> int {
 ```
 
 ```bash
-python cpu.py demo.cin
+codecin demo.cin
 ```
 
 ```text

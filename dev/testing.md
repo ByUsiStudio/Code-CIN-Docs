@@ -146,9 +146,9 @@ python -m pytest tests/test_three_paths.py tests/test_paths_consistency.py
 手工三路径:
 
 ```bash
-python cpu.py examples/control_flow.cin --no-native
-python cpu.py examples/control_flow.cin --no-native --jit
-python cpu.py examples/control_flow.cin
+codecin examples/control_flow.cin --no-native
+codecin examples/control_flow.cin --no-native --jit
+codecin examples/control_flow.cin
 ```
 
 允许的差异只有两类: 与时间/环境相关的输出 (`time()`、`cwd()`、主机名), 以及

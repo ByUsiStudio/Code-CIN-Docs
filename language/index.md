@@ -8,7 +8,7 @@ CIN 是 Code CIN 的高级语言：一门**语法近似 C / Go 的静态类型�
 再由运行时执行。它保留了 C 风格的表达式、控制流与块结构，同时去掉了指针算术、头文件与手动内存管理，
 用 struct、固长数组、字符串与内建函数覆盖常见编程需求。
 
-- 源文件扩展名 `.cin`，用 `python cpu.py prog.cin` 编译并运行；
+- 源文件扩展名 `.cin`，用 `codecin prog.cin` 编译并运行；
 - 语句**以换行结尾**（分号可选），字符串用 `+` 自动拼接与字符串化；
 - 同一份 `.cin` 源码由**解释器 / Python JIT / Go 原生 VM** 三条路径执行，语义一致。
 
@@ -33,19 +33,19 @@ function main() -> int {
 == 解释执行（纯 Python）
 
 ```bash
-python cpu.py hello.cin --no-native
+codecin hello.cin --no-native
 ```
 
 == JIT 执行
 
 ```bash
-python cpu.py hello.cin --no-native --jit
+codecin hello.cin --no-native --jit
 ```
 
 == 原生 VM（默认）
 
 ```bash
-python cpu.py hello.cin
+codecin hello.cin
 ```
 
 :::

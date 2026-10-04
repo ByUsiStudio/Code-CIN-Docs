@@ -291,7 +291,7 @@ Stack overflow (collides with heap)
 加大 `--mem-size` 可以缓解，但**改不了递归算法本身的复杂度**：
 
 ```bash
-python cpu.py deep.cin --mem-size 1048576
+codecin deep.cin --mem-size 1048576
 ```
 
 ::: warning 递归是 O(depth) 栈消耗
@@ -350,7 +350,7 @@ function main() -> int {
 下面这个程序把值传递、引用可见、固长数组衰减、递归、返回值串联起来，可直接运行：
 
 ```c
-// stats.cin —— 运行: python cpu.py stats.cin
+// stats.cin —— 运行: codecin stats.cin
 
 struct Range {
     int lo
