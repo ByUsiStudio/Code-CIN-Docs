@@ -221,11 +221,22 @@ host builtins (GUI/audio/system/Termux) require the native Go runtime (run witho
 
 | SYS 区段 | 能力 | Go 侧实现 |
 | --- | --- | --- |
-| 39–42 | `audio_play` / `audio_stop` / `audio_volume` / `audio_wait` | `engine/audio*.go`（Windows 用 winmm，其它平台走 `afplay`/`aplay`/`paplay`/`ffplay`） |
+| 39–42 | `audio_play` / `audio_stop` / `audio_volume` / `audio_wait` | `engine/audio*.go`（Windows 用 waveOut，其它平台走 `afplay`/`aplay`/`paplay`/`ffplay`） |
 | 43–50 | 画布：新建、矩形、圆、文本、线、存 PNG、系统查看器打开 | `engine/canvas.go` |
 | 51–58 | 文件：读写/追加/存在/删除/大小/递归建目录/列目录 | `engine/system.go` |
 | 59–67 | 进程与环境：`exec`、`exec_output`、`getenv`/`setenv`、`os_name`、主机名、用户名、`cwd`、主目录 | `engine/system.go` |
 | 68–79 | Termux API：通知、Toast、剪贴板、电量、震动、TTS、定位、WiFi、对话框、短信 | `engine/termux.go`（非 Termux 环境优雅失败） |
+| 80–90 | 路径与文件系统扩展：`path_join`/`path_abs`、复制/移动/递归删除、`is_dir`、`file_mtime`、`temp_dir`、`chdir` | `engine/system.go` |
+| 91–96 | 时间与系统信息：`time_ms`、`sleep_ms`、`cpu_count`、`arch_name`、`mem_info`、`is_android` | `engine/system.go` |
+| 97–99 | 网络：`http_get` / `http_post` / `download`（15 秒超时、响应体 8 MiB / 落盘 256 MiB 上限） | `engine/system.go` |
+| 100–102 | 编码与哈希：`sha256` / `base64_encode` / `base64_decode` | `engine/system.go` |
+| 103–106 | 桌面集成：剪贴板读写、系统通知、`open_url`（Termux 优先 → 平台原生命令分发） | `engine/system.go` |
+| 107–115 | Android / Termux 扩展：Intent、拨号、分享、手电筒、音量、亮度、拍照、指纹、传感器 | `engine/termux.go` |
+| 116–118 | 键盘轮询：`key_hit` / `get_key` / `key_flush`（Unicode 码点、F1..F12、Ctrl/Shift 组合） | `engine/keyboard*.go` |
+| 119–125, 128 | GUI 窗口与鼠标：`gui_new`/`gui_update`/`gui_close`/`gui_closed`/`gui_active`、`mouse_x/y/button` | `engine/gui_windows.go`（Win32）/ `engine/gui_x11.go`（X11） |
+| 126–127 | 本地音频扩展：`audio_pos`（播放进度）、`beep`（20..20000 Hz 正弦合成） | `engine/audio*.go` |
+| 129–131 | 命令行参数 / 行输入：`arg_count` / `arg` / `input_str`（CLI `--` 之后转交） | `engine/vm.go` + `engine/stdin_*.go` |
+| 132–136 | 音频控制增强：`audio_duration` / `audio_playing` / `audio_pause` / `audio_resume` / `audio_level` | `engine/audio*.go`（暂停 = waveOutPause / SIGSTOP） |
 
 因此：如果你的程序用了这些能力，`--no-native` 会失败（报上面的错误），`--debug` 也会因为跳过原生路径而无法使用它们。语言侧的调用方式见 [宿主能力](/language/host-abilities)。
 

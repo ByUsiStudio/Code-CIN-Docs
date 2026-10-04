@@ -180,7 +180,9 @@ println(bool_to_str(1 > 2))      // false
 | 分类 | 函数 |
 |------|------|
 | 2D 画布 | `canvas` `set_color` `fill_rect` `fill_circle` `draw_line` `draw_text` `save_png` `show_canvas` |
-| 联网音频 | `audio_play` `audio_stop` `audio_volume` `audio_wait` |
+| GUI 窗口与鼠标 | `gui_new` `gui_update` `gui_close` `gui_closed` `gui_active` `mouse_x` `mouse_y` `mouse_button` |
+| 本地音频 | `audio_play` `beep` `audio_stop` `audio_wait` `audio_volume` `audio_level` `audio_pos` `audio_duration` `audio_playing` `audio_pause` `audio_resume` |
+| 命令行参数与行输入 | `arg_count` `arg` `input_str` |
 | 文件系统 | `file_read` `file_write` `file_append` `file_exists` `file_delete` `file_size` `mkdir` `dir_list` |
 | 路径与文件系统扩展 | `path_join` `path_basename` `path_dirname` `path_abs` `file_copy` `file_move` `dir_remove` `is_dir` `file_mtime` `temp_dir` `chdir` |
 | 进程/环境 | `exec` `exec_output` `getenv` `setenv` |
@@ -191,6 +193,7 @@ println(bool_to_str(1 > 2))      // false
 | 桌面集成 | `clipboard_get` `clipboard_set` `notify` `open_url` |
 | Termux (Android) | `termux_available` `termux_notify` `termux_toast` `termux_clipboard_get` `termux_clipboard_set` `termux_battery` `termux_vibrate` `termux_tts` `termux_location` `termux_wifi_info` `termux_dialog` `termux_sms_send` |
 | Android / Termux 扩展 | `android_intent` `termux_call` `termux_share` `termux_torch` `termux_volume` `termux_brightness` `termux_camera_photo` `termux_fingerprint` `termux_sensor` |
+| 键盘轮询 | `key_hit` `get_key` `key_flush` |
 
 ## 内建速查示例
 

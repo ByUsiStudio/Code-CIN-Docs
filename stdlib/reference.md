@@ -1,10 +1,10 @@
 ---
-description: Code CIN 36 个官方标准库的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
+description: Code CIN 39 个官方标准库（含 C / C++ / Go 兼容层）的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
 ---
 
 # 逐库函数参考
 
-本页覆盖 `codecin/lib/` 下全部 **36 个**官方标准库（`codecin/lib/` 目录里就是 36 个 `.cin`），
+本页覆盖 `codecin/lib/` 下全部 **39 个**官方标准库（`codecin/lib/` 目录里就是 39 个 `.cin`），
 每个库一节，先说明用途与 `import` 语句，再以表格列出**该库的全部函数**，
 最后给出一个可直接运行的 CIN 示例。
 
@@ -15,7 +15,9 @@ description: Code CIN 36 个官方标准库的逐库逐函数参考：签名、�
 - `void` 返回值表示该函数只产生副作用（原地修改数组、写输出数组、打印、写文件），无返回值；
 - `_sorted` 结尾的函数要求输入**已升序**，否则结果无意义；矩阵类 `_to` 风格函数把结果写入调用方提供的输出数组；
 - 三条执行路径（Go 原生 VM / JIT / 纯 Python 解释器）对纯 CIN 库的行为一致；
-  `io` / `gui` / `termux` / `key` 四库依赖宿主能力，需 Go 原生运行时。
+  `io` / `gui` / `termux` / `key` 四库依赖宿主能力，需 Go 原生运行时；
+  `cstd` / `cppstd` / `gostd` 三个兼容层是纯 CIN，三路径一致（`gostd` 的
+  `go_os_args_*` 依赖命令行参数内建，需原生路径）。
 
 ## array
 
@@ -49,7 +51,7 @@ import "array.cin"
 function main() -> int {
     int a[6] = {4, 8, 1, 8, 3, 6}
     println("sum=" + int_to_str(a_sum(a, 6)))              // 30
-    println("avg=" + float_to_str(a_avg(a, 6)))            // 5.000000
+    println("avg=" + float_to_str(a_avg(a, 6)))            // 5
     println("find3=" + int_to_str(a_find(a, 6, 3)))        // 4
     a_reverse(a, 6)
     println("first=" + int_to_str(a[0]))                   // 6
@@ -497,7 +499,133 @@ function main() -> int {
     println(c_pad_int(7, 3))                // 007
     println(c_pad_left("ab", 4, "-"))       // --ab
     println(c_repeat("xy", 3))              // xyxyxy
-    println(float_to_str(c_parse_float("-3.25")))  // -3.250000
+    println(float_to_str(c_parse_float("-3.25")))  // -3.25
+    return 0
+}
+```
+
+## cppstd
+
+C++ 标准库 (STL) 兼容层，以 `std::` 命名习惯提供 `std::string` / `std::vector` /
+`std::stack` / `std::queue` 的常用方法与 `<utility>` / `<algorithm>` 工具。纯 CIN 实现，
+三路径一致。CIN 没有模板与引用包装，容器以「**数组 + 长度游标**」表达：数组是引用传递，
+push/pop 返回**新的长度**，调用方把它存回自己的游标变量；push 前需自行保证数组容量。
+查找类的 `npos` 统一以 `-1` 表示。
+
+```c
+import "cppstd.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `stl_str_size` / `stl_str_length` | `(string s)` | `int` | `size()` / `length()`，即 `strlen` |
+| `stl_str_empty` | `(string s)` | `int` | `1` 空串 / `0` |
+| `stl_str_find` | `(string s, string sub)` | `int` | `find()` 首现下标，未找到 `-1` |
+| `stl_str_rfind` | `(string s, string sub)` | `int` | `rfind()` 末现下标，未找到 `-1`；空 sub 返回 `strlen(s)` |
+| `stl_str_substr` | `(string s, int pos, int len)` | `string` | `substr(pos, len)` |
+| `stl_str_append` | `(string a, string b)` | `string` | `operator+` / `append()` |
+| `stl_str_compare` | `(string a, string b)` | `int` | `compare()`：`<0` / `0` / `>0` |
+| `stl_str_c_str` | `(string s)` | `string` | `c_str()`：CIN 字符串本身就是宿主字符串，恒等返回 |
+| `stl_str_starts_with` / `stl_str_ends_with` | `(string s, string pre/suf)` | `int` | C++20 `starts_with` / `ends_with`；空前/后缀返回 `1` |
+| `stl_str_find_first_of` / `stl_str_find_last_of` | `(string s, string chars)` | `int` | chars 中任一字符的首/末现下标，未找到 `-1` |
+| `stl_str_at` | `(string s, int i)` | `int` | `at(i)` 字符码；越界返回 `0`（C++ 此处抛 `out_of_range`） |
+| `stl_str_front` / `stl_str_back` | `(string s)` | `int` | 首/末字符码；空串返回 `0` |
+| `stl_str_insert` | `(string s, int pos, string sub)` | `string` | 在 `pos` 前插入；`pos` 越界裁剪到 `0` / 末尾 |
+| `stl_str_erase` | `(string s, int pos, int len)` | `string` | 删除 `[pos, pos+len)`；越界裁剪，`len<0` 视为 `0` |
+| `stl_str_replace` | `(string s, int pos, int len, string sub)` | `string` | 把 `[pos, pos+len)` 替换为 `sub`；越界裁剪 |
+| `stl_to_string` | `(int v)` | `string` | `std::to_string` |
+| `stl_vec_push_back` | `(int[] v, int len, int x)` | `int` | 追加并返回**新长度** |
+| `stl_vec_pop_back` | `(int len)` | `int` | 返回**新长度**；空容器不变 |
+| `stl_vec_back` / `stl_vec_front` | `(int[] v, int len)` | `int` | 末/首元素；空容器返回 `0` |
+| `stl_vec_size` / `stl_vec_empty` | `(int len)` | `int` | 长度 / 是否为空 |
+| `stl_vec_clear` | `()` | `int` | 返回 `0`（CIN 无动态内存，长度归零即可） |
+| `stl_vec_at` | `(int[] v, int len, int i)` | `int` | 带边界检查；越界返回 `0` |
+| `stl_vec_insert` | `(int[] v, int len, int i, int x)` | `int` | 在 `i` 处插入整体后移，返回新长度；`i` 越界视为尾部追加 |
+| `stl_vec_erase` | `(int[] v, int len, int i)` | `int` | 删除 `i` 处元素整体前移，返回新长度；越界不修改 |
+| `stl_vec_find` / `stl_vec_count` | `(int[] v, int len, int x)` | `int` | 首个等于 `x` 的下标（无则 `-1`）/ 等于 `x` 的个数 |
+| `stl_vec_reverse` / `stl_vec_fill` | `(int[] v, int len, ...)` | `void` | 原地反转 / 填充 |
+| `stl_vec_sum` / `stl_vec_max` / `stl_vec_min` | `(int[] v, int len)` | `int` | 求和 / 最大 / 最小（空容器返回 `0`） |
+| `stl_stack_push` | `(int[] s, int top, int x)` | `int` | 压栈并返回新 `top`（`0` = 空栈） |
+| `stl_stack_pop` | `(int top)` | `int` | 弹栈并返回新 `top`；空栈不变 |
+| `stl_stack_top` | `(int[] s, int top)` | `int` | 栈顶（空栈 `0`） |
+| `stl_stack_size` / `stl_stack_empty` | `(int top)` | `int` | 栈深 / 是否为空 |
+| `stl_queue_push` | `(int[] q, int tail, int x)` | `int` | 入队并返回新 `tail`（非循环数组队列，`head <= tail`） |
+| `stl_queue_pop` | `(int head)` | `int` | 出队返回新 `head`（调用方保证非空） |
+| `stl_queue_front` / `stl_queue_back` | `(int[] q, int head/tail)` | `int` | 队首 / 队尾 |
+| `stl_queue_empty` / `stl_queue_size` | `(int head, int tail)` | `int` | 是否为空 / 元素个数 |
+| `stl_max` / `stl_min` / `stl_abs` | `(int a, int b)` / `(int x)` | `int` | `<utility>` |
+| `stl_swap` | `(int[] v, int i, int j)` | `void` | 交换数组两个元素 |
+| `stl_sort` / `stl_sort_desc` | `(int[] v, int len)` | `void` | 冒泡升序 / 降序（CIN 无函数指针，固定序） |
+| `stl_find` / `stl_count` | `(int[] v, int len, int x)` | `int` | `<algorithm>` 馎查找 / 计数 |
+| `stl_clamp` | `(int x, int lo, int hi)` | `int` | 钳制到 `[lo, hi]` |
+
+```c
+import "cppstd.cin"
+
+function main() -> int {
+    int v[8]
+    int n = 0
+    n = stl_vec_push_back(v, n, 3)
+    n = stl_vec_push_back(v, n, 1)
+    n = stl_vec_insert(v, n, 0, 2)      // {2, 3, 1}
+    stl_sort(v, n)                       // {1, 2, 3}
+    println(int_to_str(stl_vec_at(v, n, 1)))   // 2
+    println(stl_str_starts_with("hello", "he") == 1 ? "yes" : "no")   // yes
+    return 0
+}
+```
+
+## cstd
+
+C 语言兼容层，语义对齐 `<ctype.h>` / `<string.h>` / `<stdlib.h>` / `<math.h>` /
+`<stdio.h>`，让 C 程序员以惯用的名字与约定操作 CIN 的内置类型。纯 CIN 实现，三路径一致。
+类型映射：C `int/size_t` → `int`、C `char` → 字符码 `int`（可用 `'A'` 字符字面量）、
+C `char*` → `string`、C `float/double` → `float`、C `bool` → `int(0/1)`、
+C `EOF` → `-1`。差异：CIN 无裸指针，「写入 dst」类 API 返回新串、
+`strchr` 返回**下标**（C 返回指针）；数组以引用传递并显式带长度。
+
+```c
+import "cstd.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `libc_isdigit` / `libc_islower` / `libc_isupper` / `libc_isalpha` / `libc_isalnum` | `(int ch)` | `int` | `<ctype.h>` 字符类别判定，`1` / `0` |
+| `libc_isspace` / `libc_isprint` / `libc_isgraph` / `libc_isblank` / `libc_iscntrl` / `libc_ispunct` / `libc_isxdigit` | `(int ch)` | `int` | 其余字符类别（`isblank` 含空格与 `\t`） |
+| `libc_toupper` / `libc_tolower` | `(int ch)` | `int` | 大小写转换（非字母原样返回） |
+| `libc_toascii` | `(int ch)` | `int` | 清除高位（`ch & 0x7F`） |
+| `libc_strlen` | `(string s)` | `int` | 字符串长度 |
+| `libc_strcmp` / `libc_strncmp` | `(string a, string b[, int n])` | `int` | `<0` / `0` / `>0`；`strncmp` 只比前 `n` 字节 |
+| `libc_strdup` | `(string s)` | `string` | 复制一份（CIN 堆字符串语义下即原样返回） |
+| `libc_strcat` | `(string a, string b)` | `string` | 拼接（「写入 dst」改返回新串） |
+| `libc_strstr` | `(string hay, string needle)` | `int` | 子串首现下标，未找到 `-1` |
+| `libc_strchr` / `libc_strrchr` | `(string s, string ch)` | `int` | 单字符首/末现下标，未找到 `-1` |
+| `libc_strspn` / `libc_strcspn` | `(string s, string accept/reject)` | `int` | 前缀中全部属于 accept 的长度 / 全部不属于 reject 的长度 |
+| `libc_strpbrk` | `(string s, string accept)` | `int` | accept 内任一字符首现下标，未找到 `-1` |
+| `libc_strlwr` / `libc_strupr` | `(string s)` | `string` | ASCII 小写 / 大写化（返回新串） |
+| `libc_strrev` | `(string s)` | `string` | 字节反转 |
+| `libc_memcpy` / `libc_memmove` / `libc_memset` / `libc_memcmp` | `(int[] dst, ...)` | `void` / `int` | 数组（视为 `int` 内存块）拷贝 / 移动 / 填充 / 比较 |
+| `libc_abs` / `libc_labs` | `(int x)` | `int` | `int` / `long` 绝对值 |
+| `libc_atoi` | `(string s)` | `int` | 十进制解析（非法为 `0`，与内建一致） |
+| `libc_max` / `libc_min` | `(int a, int b)` | `int` | 最值 |
+| `libc_qsort_asc` | `(int[] a, int n)` | `void` | 快速排序升序（CIN 无比较函数指针，固定升序） |
+| `libc_rand` / `libc_srand` | `()` / `(int seed)` | `int` / `void` | 伪随机数与播种（包装内建 `rand` / `srand`） |
+| `libc_fabs` / `libc_sqrt` / `libc_pow` / `libc_floor` / `libc_ceil` / `libc_fmod` | `(float ...)` | `float` | `<math.h>`；`fmod` 商向零截断，除零返回 `0` |
+| `libc_sin` / `libc_cos` / `libc_tan` | `(float x)` | `float` | 弧度三角函数 |
+| `libc_round` / `libc_trunc` | `(float x)` | `float` | C 语义 round：半值**远离零**（`round(2.5)=3`，`round(-2.5)=-3`）；`trunc` 向零取整 |
+| `libc_puts` | `(string s)` | `int` | 输出并换行，返回 `0` |
+| `libc_print` | `(string s)` | `int` | 输出不换行 |
+| `libc_putchar` | `(int ch)` | `int` | 输出单个字符，返回字符码 |
+
+```c
+import "cstd.cin"
+
+function main() -> int {
+    if (libc_isdigit('7') == 1) { libc_puts("digit") }   // digit
+    println(libc_strupr("hello"))                          // HELLO
+    println(int_to_str(libc_strstr("haystack", "sta")))    // 3
+    println(int_to_str(libc_abs(-42)))                     // 42
+    println(float_to_str(libc_round(-2.5)))                // -3
     return 0
 }
 ```
@@ -779,6 +907,65 @@ function main() -> int {
     println("float  = " + float_to_str(fr_to_float(a)))
     Frac z = fr_make(1, 0)
     println("1/0    = " + fr_to_str(z) + " err=" + int_to_str(fr_error()))
+    return 0
+}
+```
+
+## gostd
+
+Go 标准库兼容层，以 `pkg.Func` 命名习惯提供 Go `strings` / `strconv` / `math` /
+`slices` / `os` 的常用函数（`go_strings_contains` 对应 `strings.Contains`），
+命名里的包段与 Go 文档一一对应，便于从 Go 移植或查阅语义。纯 CIN 实现，三路径一致；
+唯一例外是 `go_os_args_*`（依赖命令行参数内建，需原生路径）。
+
+```c
+import "gostd.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `go_strings_contains` / `go_strings_index` | `(string s, string sub)` | `int` | 是否包含（`1`/`0`）/ 首现下标（未找到 `-1`） |
+| `go_strings_last_index` | `(string s, string sub)` | `int` | 末现下标（未找到 `-1`）；空 sub 返回 `strlen(s)` |
+| `go_strings_contains_any` / `go_strings_index_any` | `(string s, string chars)` | `int` / `int` | s 是否含 chars 内任一字符 / 首个 chars 内字符的下标（`-1` 未找到） |
+| `go_strings_has_prefix` / `go_strings_has_suffix` | `(string s, string pre/suf)` | `int` | 前缀 / 后缀判定 |
+| `go_strings_to_upper` / `go_strings_to_lower` | `(string s)` | `string` | ASCII 大小写 |
+| `go_strings_trim_space` | `(string s)` | `string` | 去两端空白 |
+| `go_strings_trim_left` / `go_strings_trim_right` | `(string s, string cutset)` | `string` | 去前导 / 尾部 `cutset` 内字符（空 cutset 原样返回） |
+| `go_strings_trim_prefix` / `go_strings_trim_suffix` | `(string s, string pre/suf)` | `string` | 有前 / 后缀则去掉，无则原样返回 |
+| `go_strings_repeat` | `(string s, int n)` | `string` | 重复 `n` 次（`n <= 0` 空串） |
+| `go_strings_count` | `(string s, string sub)` | `int` | 非重叠子串计数；空 sub 返回 `strlen(s)+1`（与 Go 一致） |
+| `go_strings_replace_all` | `(string s, string old, string new)` | `string` | 全量替换（空 old 原样返回） |
+| `go_strings_equal_fold` | `(string a, string b)` | `int` | ASCII 大小写不敏感相等 |
+| `go_strings_compare` | `(string a, string b)` | `int` | `strcmp`：`<0` / `0` / `>0` |
+| `go_len` | `(string s)` | `int` | `len(s)` 字节长度 |
+| `go_itoa` / `go_atoi` | `(int v)` / `(string s)` | `string` / `int` | `strconv.Itoa` / `Atoi`（解析失败为 `0`） |
+| `go_format_float` | `(float v)` | `string` | `FormatFloat` 默认精度替身（即 `float_to_str`） |
+| `go_format_int` | `(int v, int base)` | `string` | `strconv.FormatInt`：base `2..36`（越界按 `10`）；负数带 `-`，小写数字 |
+| `go_parse_int` | `(string s, int base)` | `int` | `strconv.ParseInt` 简化版：可选 `-` 前缀，`0-9a-zA-Z`，base `2..36`；非法字符停在非法处 |
+| `go_math_abs` / `go_math_max` / `go_math_min` | `(int ...)` | `int` | 整数版 |
+| `go_math_floor` / `go_math_ceil` / `go_math_round` / `go_math_trunc` | `(float x)` | `float` | 取整族（round 为半值远离零） |
+| `go_math_sqrt` / `go_math_pow` | `(float ...)` | `float` | 包装内建 |
+| `go_slices_index` / `go_slices_last_index` | `(int[] a, int n, int x)` | `int` | 首现 / 末现下标（未找到 `-1`） |
+| `go_slices_contains` | `(int[] a, int n, int x)` | `int` | 是否包含 |
+| `go_slices_max` / `go_slices_min` / `go_slices_sum` | `(int[] a, int n)` | `int` | 最值 / 求和（空数组返回 `0`） |
+| `go_slices_reverse` / `go_slices_sort` | `(int[] a, int n)` | `void` | 原地反转 / 升序排序 |
+| `go_slices_equal` | `(int[] a, int[] b, int n)` | `int` | 前 `n` 个元素逐位相等（`1`/`0`） |
+| `go_slices_clone` | `(int[] dst, int[] src, int n)` | `int` | 拷贝到 `dst`，返回 `n`（调用方保证容量） |
+| `go_os_args_len` | `()` | `int` | `len(os.Args)`：CLI `--` 之后传给 CIN 程序的参数个数；**需原生路径** |
+| `go_os_args_get` | `(int i)` | `string` | `os.Args[i]`（越界空串；下标从 `0` 计 CIN 参数）；**需原生路径** |
+
+```c
+import "gostd.cin"
+
+function main() -> int {
+    println(go_strings_repeat("ab", 3))              // ababab
+    println(go_format_int(255, 16))                  // ff
+    println(int_to_str(go_parse_int("101", 2)))      // 5
+    println(go_strings_trim_suffix("x:suffix", ":suffix"))   // x
+    int a[3] = {1, 2, 3}
+    int b[3]
+    go_slices_clone(b, a, 3)
+    println(int_to_str(go_slices_equal(a, b, 3)))    // 1
     return 0
 }
 ```
@@ -1159,8 +1346,8 @@ import "math.cin"
 import "math.cin"
 
 function main() -> int {
-    println(float_to_str(f_round(2.5)))    // 3.000000
-    println(float_to_str(f_floor(-2.5)))   // -3.000000
+    println(float_to_str(f_round(2.5)))    // 3
+    println(float_to_str(f_floor(-2.5)))   // -3
     println(int_to_str(i_clamp(99, 0, 10)))// 10
     return 0
 }
@@ -1170,8 +1357,8 @@ function main() -> int {
 
 ```c
 function main() -> int {
-    println(float_to_str(round(2.5)))      // 3.000000
-    println(float_to_str(floor(-2.5)))     // -3.000000
+    println(float_to_str(round(2.5)))      // 3
+    println(float_to_str(floor(-2.5)))     // -3
     println(int_to_str(max(min(99, 10), 0)))  // 10
     return 0
 }
@@ -2027,14 +2214,14 @@ import "vec.cin"
 
 function main() -> int {
     float v[5] = {2.0, 4.0, 4.0, 4.0, 6.0}
-    println(float_to_str(v_sum(v, 5)))    // 20.000000
-    println(float_to_str(v_mean(v, 5)))   // 4.000000
-    println(float_to_str(v_dot(v, v, 5))) // 88.000000
-    println(float_to_str(v_norm(v, 5)))   // sqrt(88)
-    println(float_to_str(v_lerp(0.0, 10.0, 0.25)))  // 2.500000
+    println(float_to_str(v_sum(v, 5)))    // 20
+    println(float_to_str(v_mean(v, 5)))   // 4
+    println(float_to_str(v_dot(v, v, 5))) // 88
+    println(float_to_str(v_norm(v, 5)))   // 9.38083151964686 (sqrt(88))
+    println(float_to_str(v_lerp(0.0, 10.0, 0.25)))  // 2.5
     v_normalize(v, 5)
-    println(float_to_str(v[0]))           // 0.000000
-    println(float_to_str(v[4]))           // 1.000000
+    println(float_to_str(v[0]))           // 0
+    println(float_to_str(v[4]))           // 1
     return 0
 }
 ```

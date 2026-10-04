@@ -32,6 +32,7 @@ codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障�
 | `--version` / `-V` | — | 打印 `Code CIN <x.y.z>` 并退出 0 |
 | `--build-info` | — | 打印多行构建信息并退出 0,**不需要**位置参数 |
 | `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用会向 **stderr** 打印一行提示并返回 2 |
+| `--libs` | — | 列出全部内置标准库并标注执行路径要求 (见下), 退出 0,**不需要**位置参数 |
 
 `--build-info` 的字段包含版本、Python 实现与版本、平台/架构、JIT 可用性、包路径,
 以及**原生库是否可用、自报版本号、是否与包版本一致** —— 排查"原生库过期/未加载"时
@@ -65,6 +66,27 @@ Code CIN 构建信息 (build info) - 5.6.0
 codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
 ```
 
+`--libs` 列出 `codecin/lib/` 全部官方标准库, 并按**执行路径要求**标注三类
+(分类由源码扫描内建引用得出, 与库头注释保持一致):
+
+```text
+Code CIN 内置标准库清单
+
+  模块             类别      说明
+  cstd.cin       兼容层     C 语言兼容层 (cstd)
+  cppstd.cin     兼容层     C++ 标准库 (STL) 兼容层 (cppstd)
+  gostd.cin      兼容层     Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]
+  gui.cin        需原生运行时  GUI 窗口 + 画布绘图助手 (gui) [14 个宿主内建]
+  io.cin         需原生运行时  文件与路径 (io) [8 个宿主内建]
+  math.cin       纯 CIN   ...
+```
+
+- **纯 CIN**: 只调用语言内建, 解释 / JIT / 原生三路径一致 (含 `--no-native`);
+- **兼容层**: C / C++ / Go 标准库兼容层 (`cstd` / `cppstd` / `gostd`), 同样纯 CIN
+  三路径一致; 个别函数的原生依赖以方括号标注 (如 `gostd` 的 `go_os_args_*`);
+- **需原生运行时**: 转调宿主能力内建 (`gui` / `key` / `io` / `termux`),
+  `--no-native` 与 `--sandbox` 下调用会报错。
+
 ## 位置参数
 
 | 参数 | 说明 |
@@ -74,6 +96,14 @@ codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin)
 `program` 是**可选**位置参数, 只有真正要运行程序时才需要它: `--help` / `--version` /
 `--build-info` 都在读取位置参数之前就退出, 所以 `codecin --build-info` 不带任何程序文件
 也能成功运行 (退出码 0)。`--json` 只作为 `--build-info` 的修饰符, 不能代替位置参数。
+
+**命令行参数传递** (`--`): 解析器遇到独立 `--` 后, 其余参数不再按选项解析, 而是
+原样转交 CIN 程序, 程序内用 `arg_count()` / `arg(i)` 读取 (AOT 产物等价于
+`os.Args[1:]`):
+
+```bash
+codecin args_demo.cin -- --flag "hello 中文" 42
+```
 
 ## 执行路径
 

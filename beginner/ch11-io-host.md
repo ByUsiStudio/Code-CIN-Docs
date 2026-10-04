@@ -340,8 +340,13 @@ g_save = 0
 
 ## 11.10 音频与 Termux / Android (了解即可)
 
-- **音频**: `audio_play(url)` 支持 `http/https` 或本地 **WAV(PCM)** 文件, 配套
-  `audio_stop` / `audio_volume` / `audio_wait`。MP3/OGG 暂不支持。
+- **音频**: `audio_play(url)` 支持 `http/https` 或本地 **WAV(PCM)** 文件,
+  `beep(freq, ms)` 直接合成正弦蜂鸣; 配套全套播放控制 —— `audio_stop` /
+  `audio_volume` / `audio_wait` / `audio_pos` (已播毫秒) / `audio_duration` /
+  `audio_playing` / `audio_pause` / `audio_resume` / `audio_level` (音量读取)。
+  MP3/OGG 暂不支持。
+- **命令行参数与行输入**: `arg_count()` / `arg(i)` 读 CLI 参数 (运行命令里
+  `--` 之后的参数), `input_str()` 读一行文本。
 - **Termux (安卓)**: 装了 Termux:API 后可以用 `termux_notify` / `termux_toast` /
   `termux_vibrate` / `termux_tts` / `termux_battery` 等, 非 Termux 环境会优雅失败。
 - **Android / Termux 扩展**: 用 `is_android()` 先判断环境, 再调用 `android_intent` /

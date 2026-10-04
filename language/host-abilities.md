@@ -1,12 +1,13 @@
 ---
-description: "CIN 宿主能力：2D 画布导出 PNG、联网音频、文件/路径/进程/系统信息、HTTP 网络、哈希与 Base64、桌面集成（剪贴板/通知/打开 URL）与 Termux/Android API，均需 Go 原生运行时。"
+description: "CIN 宿主能力：GUI 窗口（Windows Win32 / Linux X11）、2D 画布导出 PNG、本地音频（beep 合成 / 进度 / 暂停恢复 / 音量）、命令行参数与行输入、文件/路径/进程/系统信息、HTTP 网络、哈希与 Base64、桌面集成（剪贴板/通知/打开 URL）与 Termux/Android API，均需 Go 原生运行时。"
 ---
 
 # 宿主能力
 
-除了纯计算, CIN 还能直接调用宿主: 画布绘图 (导出 PNG)、联网音频播放、文件与路径操作、
-进程与系统信息、HTTP 网络请求、哈希与 Base64、桌面集成 (剪贴板 / 通知 / 打开 URL),
-以及在 Android Termux 下调用 Termux 与 Android API。
+除了纯计算, CIN 还能直接调用宿主: GUI 窗口 (Windows Win32 / Linux X11)、画布绘图
+(导出 PNG)、本地音频 (beep 合成 / 播放进度 / 暂停恢复 / 音量)、命令行参数与行输入、
+文件与路径操作、进程与系统信息、HTTP 网络请求、哈希与 Base64、桌面集成
+(剪贴板 / 通知 / 打开 URL), 以及在 Android Termux 下调用 Termux 与 Android API。
 
 ::: danger 这些能力只有 Go 原生实现
 宿主能力内建**没有纯 Python 实现**。用 `--no-native` (或原生库加载失败) 时调用它们会直接
@@ -60,29 +61,119 @@ function draw() -> int {
 > `g_bar_chart` / `g_line_chart` / `g_grid`) 见标准库 `gui.cin`
 > ([标准库参考](/stdlib/reference))。
 
-## 联网音频
+## GUI 窗口 (Windows Win32 / Linux X11)
 
-| 函数 | 签名 | 说明 |
+5.8 新增**真·窗口**: 不经系统查看器, 程序自己创建窗口并把当前画布作为后备缓冲,
+事件驱动式渲染 (每次 `gui_update()` 处理事件并呈现), 还能读鼠标。无显示环境
+(SSH 无 X11、服务会话等) 下 `gui_new` 优雅失败返回 `-1`, 不抛异常。
+
+| 函数 | 返回 | 说明 |
 |------|------|------|
-| `audio_play(url)` | int | 下载 `http/https` URL 或读取本地文件并播放 (WAV/PCM), `0` 成功 / `-1` 失败 |
-| `audio_stop()` | void | 停止当前播放 |
-| `audio_volume(v)` | void | 设置音量 `0..100` (支持则生效, 否则忽略) |
-| `audio_wait()` | void | 阻塞到当前播放结束 (按 WAV 头时长估算) |
+| `gui_new(w, h, title)` | `int` | 创建 `w×h` 窗口 (画布成为窗口后备缓冲), `0` 成功 / `-1` 失败 |
+| `gui_update()` | `int` | 处理事件 + 呈现当前画布, `0` / 无窗口 `-1` (帧循环每帧调用) |
+| `gui_closed()` | `int` | `1` 用户已请求关闭 (点 X / Alt+F4) / `0` |
+| `gui_active()` | `int` | `1` 窗口已打开 / `0` |
+| `gui_close()` | `int` | 销毁窗口 (画布保留, 仍可 `save_png`) |
+| `mouse_x()` / `mouse_y()` | `int` | 光标在窗口内的坐标 / 无窗口 `-1` |
+| `mouse_button()` | `int` | 位掩码: `bit0` 左键 / `bit1` 右键 / `bit2` 中键按住 |
 
 ```c
-function music() -> int {
-    int ok = audio_play("https://example.com/tone.wav")
-    if (ok == 0) {
-        audio_volume(80)
-        audio_wait()
+import "key.cin"
+
+function main() -> int {
+    if (gui_new(320, 240, "CIN 窗口") == -1) {
+        println("无显示环境"); return 1
     }
-    return ok
+    while (gui_closed() == 0) {
+        fill_rect(0, 0, 320, 240)            // 清屏 (画到窗口后备缓冲)
+        draw_text(8, 8, "HELLO CIN")
+        gui_update()                          // 事件 + 呈现
+        if (key_hit() == 1 && get_key() == K_ESC) { break }
+        sleep_ms(16)                          // ~60 FPS
+    }
+    gui_close()
+    return 0
 }
 ```
 
-- 目前**只支持 WAV(PCM)**; MP3/OGG 需要额外解码库, 尚未纳入;
-- 播放后端按平台选择 (Windows `winmm`, 其它平台 `afplay` / `aplay` / `paplay` / `ffplay`),
-  无可用后端时返回 `-1`。
+- 完整示例见仓库 `examples/gui_demo.cin`; 画布内建 (`fill_rect` / `draw_text` …)
+  在窗口打开期间直接画进后备缓冲;
+- 窗口内的键盘事件与 [非阻塞键盘轮询](#键盘输入监听-非阻塞轮询) 共用同一套键码
+  (含 F11/F12、Ctrl/Shift + 方向键)。
+
+## 本地音频 (beep 合成 / 进度 / 暂停恢复 / 音量)
+
+音频组覆盖「合成蜂鸣 + 文件/URL 播放 + 全套播放控制」。同一时刻只有一段播放,
+`audio_play` / `beep` 都会打断上一次播放:
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `audio_play(url)` | `int` | 下载 `http/https` URL 或读取本地文件并播放 (WAV/PCM), `0` 成功 / `-1` 失败 |
+| `beep(freq, ms)` | `int` | 合成正弦蜂鸣 `freq` Hz × `ms` 毫秒 (`20..20000` Hz / `ms>=1`), `0` / `-1` |
+| `audio_stop()` | `void` | 停止当前播放 (并解除暂停态) |
+| `audio_wait()` | `void` | 阻塞到当前播放结束 |
+| `audio_volume(v)` | `void` | 设置音量 `0..100` (越界自动钳制) |
+| `audio_level()` | `int` | 读取当前音量 `0..100` (无播放时为默认/上次设置值) |
+| `audio_duration()` | `int` | 播放总时长毫秒; 无播放 / 自然播完 / 时长未知 `-1` |
+| `audio_pos()` | `int` | 已播放毫秒; 无播放 / 自然播完 `-1` (**暂停期间冻结**) |
+| `audio_playing()` | `int` | `1` 正在发声 (已开始 / 未暂停 / 未播完), 否则 `0` |
+| `audio_pause()` | `int` | 暂停播放, `0` 成功; 无播放 / 已暂停 / 平台不支持 `-1` |
+| `audio_resume()` | `int` | 恢复播放 (进度无缝续走, 结束时刻相应后移), `0` / 无暂停可恢复 `-1` |
+
+```c
+function main() -> int {
+    audio_volume(80)
+    beep(440, 300)                    // A4 蜂鸣 (阻塞式)
+    if (audio_play("tone.wav") == 0) {    // 本地文件 (或 https:// URL)
+        audio_pause()
+        println("pos=" + int_to_str(audio_pos()) + " dur=" + int_to_str(audio_duration()))
+        audio_resume()
+        audio_wait()
+    }
+    return 0
+}
+```
+
+- 只支持 **WAV(PCM)**; MP3/OGG 需要额外解码库, 尚未纳入;
+- 播放后端按平台选择 (Windows `waveOut`, 其它平台 `afplay` / `aplay` / `paplay` /
+  `ffplay`), 无可用后端时 `audio_play` / `beep` 返回 `-1`;
+- 暂停/恢复的平台实现: Windows `waveOutPause/Resume`, Unix 向播放器进程投递
+  `SIGSTOP`/`SIGCONT`; 平台不支持时 `audio_pause`/`audio_resume` 返回 `-1`,
+  程序可优雅跳过 (示例见 `examples/local_audio.cin`);
+- `audio_pos` 在暂停期间**冻结**在暂停时刻, 不随真实时间前进。
+
+## 命令行参数与行输入
+
+跨平台一致的输入语义 (SYS 129..131, 由 Go 原生引擎实现, 解释器路径下报宿主内建错误):
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `arg_count()` | `int` | 传给 CIN 程序的参数个数 (不含程序文件名本身) |
+| `arg(i)` | `string` | 第 `i` 个参数; 越界为空串 |
+| `input_str()` | `string` | 读入一行 UTF-8 文本 (不含行尾); EOF 为空串; **自带回显** |
+
+```c
+function main() -> int {
+    int n = arg_count()
+    for (int i = 0; i < n; i = i + 1) {
+        println("arg[" + int_to_str(i) + "] = " + arg(i))
+    }
+    print("你的名字: ")
+    string name = input_str()
+    if (strcmp(name, "") != 0) { println("hi, " + name) }
+    return 0
+}
+```
+
+```bash
+codecin demo.cin -- alpha beta      # `--` 之后的全部转交 CIN 程序 (见 CLI 参考)
+echo Alice | codecin demo.cin       # 管道输入同样走 input_str
+```
+
+- 命令行参数: CLI 用 `--` 分隔; AOT 产物直接取 `os.Args[1:]` (标准库 `gostd.cin`
+  的 `go_os_args_len` / `go_os_args_get` 即其包装);
+- `input_str` 与行内建 `input` (读整数) 不同: 返回**一整行文本**, 交互运行时逐行
+  等待键盘输入, 管道运行时由 CLI 预读全部标准输入再逐行分发。
 
 ## 文件系统
 
@@ -328,10 +419,18 @@ if (is_android() == 1) {
 
 | 返回值 | 含义 |
 |--------|------|
-| `0..255` | 原始字节: 字母 / 数字 / `Enter`=13 / `Tab`=9 / `Backspace`=8 / `Esc`=27; Ctrl+字母 = 字母 & 0x1F (Ctrl+C 即 `3`, 监听期间**不会**终止程序) |
+| `0..127` | Unicode 码点: 字母 / 数字 / `Enter`=13 / `Tab`=9 / `Backspace`=8 / `Esc`=27; Ctrl+字母 = 字母 & 0x1F (Ctrl+C 即 `3`, 监听期间**不会**终止程序) |
 | `1001..1010` | `↑ ↓ ← →` / Home / End / PgUp / PgDn / Ins / Del |
-| `1021..1030` | F1 .. F10 |
+| `1021..1032` | F1 .. F12 |
+| `1101..1104` | Ctrl + `↑ ↓ ← →` |
+| `1105..1108` | Shift + `↑ ↓ ← →` |
+| `1109` | Shift+Tab (反向遍历) |
 | `-1` | 无按键 |
+
+- **Unicode 码点**: Windows 端 UTF-16 代理对会组合成单个码点, 中文 / Emoji 等
+  非 ASCII 输入不再丢失;
+- **修饰键组合**: Ctrl/Shift + 方向键与 Shift+Tab 在 Windows 控制台与 Unix
+  终端 (CSI 修饰序列) 下键码一致, 游戏 / TUI 跨平台可用。
 
 真实终端下激活监听时, 原生引擎先把已缓冲输出落到终端, 之后逐条直写 stdout,
 "提示 → 等按键 → 反馈"顺序实时可见; 非终端环境 (管道 / 重定向 / 测试捕获) 保持
@@ -362,15 +461,17 @@ function main() -> int {
 
 | 能力 | 纯 Python / JIT | Go 原生 | 说明 |
 |------|:---------------:|:-------:|------|
+| GUI 窗口 / 鼠标 | ❌ | ✅ | `gui_new` 系列 (Windows Win32 / Linux X11) |
 | 画布 / PNG 导出 / 查看器 | ❌ | ✅ | `canvas` 系列 |
-| 联网音频 | ❌ | ✅ | 仅 WAV(PCM) |
+| 本地音频 (合成 / 播放控制) | ❌ | ✅ | `beep` / `audio_play` (WAV) / 进度 / 暂停恢复 / 音量 |
+| 命令行参数 / 行输入 | ❌ | ✅ | `arg_count` / `arg` / `input_str` (原生内建; CLI `--` 与管道注入) |
 | 文件 / 目录 / 路径 | ❌ | ✅ | 真实文件系统权限 (`file_*` / `path_*` / `dir_remove` / `chdir`) |
 | 进程 / 环境变量 / 系统信息 | ❌ | ✅ | `exec` / `getenv` / `os_name` / `time_ms` / `mem_info` |
 | 网络 (HTTP/HTTPS) | ❌ | ✅ | `http_get` / `http_post` / `download` |
 | 编码与哈希 | ❌ | ✅ | `sha256` / `base64_*` |
 | 桌面集成 | ❌ | ✅ | 剪贴板 / 通知 / `open_url` |
 | Termux API 与 Android 扩展 | ❌ | ✅ | 需 Termux:API; 非 Android 优雅失败 |
-| 键盘输入 (非阻塞轮询) | ❌ | ✅ | 需真实终端; 管道 / 重定向下优雅失败 |
+| 键盘输入 (非阻塞轮询) | ❌ | ✅ | 需真实终端; Unicode 码点 + F1..F12 + Ctrl/Shift 组合 |
 | 纯 CIN 标准库 (`math`/`sort`/`hash`…) | ✅ | ✅ | 三路径一致 |
 
 ## 相关页面

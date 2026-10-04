@@ -1,16 +1,17 @@
 ---
-description: Code CIN 官方标准库总览：36 个内置库的用途、前缀约定、宿主能力依赖与快速上手。
+description: Code CIN 官方标准库总览：39 个内置库（含 C / C++ / Go 三语言标准库兼容层）的用途、前缀约定、宿主能力依赖与快速上手。
 ---
 
 # 标准库总览
 
-Code CIN 官方标准库由 36 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
+Code CIN 官方标准库由 39 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
 它们本身是**用 CIN 语言写成的模块**，不是宿主内建函数：编译器在编译主文件时按需展开，
 因此函数签名、边界行为和返回值都可以直接阅读源码核对。
 
 标准库按职责分层：纯计算类库（数组、排序、数学、统计、哈希、位运算）只依赖语言内建，
-在三条执行路径下行为完全一致；而文件、画布、Termux、键盘这类库需要宿主提供能力，
-只能运行在 Go 原生引擎上。
+在三条执行路径下行为完全一致；**C / C++ / Go 标准库兼容层**（`cstd` / `cppstd` /
+`gostd`）用惯用命名封装同样只依赖内建的 API；而文件、画布、Termux、键盘这类库需要宿主
+提供能力，只能运行在 Go 原生引擎上。用 `codecin --libs` 可列出全部库及其执行路径要求。
 
 ## 分发位置与查找规则
 
@@ -72,6 +73,9 @@ Code CIN 官方标准库由 36 个 `.cin` 源文件组成，随 pip 包一起分
 | `tok_` | `token.cin` | token 切分 / 分词 |
 | `tree_` | `tree.cin` | 定长二叉搜索树 |
 | `uf_` | `unionfind.cin` | union-find 并查集 |
+| `libc_` | `cstd.cin` | C 语言标准库兼容层（`<ctype.h>` / `<string.h>` …） |
+| `stl_` | `cppstd.cin` | C++ STL 兼容层（`std::string` / `vector` / `stack` / `queue`） |
+| `go_` | `gostd.cin` | Go 标准库兼容层（`strings` / `strconv` / `math` / `slices` / `os`） |
 
 ::: warning `t_` 前缀冲突
 `codecin/lib/time.cin` 与 `codecin/lib/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
@@ -121,10 +125,54 @@ Code CIN 官方标准库由 36 个 `.cin` 源文件组成，随 pip 包一起分
 | `token.cin` | `tok_` | 10 | 按分隔串或空白切分取 token（计数、取值、取长、查找） | 否 |
 | `tree.cin` | `tree_` | 15 | 二叉搜索树：插入、查询、三种遍历、高度与叶子数 | 否 |
 | `unionfind.cin` | `uf_` | 8 | 并查集（按秩合并 + 路径压缩） | 否 |
+| `cstd.cin` | `libc_` | 56 | C 标准库兼容层：ctype 字符类别、string 内存/串操作、stdlib abs/rand/qsort、math 取整三角、stdio 输出 | 否 |
+| `cppstd.cin` | `stl_` | 57 | C++ STL 兼容层：std::string 方法、vector/stack/queue（数组 + 长度游标）、algorithm 排序/钳制 | 否 |
+| `gostd.cin` | `go_` | 46 | Go 标准库兼容层：strings、strconv（含任意进制）、math、slices、os.Args | 否（`go_os_args_*` 依赖原生） |
+
+## C / C++ / Go 标准库兼容层
+
+`cstd.cin` / `cppstd.cin` / `gostd.cin` 把 C、C++、Go 三门语言最常用的标准库 API
+按**惯用命名**移植成纯 CIN 函数（`libc_strlen` / `stl_vec_push_back` / `go_strings_contains`），
+方便从现有代码迁移算法或按语言文档查阅语义：
+
+```c
+import "cstd.cin"
+import "cppstd.cin"
+import "gostd.cin"
+
+function main() -> int {
+    // C: <ctype.h> + <string.h>
+    if (libc_isdigit('7') == 1) { libc_puts("digit") }
+    println(libc_strupr("hello"))                 // HELLO
+    // C++: std::vector<int> = 数组 + 长度游标 (push/pop 返回新长度)
+    int v[8]
+    int n = 0
+    n = stl_vec_push_back(v, n, 3)
+    n = stl_vec_push_back(v, n, 1)
+    stl_sort(v, n)
+    // Go: strings / strconv
+    println(go_strings_repeat("ab", 3))           // ababab
+    println(go_format_int(255, 16))               // ff
+    return 0
+}
+```
+
+语义约定（各库头注释均有注明）：
+
+- **cstd**：类型映射 C `char*` → `string`、C `char` → 字符码 `int`、C 数组 →
+  数组引用 + 显式长度；无法以 CIN 表达的指针返回值（如 `strchr`）改为返回**下标**；
+- **cppstd**：CIN 无模板与引用，容器以「数组 + 长度游标」表达，
+  `push_back` / `pop_back` 返回**新长度**由调用方存回；`npos` 以 `-1` 表示；
+- **gostd**：函数名保持 `pkg.Func` 习惯（`go_strings_trim_space` 对应
+  `strings.TrimSpace`）；`go_os_args_len` / `go_os_args_get` 依赖命令行参数内建，
+  需要原生路径。
+
+三库都是**纯 CIN**（只调用语言内建），解释 / JIT / 原生三路径行为一致。
+逐一核对函数签名与边界行为请直接阅读 `codecin/lib/*.cin` 源码。
 
 ## 纯 CIN 库与宿主能力库
 
-纯 CIN 库（上表「依赖宿主能力 = 否」的 32 个）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
+纯 CIN 库（上表「依赖宿主能力 = 否」的 35 个，含三个兼容层库）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
 只用数组与循环，`codecin/lib/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们的行为在
 **Go 原生 VM / JIT / 纯 Python 解释器**三条路径下完全一致，可直接用 `--no-native` 验证：
 
@@ -188,7 +236,7 @@ clamp=10
 import "math.cin"
 
 function main() -> int {
-    println(float_to_str(f_round(2.5)))    // 3.000000
+    println(float_to_str(f_round(2.5)))    // 3
     return 0
 }
 ```
@@ -197,7 +245,7 @@ function main() -> int {
 
 ```c
 function main() -> int {
-    println(float_to_str(round(2.5)))      // 3.000000
+    println(float_to_str(round(2.5)))      // 3
     return 0
 }
 ```
