@@ -4,12 +4,12 @@ description: "扩展 Code CIN：新增 ISA 指令或 SYS 系统调用需要同�
 
 # 扩展指令 / 系统调用
 
-新增一条指令或一个系统调用会牵动多条执行路径。**按顺序改完下面每一处**, 再跑常量生成与
-回归测试, 否则三路径一致性会被打破。
+新增一条指令或一个系统调用要同步 Python 单一真源、Go 引擎与编译器。**按顺序改完下面
+每一处**, 再跑常量生成与回归测试, 否则常量漂移会让原生库在运行时直接出错。
 
 ## 新增一条 ISA 指令
 
-以新增指令 `MINUS` 为例, 需要改动的 6 处:
+以新增指令 `MINUS` 为例, 需要改动的 4 处:
 
 ### 1. `codecin/isa.py` — 指令集单一真源
 
@@ -27,34 +27,18 @@ class Constants:
     PL_KEYWORDS = {...}    # 需要 PL 关键字风格时加 'minus': 'MINUS'
 ```
 
-### 2. `codecin/cpu.py` — 解释执行
+### 2. `codecin/native/engine/vm.go` — Go 原生 VM (唯一执行引擎)
 
-```python
-def _op_minus(self, args):
-    dst = args[0][1]
-    self._set_reg(dst, self._val(args[0]) - self._val(args[1]))
-    return True
-```
+在字节码 `switch` 里加实现。操作码常量来自生成的 `engine/isa_gen.go`, 该文件**不要手工修改**。
+v5.9.0 起没有解释器回退: 未实现的指令会直接报错, 所以 Python 真源与 Go 实现**要在同一次
+改动里都完成**, 并立刻用下面的回归步骤验证。
 
-dispatch 表按 `_op_` 前缀**自动注册** (见 `_init_dispatch`), 不需要手工登记;
-若新指令没有独立语义 (例如等同于 `NOP` 的别名), 在 `CPU._OP_ALIASES` 里声明即可。
-
-### 3. `codecin/jit.py` — JIT 代码生成
-
-在 JIT 支持的指令白名单/生成分支里加上新指令, 否则包含它的基本块会整块回退解释执行
-(功能仍正确, 只是没有加速)。
-
-### 4. `codecin/native/engine/vm.go` — Go 原生 VM
-
-在字节码 `switch` 里加实现; **未实现时返回 `StatusUnsupported`**, Python 侧会自动回退解释
-执行, 不会给出错误结果。操作码常量来自生成的 `engine/isa_gen.go`, 该文件**不要手工修改**。
-
-### 5. `codecin/assembler.py` — 汇编器
+### 3. `codecin/assembler.py` — 汇编器
 
 常规 `reg / imm / label / mem` 操作数会被自动支持; 只有**特殊语法** (如条件后缀、成对访存)
 才需要在这里适配。PL 关键字风格走 `Constants.PL_KEYWORDS`。
 
-### 6. CIN 侧 (可选) — 让高级语言能用到
+### 4. CIN 侧 (可选) — 让高级语言能用到
 
 若新指令需要暴露给 CIN, 走 `Syscall` 功能号 + SYS 处理器 (见下一节);
 宿主能力内建采用**表驱动**:
@@ -64,23 +48,31 @@ dispatch 表按 `_op_` 前缀**自动注册** (见 `_init_dispatch`), 不需要�
 | `codecin/cin.py: HOST_BUILTINS` | 名称 → (SYS 号, 参数个数, 返回类型) |
 | `codecin/native/compiler/codegen.go: hostBuiltins` | 同上 (Go 编译器) |
 
-Python 解释器会对宿主内建统一给出“需原生运行时”的错误提示, 两处表必须一致。
+宿主能力内建在 `--sandbox` 模式下会被拦截 (`Host capability disabled in sandbox mode`), 两处表必须一致。
 
 ## 新增一个 SYS 系统调用
 
-四处编号必须一致:
+三处编号必须一致:
 
 ```text
 codecin/isa.py: Syscall 枚举编号
         ↓
-codecin/cpu.py: SYS 分支 (解释执行)
+codecin/native/engine/vm.go: doSyscall 分支 (Go 原生 VM)
         ↓
-codecin/native/engine/vm.go: SYS 分支 (Go 原生 VM)
-        ↓
-codecin/cin.py: _gen_call / HOST_BUILTINS 内建映射 (以及 Go 侧 codegen 表)
+codecin/cin.py: HOST_BUILTINS 内建映射 (以及 Go 侧 compiler/codegen.go: hostBuiltins)
 ```
 
 Go 编译器使用的 SYS 常量在 `codecin/native/compiler/syscalls.go`, 由脚本自动生成。
+
+当前 SYS 编号高段 (137 起) 一览, 新增时紧接其后:
+
+| SYS | 名称 | 用途 |
+|-----|------|------|
+| 137 | `ALLOCFRAME` | 栈帧分配 (带栈余量防护) |
+| 138 | `TIMEUS` | 单调时钟, 微秒 |
+| 139 | `TIMENS` | 单调时钟, 纳秒 |
+| 140–144 | `DLOPEN` / `DLSYM` / `FFICALL` / `FFICALLF` / `LIBCLOSE` | FFI 动态库调用 |
+| 145–157 | `HTTPREQ` / `HTTPCODE` / `TCPDIAL` / `TCPSEND` / `TCPRECV` / `TCPCLOSE` / `TCPLISTEN` / `TCPACCEPT` / `UDPOPEN` / `UDPSENDTO` / `UDPRECVFROM` / `UDPCLOSE` / `DNSLOOKUP` | 网络宿主能力 |
 
 ## 常量生成与同步
 
@@ -105,14 +97,13 @@ python script/gen_native_isa.py --check
 ```bash
 # 1. 重新编译原生库 (见 编译 Go 原生库)
 cd codecin/native
-sh build.sh            # Windows: .\build.ps1
+sh build.sh            # Windows: powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1
 cd ../..
 
 # 2. 原生库确实加载
 python -c "from codecin import native; print(native.get_engine())"
 
-# 3. 三路径一致性 + 全量测试
-python script/check_paths.py
+# 3. 全量测试
 python -m pytest
 
 # 4. 文档站构建 (ISA 页面已重新生成)
@@ -121,10 +112,8 @@ cd docs && npm run docs:build
 
 验收点:
 
-- [ ] `python -m pytest` 全绿 (含 `test_isa_dispatch.py` 的“每个 opcode 都有处理器”断言)
+- [ ] `python -m pytest` 全绿 (示例回归会在 Go 原生引擎上实跑新指令)
 - [ ] 两个 `--check` 都通过
-- [ ] `--no-native` / `--jit --no-native` / 原生 三条路径输出一致 (`script/check_paths.py`)
-- [ ] `--debug` 下能看到新指令的逐指令追踪行
 - [ ] 文档站 ISA 页面已更新 (`docs/reference/isa.md`)
 
 ## 相关页面

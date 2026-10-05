@@ -103,14 +103,11 @@ Sum 1..10 = 55
 155
 ```
 
-常用的相关开关 (完整列表见 `cpu.py --help`):
+常用的相关开关 (完整列表见 `codecin --help`):
 
 | 开关 | 作用 |
 | --- | --- |
-| `--no-native` | 禁用 Go 原生库, 强制纯 Python 解释执行 |
 | `--strict` | 严格汇编模式, 校验指令的操作数个数 |
-| `--debug` | 逐指令追踪寄存器、内存、栈与缓存 |
-| `--step` | 交互式单步调试 |
 | `--compile-only` | 只编译为 `.bin` 字节码, 不执行 |
 | `--disasm` | 反汇编 `.bin` 字节码并退出 |
 | `--log-level ERROR` | 只输出错误, 保持示例输出干净 |
@@ -118,24 +115,25 @@ Sum 1..10 = 55
 在 Windows PowerShell 中同样直接调用:
 
 ```powershell
-codecin test_asm.asm --no-native --log-level ERROR
+codecin test_asm.asm --log-level ERROR
 ```
 
 ## 与 CIN 的关系
 
-三条路径**一致**是 Code CIN 的核心设计约束:
+**同一 ISA、同一字节码、同一执行引擎**是 Code CIN 的核心设计约束:
 
 ```text
   .cin 高级语言 ──► CINCompiler ──┐
                                   ├──► (opcode, operands) 指令序列
   .pl  PL 关键字 ──► Assembler ───┤            │
-  .asm 汇编      ──► Assembler ───┘            ├──► UCPU 解释器 / Go 原生 VM / JIT
-                                               └──► UCBC 字节码 .bin
+  .asm 汇编      ──► Assembler ───┘            ├──► UCBC 字节码 .bin
+                                               └──► Go 原生引擎 (codecin_run_v2)
 ```
 
-- **同一 ISA**: 112 条指令由 `codecin/isa.py` 的 `Opcode` 枚举唯一定义, 三条路径没有各自的私有指令。
+- **同一 ISA**: 112 条指令由 `codecin/isa.py` 的 `Opcode` 枚举唯一定义。
 - **同一字节码**: `.cin` 与 `.asm` 都能编译成同格式的 `.bin` (`--compile-only`), 并可互相反汇编验证。
-- **同一执行器**: 都由 `codecin/cpu.py` 的 `_op_*` 处理器执行, 语义不会因输入路径而分叉。
+- **同一执行引擎**: 字节码统一交给 Go 原生引擎整程序执行 (v5.9.0 起 native-only),
+  语义不会因输入路径而分叉。
 
 CIN 还能在函数体里直接内嵌 **PL 关键字风格的 CPU 指令语句** (无逗号), 实现零开销的定点操作:
 

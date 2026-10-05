@@ -60,10 +60,10 @@ for (int v : a) {
 
 ::: warning 默认不做越界检查
 与 C 一样, CIN 默认不检查数组越界, 越界读写会踩到相邻数据。需要检查时加
-`--bounds-check` (会强制走解释执行):
+`--bounds-check` (编译期把检查注入字节码, 与 Go 原生引擎兼容):
 
 ```bash
-codecin prog.cin --no-native --bounds-check
+codecin prog.cin --bounds-check
 ```
 :::
 

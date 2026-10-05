@@ -278,17 +278,22 @@ function main() -> int {
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| 内存总量 `--mem-size` | `65536`（64 KB，可用 `--mem-size` 覆盖） | 栈与堆共享这块内存 |
-| 栈槽数 `stack_size` | `1024` 个 qword 槽 | 每槽 8 字节，约 8 KB |
+| 内存总量 `--mem-size` | `1073741824`（1 GiB，稀疏分页按需提交，可用 `--mem-size` 覆盖） | 栈与堆共享这块地址空间 |
+| 栈顶 | `(mem_size - 8) & ~0x7` | 栈从内存顶端向下生长；函数序言用 SYS 137 `ALLOCFRAME` 分配帧（带栈余量防护） |
 | 指令上限 `--max-instructions` | `100000000` | 防止死循环跑飞 |
 
-递归过深时栈会撞上堆，运行时报：
+递归过深或局部大数组超出栈余量时，函数序言的帧分配会报：
 
 ```text
-Stack overflow (collides with heap)
+Stack overflow: frame needs 80000 bytes, stack headroom only 12344 bytes
+(SP 0x2000e0f8, guard 0x20001000, memory 1073741824 bytes).
+Try --mem-size (default 1073741824) or smaller local arrays
 ```
 
-加大 `--mem-size` 可以缓解，但**改不了递归算法本身的复杂度**：
+`PUSH` 直接撞上堆则报 `Stack overflow (collides with heap)`。
+
+默认 1 GiB 内存已能容纳很深的递归，一般无需调整；若仍不足可加大
+`--mem-size`，但**改不了递归算法本身的复杂度**：
 
 ```bash
 codecin deep.cin --mem-size 1048576
@@ -432,7 +437,7 @@ sum_to(100) = 5050
 | `Expected IDENT but got LBRACKET ('[')` | 参数把维度写在类型名上（`int[3] a`） | 改成 `int a[3]` |
 | `Expected LBRACE but got LBRACKET ('[')` | 返回类型用了固长数组 `-> int[3]` | 改成 `-> int[]` |
 | `Expected RBRACE ... at line N` | 花括号不配对 / 块内缺换行 | 检查第 N 行附近括号 |
-| `Stack overflow (collides with heap)` | 递归过深或栈耗尽 | 减少深度或 `--mem-size` 扩容 |
+| `Stack overflow: frame needs ...` / `Stack overflow (collides with heap)` | 递归过深 / 局部大数组超栈余量 / PUSH 撞堆 | 减少深度、缩小局部数组，或 `--mem-size` 扩容 |
 | `Non-constant global initializer: call` | 全局变量用函数调用初始化 | 改到函数体内赋值 |
 
 ## 相关页面

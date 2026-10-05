@@ -159,8 +159,9 @@ function main() -> int {
 
 - 每次拼接、`strcpy`、`substr`、`upper` 等都会**分配新的堆块**;
 - 在长循环里反复拼接会持续占用堆, 必要时改用标准库工具或预先算好长度;
-- 堆与栈在默认 64 KiB 内存里是共享的 (堆基址 `0x8000`, 栈从 `0xFFF8` 往下),
-  堆栈相撞会报 `Stack overflow (collides with heap)`, 可用 `--mem-size` 扩容;
+- 堆与栈在默认 1 GiB 内存里是共享的 (堆基址 `0x20000000`, 栈从 `0x3FFFFFF8` 往下,
+  按需提交, 只有真正写入的部分占物理内存), 堆栈相撞会报
+  `Stack overflow (collides with heap)`, 极端情况可用 `--mem-size` 扩容;
 - 内存布局细节见 [寄存器与内存模型](/reference/registers-memory)。
 
 ## 常见错误

@@ -65,7 +65,7 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
 
 ## 内存错误 (5.8.2+)
 
-所有内存访问错误统一为 `MemoryAccessError` (旧的 `PageFaultError` 已并入, `MemoryError`
+所有内存访问错误统一为 `MemoryAccessError` (历史上独立的页错误异常已并入, `MemoryError`
 是其兼容别名)。5.8.2 起错误信息带具体数值与提示:
 
 ```text

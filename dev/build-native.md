@@ -402,4 +402,3 @@ native version_gen.go up to date.
 - [测试与 CI](/dev/testing) — CI 的 `native` / `integration` 作业
 - [打包与发布](/dev/packaging) — 安装期现场编译与 Release 预编译资产
 - [Go 原生运行时](/runtime/native) — 加载顺序与宿主能力边界
-- [执行路径](/guide/execution-paths) — 原生路径的启用条件与回退

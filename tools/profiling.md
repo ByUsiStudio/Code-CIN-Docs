@@ -4,7 +4,7 @@ description: "Code CIN 性能分析与计时: time_us()/time_ns() 程序内打�
 
 # 性能分析与计时
 
-v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。Python 侧不再逐指令记账，因此旧版 `--profile` 逐指令统计报告已随解释器一并移除——性能测量改用**程序内计时**。
+v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。Python 侧不再逐指令记账，旧版的逐指令统计报告选项已随解释器一并移除——性能测量改用**程序内计时**。
 
 - 内存模型与 `--mem-size` 见 [/tools/memory-cache](/tools/memory-cache)；
 - 日志级别与错误面板见 [/tools/logging](/tools/logging)；
