@@ -785,5 +785,4 @@ main:
 - [汇编语法参考](/asm/syntax)
 - [指令集编码表](/reference/isa)
 - [寄存器与内存模型](/reference/registers-memory)
-- [交互式调试器](/tools/debugger)
 - [扩展指令 / 系统调用](/dev/extend)

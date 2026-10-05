@@ -319,10 +319,10 @@ function main() -> int {
 a[5] = 99
 ```
 
-怀疑有越界时, 打开检查开关 (会强制走纯 Python 解释执行):
+怀疑有越界时, 打开检查开关 (编译期注入检查, 与 Go 原生引擎完全兼容):
 
 ```bash
-codecin prog.cin --no-native --bounds-check
+codecin prog.cin --bounds-check
 ```
 
 ```text

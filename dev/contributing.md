@@ -111,7 +111,7 @@ npm run docs:preview   # 预览构建产物
 - 代码块语言: CIN 用 ` ```c `, 汇编用 ` ```asm `, shell 用 ` ```bash ` / ` ```powershell `,
   Python 用 ` ```python `, Go 用 ` ```go `, 输出用 ` ```text `;
 - 站内链接用**绝对路径且不带 `.md`** (例如 `/language/functions`);
-  不要链接被 `srcExclude` 排除的仓库文档 (`/ISA`、`/CIN_GUIDE`、`/BUILDING`、`/REMOTE_DEBUG`);
+  不要链接被 `srcExclude` 排除的仓库文档 (`/ISA`、`/CIN_GUIDE`、`/BUILDING`);
 - 对照内容优先用标签页 (vitepress-plugin-tabs):
 
   ````md

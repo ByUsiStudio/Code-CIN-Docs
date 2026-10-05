@@ -134,8 +134,8 @@ function main() -> int {
 | `unionfind.cin` | `uf_` | `uf_reset` `uf_find` `uf_union` `uf_connected` `uf_count` `uf_size` |
 
 ::: warning 依赖宿主能力的库
-`io.cin` / `gui.cin` / `termux.cin` / `key.cin` 封装的是宿主能力 (文件、画布、Termux API、键盘轮询), 因此
-**需要 Go 原生运行时**; 其余库为纯 CIN, 三条执行路径一致。
+`io.cin` / `gui.cin` / `termux.cin` / `key.cin` 封装的是宿主能力 (文件、画布、Termux API、键盘轮询), 由
+Go 原生引擎执行 (沙箱模式下会被拦截); 其余库为纯 CIN, 无宿主依赖。
 :::
 
 逐库逐函数的签名、返回值与边界行为见 [标准库参考](/stdlib/reference);

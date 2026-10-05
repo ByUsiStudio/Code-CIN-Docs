@@ -480,7 +480,7 @@ Assembler error: csel x0, x0, x0 -- Argument count mismatch for CSEL: expected 4
 ```
 
 ```bash
-codecin prog.asm --strict --no-native
+codecin prog.asm --strict
 ```
 
 标记为"变长"(`ARG_COUNTS` 为 `-1`) 的指令不参与计数检查, 只有 `B`、`JALR`、`SYS` 三条。
@@ -510,8 +510,8 @@ codecin prog.asm --strict --no-native
 | `Include file 'xxx' not found` | `#include` 目标不存在 | 检查相对路径 |
 | `#include format error` | `#include` 后没有文件名 | 补上文件名 |
 
-排查顺序建议: 先加 `--strict` 消掉操作数个数问题, 再用 `--log-level DEBUG` (或 `--debug`)
-查看标签表与逐指令追踪, 或用 `--step` 进入交互式单步 (见 [交互式调试器](/tools/debugger)),
+排查顺序建议: 先加 `--strict` 消掉操作数个数问题, 再用 `--log-level DEBUG` 查看
+编译与装载日志 (见 [日志与错误输出](/tools/logging)),
 最后确认标签归属 —— 代码标签只能作跳转目标, 数据标签要先用 `mov` 取地址再用内存指令访问。
 
 ::: warning 文件必须是 UTF-8 且不要带 BOM

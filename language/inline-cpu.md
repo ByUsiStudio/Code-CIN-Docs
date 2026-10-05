@@ -64,7 +64,7 @@ a += b                // 复合赋值 (同样 a = a + b)
 - [指令集编码表](/reference/isa) — 自动生成的编码表
 
 ```c
-// 用 --debug 可以看到内嵌语句编译出的真实指令
+// 用 --compile-only + --disasm 可以看到内嵌语句编译出的真实指令
 function demo() -> void {
     int x = 1
     increment x

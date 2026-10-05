@@ -30,7 +30,7 @@ Code CIN 的 UCPU 是一台 **64 位、小端、load/store 风格**的模拟机:
 ```python
 from codecin import CPU, Config
 
-cpu = CPU(Config(interactive_mode=False, log_level='ERROR'))
+cpu = CPU(Config(log_level='ERROR'))
 cpu.regs.write(0, 0xDEADBEEF)     # X0
 cpu.regs.write(31, 12345)         # 无效: XZR 只读
 print(cpu.regs.read(0), cpu.regs.read(31))   # 3735928559 0
@@ -125,7 +125,7 @@ Python 侧据此恢复 `VectorRegisterFile` 的状态。
 ```python
 from codecin import CPU, Config
 
-cpu = CPU(Config(interactive_mode=False, log_level='ERROR'))
+cpu = CPU(Config(log_level='ERROR'))
 cpu.instructions = [
     ('MOV',  [('reg', 0), ('imm', 5)]),
     ('CMP',  [('reg', 0), ('imm', 5)]),

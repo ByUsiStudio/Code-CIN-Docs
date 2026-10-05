@@ -251,8 +251,8 @@ codecin prog.cin --max-instructions 100000
 2. `for (int i = 0; i < n; i--)` 方向写反;
 3. `while (i < 10)` 里 `i` 只在 `if` 分支里自增, 某些情况下不增。
 
-调试手段: 在循环体里打印 `i`, 或者用 `--debug` 看程序停在哪条指令
-(见 [第 12 章](/beginner/ch12-debug))。
+调试手段: 在循环体里打印 `i`, 或者加 `--max-instructions 100000` 兜底,
+让失控程序因指令数超限而停止 (见 [第 12 章](/beginner/ch12-debug))。
 :::
 
 ## 5.10 常见错误

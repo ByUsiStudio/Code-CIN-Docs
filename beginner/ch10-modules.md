@@ -131,9 +131,8 @@ max3 = 9
 | `key.cin` | 键盘轮询 (需原生) | `k_ctrl` `k_is_special` `key_wait` + `enum Key` 常量 |
 
 ::: warning 四个库需要 Go 原生运行时
-`io` / `gui` / `termux` / `key` 封装的是宿主能力 (文件、绘图、安卓 API、键盘)。用 `--no-native`
-运行时会报 `host builtins ... require the native Go runtime`。其余 32 个库是纯 CIN,
-三条执行路径行为一致。
+`io` / `gui` / `termux` / `key` 封装的是宿主能力 (文件、绘图、安卓 API、键盘), 由 Go 原生引擎
+执行 (沙箱模式下会被拦截)。其余 32 个库是纯 CIN, 无宿主依赖。
 :::
 
 完整函数签名见 [标准库参考](/stdlib/reference)。

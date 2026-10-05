@@ -78,11 +78,11 @@ docs/
 ├── asm/                    # 汇编: 总览、语法参考、指令语义参考
 ├── stdlib/                 # 内置标准库总览与逐函数参考
 ├── runtime/                # Go 原生运行时、二进制格式、AOT
-├── tools/                  # 调试器、远程调试协议、日志、性能分析、内存与缓存
+├── tools/                  # 日志与错误输出、性能分析、内存与运行时开关
 ├── reference/              # 指令集编码表、寄存器与内存模型、Python API、更新日志
 ├── dev/                    # 项目结构、编译原生库、测试与 CI、打包、扩展、贡献
 ├── README.md               # 本文件 (不打进站点)
-└── ISA.md / CIN_GUIDE.md / BUILDING.md / REMOTE_DEBUG.md / SUGGESTIONS*.md
+└── ISA.md / CIN_GUIDE.md / BUILDING.md / SUGGESTIONS*.md
                             # 主仓库的开发用文档, 由 config.mts 的 srcExclude 排除, 不作为站点页面
 ```
 

@@ -530,8 +530,8 @@ function main() -> int {
 
 验证死循环可以用 `codecin prog.cin --max-instructions 100000`, 程序会因指令数超限而停止。
 
-**练习 3**: `--debug` 的第一条 trace 是 `PC=0x0000 #00000000 CALL main->0x2`,
-说明入口先执行一条 `CALL`, 跳到地址 `0x2` (即 `main` 的代码)。
+**练习 3**: 编译成 `.bin` 后用 `codecin prog.bin --disasm` 反汇编, 可以看到入口
+先执行一条 `CALL`, 跳到地址 `0x2` (即 `main` 的代码)。
 
 ## 写在最后
 

@@ -219,8 +219,8 @@ codecin hello.cin --log-level ERROR
 # 3) 查看完整帮助 (所有命令行选项)
 codecin --help
 
-# 4) 想看得更细: 逐条指令追踪 (第 12 章详解)
-codecin hello.cin --no-native --debug
+# 4) 出问题想看得更细: 打开调试日志 (第 12 章详解排错)
+codecin hello.cin --log-level DEBUG
 ```
 
 ## 1.8 练习

@@ -17,12 +17,13 @@ description: "第 11 章：CIN 读写的文件与路径、网络请求、哈希/
 codecin prog.cin
 ```
 
-如果加了 `--no-native` (或者原生库没装上), 程序会在**调用宿主功能的那一行**
-报错并退出码 1:
+如果原生库没装上 (或版本不匹配), 程序会**在启动时**直接报错并退出码 1
+(v5.9.0 起没有解释器回退):
 
 ```text
-ERROR    Execution error: host builtins (GUI/audio/system/Termux) require the
-         native Go runtime (run without --no-native)
+Native engine unavailable: 未找到 codecin-native 动态库。
+请先构建原生库: 运行 codecin/native/build.ps1 (Windows)
+或 codecin/native/build.sh (Linux/Termux/macOS), 然后重试。
 ```
 
 ::: warning 宿主能力是真实的系统权限
@@ -406,7 +407,7 @@ function main() -> int {
 
 | 现象 | 原因 | 解决 |
 |------|------|------|
-| `host builtins ... require the native Go runtime` | 用了 `--no-native` | 去掉该选项; 或确认原生库已加载 |
+| `Native engine unavailable: ...` (启动即报) | 原生库未构建 / 未找到 | 运行 `codecin/native/build.ps1` (`build.sh`) 构建, 见 [/dev/build-native](/dev/build-native) |
 | `file_read` 返回空串 | 路径不对 / 文件不存在 | 先 `file_exists` 检查, 注意相对路径基于当前目录 |
 | 写文件返回 `-1` | 目录不存在或无权限 | 先 `mkdir`, 或换可写目录 |
 | 图片没生成 | `save_png` 返回了 `-1` | 检查目标目录是否存在 |
@@ -433,7 +434,7 @@ function main() -> int {
 ## 11.14 本章小结
 
 - 宿主能力 (文件 / 路径 / 网络 / 哈希 / 桌面 / 画布 / 音频 / 命令 / Termux / 键盘) 需要 Go 原生运行时,
-  `--no-native` 下调用会报 `host builtins ... require the native Go runtime`;
+  原生库缺失时程序启动即报错并给出重建指引;
 - 文件: `file_write` / `file_append` / `file_read` / `file_exists` / `file_size` / `mkdir`;
   路径与管理: `path_join` / `path_basename` / `path_dirname` / `path_abs` / `file_copy` /
   `file_move` / `dir_remove` / `is_dir` / `file_mtime` / `temp_dir` / `chdir`;
