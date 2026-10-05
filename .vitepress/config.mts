@@ -12,7 +12,7 @@ export default defineConfig({
   lang: 'zh-CN',
   title: 'Code CIN',
   description:
-    'Code CIN —— 简洁的类 C 高级语言与跨平台运行时: CIN/PL/ASM 工具链、UCPU 字节码、Go 原生 VM / JIT / 解释器三路径一致执行。',
+    'Code CIN —— 简洁的类 C 高级语言与跨平台运行时: CIN/PL/ASM 工具链、UCPU 字节码、Go 原生引擎单路径一致执行。',
 
   // 仓库文档 (非站点页面): 保留在主仓库/子仓库中供开发查阅, 不打进站点
   srcExclude: [
@@ -20,7 +20,6 @@ export default defineConfig({
     'ISA.md',
     'CIN_GUIDE.md',
     'BUILDING.md',
-    'REMOTE_DEBUG.md',
     'SUGGESTIONS.md',
     'SUGGESTIONS_NEXT.md',
     'SUGGESTIONS_ROUND3.md'
@@ -219,7 +218,6 @@ export default defineConfig({
         items: [
           { text: '执行路径', link: '/guide/execution-paths' },
           { text: 'Go 原生运行时', link: '/runtime/native' },
-          { text: 'JIT 编译', link: '/runtime/jit' },
           { text: '二进制格式', link: '/runtime/formats' },
           { text: 'AOT 独立可执行文件', link: '/runtime/aot' }
         ]
@@ -228,11 +226,9 @@ export default defineConfig({
         text: '工具',
         activeMatch: '^/tools/',
         items: [
-          { text: '交互式调试器', link: '/tools/debugger' },
-          { text: '远程调试协议', link: '/tools/remote-debug' },
           { text: '日志与错误输出', link: '/tools/logging' },
           { text: '性能分析', link: '/tools/profiling' },
-          { text: '内存与缓存', link: '/tools/memory-cache' }
+          { text: '内存与运行时开关', link: '/tools/memory-cache' }
         ]
       },
       {
@@ -371,7 +367,6 @@ export default defineConfig({
           items: [
             { text: '执行路径', link: '/guide/execution-paths' },
             { text: 'Go 原生运行时', link: '/runtime/native' },
-            { text: 'JIT 编译', link: '/runtime/jit' },
             { text: '二进制格式 (.bin/.crom)', link: '/runtime/formats' },
             { text: 'AOT 独立可执行文件', link: '/runtime/aot' }
           ]
@@ -381,11 +376,9 @@ export default defineConfig({
         {
           text: '工具',
           items: [
-            { text: '交互式调试器', link: '/tools/debugger' },
-            { text: '远程调试协议', link: '/tools/remote-debug' },
             { text: '日志与错误输出', link: '/tools/logging' },
             { text: '性能分析', link: '/tools/profiling' },
-            { text: '内存与缓存', link: '/tools/memory-cache' }
+            { text: '内存与运行时开关', link: '/tools/memory-cache' }
           ]
         }
       ],

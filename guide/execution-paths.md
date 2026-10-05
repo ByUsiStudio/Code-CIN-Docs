@@ -1,144 +1,102 @@
 ---
-description: Code CIN 的三条执行路径（纯 Python 解释器 / JIT 基本块编译 / Go 原生 VM）的选择规则、能力矩阵、回退顺序与一致性保证。
+description: Code CIN 的执行路径（v5.9.0 起 native-only 单引擎）：程序的编译装载流程、Go 原生引擎一次调用执行的语义与原生库缺失时的行为。
 ---
 
 # 执行路径
 
-同一个 UCBC 字节码可以被三种引擎执行: **纯 Python 解释器**、**Python JIT (基本块编译)**、
-**Go 原生 VM (c-shared)**。三条路径对同一程序必须给出相同结果, 这是项目的核心约束之一。
+v5.9.0 起 Code CIN 是 **native-only 单引擎架构**：纯 Python 解释器与 JIT 已被移除，
+所有程序统一由 **Go 原生引擎**执行。Python 侧负责编译与装载（`.cin` / `.asm` / `.pl`
+/ `.bin` / `.crom`），然后把整段字节码一次性交给原生引擎，一次调用拿回全部结果
+（寄存器 / 向量寄存器 / NZCV / 脏内存段 / 输出）。
 
-## 三条路径一览
-
-| 路径 | 实现 | 启用方式 | 特点 |
-|------|------|----------|------|
-| 解释执行 | `codecin/cpu.py` 逐指令 dispatch | 默认 (未启用原生/JIT 时) 或 `--no-native` | 支持全部 `--debug` / `--step` / MMU / 越界检查, 速度最慢 |
-| JIT | `codecin/jit.py` 把基本块编译成 Python 代码并缓存 | `--jit` (通常配合 `--no-native`) | 热点基本块跳过 dispatch 开销, 与 `--debug` 互斥 |
-| Go 原生 | `codecin/native.py` 经 ctypes 调用 c-shared 库里的字节码 VM | 默认优先 (原生库可用时) | 整程序一次交给原生 VM, 速度最快, 也是宿主能力的唯一实现 |
-
-::: tabs
-
-== 解释执行
-
-```bash
-codecin prog.cin --no-native
-codecin prog.cin --no-native --debug        # 逐指令追踪
-```
-
-== JIT
-
-```bash
-codecin prog.cin --jit --no-native
-codecin prog.cin --jit --no-native --profile
-```
-
-== Go 原生
-
-```bash
-codecin prog.cin                            # 默认优先使用原生库
-python -c "from codecin import native; print(native.get_engine())"   # 确认是否可用
-```
-
-:::
-
-## 选择规则与回退顺序
-
-实际的路径选择逻辑在 `codecin/cpu.py: CPU.run()`:
+## 一次执行的数据流
 
 ```text
-原生 VM  (config.use_native 且 非 --debug 且 非 --step 且 非 --bounds-check 且 非 --mmu)
-   │ 不可用 / 加载失败 / 运行返回 unsupported
-   ▼
-JIT      (config.enable_jit 且 非 --debug 且 非 --step)
-   │ 未启用
-   ▼
-解释执行 (兜底, 永远可用)
+program.cin ──codecin/cin.py──► UCBC 字节码 + 初始内存段
+   ──native.encode_program()──► 序列化请求 (ABI v2)
+        │
+        ▼
+   codecin_run_v2(...)            （Go: engine.Run 整程序一次执行）
+        │
+        ▼
+   status/pc/sp/heap/steps/regs/vec/flags/脏内存段/output/error
+        │
+        ▼
+   Python 侧写回稀疏内存 → 输出文本 → （出错则抛 ExecutionError）
 ```
 
-也就是说:
+引擎 ABI 为 **v2**（导出符号 `codecin_run_v2`）：一次调用回传全部结果，
+Python 侧没有任何逐条解释开销。内存按 **段式** 回传——Go 侧用脏页位图记录
+执行期间被写过的 4 KiB 页，只回传这些页，Python 侧写回 4 KiB 稀疏分页内存。
+详见 [Go 原生运行时](/runtime/native)。
 
-- `--debug`、`--step`、`--bounds-check`、`--mmu` **任意一个开启都会关闭原生路径**
-  (调试需要逐指令介入, 越界检查与分页需要在 Python 内存模型里生效);
-- `--debug` 与 `--jit` 同时给出时 **debug 优先**, JIT 被忽略;
-- 原生库缺失、架构不符或 ABI 不匹配时, 记一条 warning 后自动回退, 不会让运行失败;
-- 原生 VM 遇到未实现的指令会返回 `StatusUnsupported`, Python 侧同样回退到解释执行。
+## 源码格式与装载
 
-::: tip 怎么确认当前走了哪条路径
-加 `--log-level DEBUG` (或 `--debug`), 初始化 dump 会打印 `native` 与 `jit` 的实际取值:
+`codecin/cpu.py: CPU.load_program()` 按扩展名分派：
+
+| 扩展名 | 处理 | 说明 |
+|--------|------|------|
+| `.cin` | `CINCompiler.compile()` | CIN 高级语言源码，`pc 0` 为 bootstrap（`CALL main; HALT`） |
+| `.bin` | `crom.load_bin()` | UCBC 字节码（BIN v3 段式，兼容读 v2） |
+| `.pl` / `.asm` | `Assembler.assemble_file()` | 汇编源码；同目录有同名 `.crom` 时先载入镜像 |
+| `.crom` | CLI `--crom` 显式指定 | 内存镜像（CROM v4 段式，兼容读 v3） |
+
+`--bounds-check` 是**编译期注入**的数组越界检查（编译进字节码），与原生路径完全兼容。
+
+## 原生库缺失时会发生什么
+
+没有解释器回退：动态库缺失或 ABI 不匹配时直接抛出 `CPUSimulatorError`，
+错误信息附重建指引：
 
 ```text
-DEBUG   CPU 初始化
-        memory    0x10000 bytes
-        cache     64 lines x 4-way
-        sp_init   0xfff8
-        heap_base 0x8000
-        native    False
-        jit       False
-        log_level DEBUG
+原生引擎不可用: 未找到 codecin-native 动态库。
+请先构建原生库: 运行 codecin/native/build.ps1 (Windows)
+或 codecin/native/build.sh (Linux/Termux/macOS), 然后重试。
 ```
+
+原生库版本不匹配（库里缺 `codecin_run_v2` 导出，通常是旁边放着旧版本库）同样会被
+识别并提示重建，而不是静默失败。构建与加载顺序详见
+[Go 原生运行时](/runtime/native)与[编译 Go 原生库](/dev/build-native)。
+
+::: tip 确认环境是否就绪
+用 `codecin --build-info` 一条命令看版本与原生库状态（`native` / `native matches`
+行），脚本化判断用 `codecin --build-info --json`。
 :::
 
-## 能力矩阵
+## 宿主能力
 
-| 能力 | 解释执行 | JIT | Go 原生 |
-|------|:--------:|:---:|:-------:|
-| 执行任意 CIN / PL / ASM 程序 | ✅ | ✅ | ✅ |
-| `--debug` 逐指令 / 内存 / 栈 / 缓存追踪 | ✅ | ❌ (互斥) | ❌ (会关闭原生) |
-| `--step` 交互式单步与断点 | ✅ | ❌ | ❌ |
-| `--debug-server` 远程调试 | ✅ | ❌ | ❌ |
-| `--profile` 性能统计 | ✅ | ✅ | ✅ |
-| `--bounds-check` CIN 数组越界检查 | ✅ | — | ❌ (会关闭原生) |
-| `--mmu` 分页 / 缺页 | ✅ | — | ❌ (会关闭原生) |
-| 宿主能力: 画布 / 音频 / 文件 / 进程 / Termux | ❌ | ❌ | ✅ (唯一实现) |
-| 运行 AOT 产物 (独立可执行文件) | — | — | ✅ (产物内置 Go VM) |
-| 相对速度 (示意) | 1× | ~4× | ~8× |
-
-::: warning 宿主能力必须走原生路径
-纯 Python 路径下调用 `file_*` / `exec` / `canvas` / `audio_*` / `termux_*` 会直接报错并
-以退出码 1 结束:
-
-```text
-08:42:21 ERROR    Execution error: host builtins (GUI/audio/system/Termux)
-                  require the native Go runtime (run without --no-native)
-+------------------------------ Execution Error ------------------------------+
-| host builtins (GUI/audio/system/Termux) require the native Go runtime (run  |
-| without --no-native)                                                        |
-+-----------------------------------------------------------------------------+
-```
-:::
+文件 / 进程 / 画布 / 音频 / GUI / 键盘 / Termux / 网络 / FFI 等宿主能力全部在
+Go 引擎侧实现，与整程序执行同路径，没有能力差异。`--sandbox` 下引擎侧只放行
+核心 VM 系统调用（ALLOCFRAME / TIMEUS / TIMENS），其余宿主 SYS 调用报
+`Host capability disabled in sandbox mode`。语言侧调用方式见
+[宿主能力](/language/host-abilities)。
 
 ## 一致性保证
 
-三路径一致性由仓库内脚本与测试共同把关:
+单引擎架构下不再存在"多路径结果不一致"的问题：同一段字节码只有一种执行实现，
+CIN 编译器（`cin.py`）与 Go 侧编译器（`native/compiler/`）由同一套测试门禁
+（`python -m pytest` 全量门禁 + `script/gen_native_isa.py --check` ISA 漂移检查）
+保证语义一致。
 
-```bash
-python script/check_paths.py            # 对示例程序逐字节比较三条路径的 stdout
-python -m pytest tests/test_three_paths.py
-```
-
-允许的差异只有两类:
-
-1. 与时间/环境相关的输出 (`time()`、`cwd()`、主机名等);
-2. 超越函数在不同 libm 实现下的末位舍入差异 (Python `math` 与 Go `math`, 通常 ≤ 1 ulp)。
-
-除此外, 指令计数、内存终态、寄存器快照、打印内容都必须一致。这也是为什么
-**不要用 `--debug`/`--jit` 的结果去推断性能结论** —— 它们只是同一语义的不同实现。
+允许的输出差异只有与环境相关的时间/主机名等，以及不同平台 libm 的末位舍入
+（通常 ≤ 1 ulp）。
 
 ## 怎么选
 
+没有路径要选了——直接运行即可：
+
 | 场景 | 建议 |
 |------|------|
-| 日常开发、跑示例 | 默认 (Go 原生优先) |
-| 排查语义 / 崩溃点 | `--no-native --debug` |
-| 交互式定位逻辑错误 | `--no-native --step` |
-| 需要数组越界检查 | `--no-native --bounds-check` |
-| 需要分页/缺页演示 | `--no-native --mmu` |
-| 没有 Go 工具链, 但想快一点 | `--jit --no-native` |
-| 性能基线 | 不加开关 (原生), 配合 `--profile` |
-| 交付给别人运行 | `--build-exe` (见 [AOT](/runtime/aot)) |
+| 日常开发、跑示例 | `codecin prog.cin` |
+| 给程序传参数 | `codecin prog.cin arg1 arg2`（或 `--` 显式分隔） |
+| 需要数组越界检查 | `codecin prog.cin --bounds-check` |
+| 确定性执行（随机数可复现） | `codecin prog.cin --seed 42` |
+| 沙箱运行（禁宿主能力） | `codecin prog.cin --sandbox` |
+| 交付给别人运行 | `--build-exe`（见 [AOT](/runtime/aot)） |
 
 ## 相关页面
 
 - [Go 原生运行时](/runtime/native) — 原生库的加载、查找顺序与宿主能力边界
-- [JIT 编译](/runtime/jit) — 基本块编译与统计
-- [性能分析](/tools/profiling) — `--profile` 指标解读
-- [日志与错误输出](/tools/logging) — 路径选择与 warning 在哪里出现
+- [架构总览](/guide/architecture) — 分层结构与 ABI v2 数据流
+- [内存与运行时开关](/tools/memory-cache) — 1 GiB 稀疏分页与运行期选项
+- [日志与错误输出](/tools/logging) — 日志级别与错误报告

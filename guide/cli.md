@@ -1,5 +1,5 @@
 ---
-description: Code CIN 命令行完整参考：位置参数、版本与构建信息、执行路径、日志调试、性能资源、编译与 CROM、AOT 构建、退出码与环境变量。
+description: Code CIN 命令行完整参考：位置参数与程序参数直传、版本与构建信息、日志、性能资源、编译与 CROM、AOT 构建、退出码与环境变量。
 ---
 
 # 命令行参考
@@ -10,7 +10,8 @@ description: Code CIN 命令行完整参考：位置参数、版本与构建信�
 
 ```text
 Usage:
-  codecin <program.[cin|pl|asm|bin]> [options]
+  codecin <program.[cin|pl|asm|bin]> [options] [program-args...]
+  codecin <program...> -- <args 传给 CIN 程序>
 
 Supported formats:
   .cin   CIN 高级语言 (函数/struct/数组/浮点/字符串)
@@ -25,6 +26,10 @@ codecin --version       # 打印当前版本
 codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障用)
 ```
 
+v5.9.0 起为 **native-only 单引擎**：程序统一由 Go 原生库执行，原生库缺失会直接报错
+并提示重建（无解释器回退），构建原生库是运行前的必要步骤（见
+[编译 Go 原生库](/dev/build-native)）。
+
 ## 版本与构建信息
 
 | 选项 | 默认 | 说明 |
@@ -32,32 +37,31 @@ codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障�
 | `--version` / `-V` | — | 打印 `Code CIN <x.y.z>` 并退出 0 |
 | `--build-info` | — | 打印多行构建信息并退出 0,**不需要**位置参数 |
 | `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用会向 **stderr** 打印一行提示并返回 2 |
-| `--libs` | — | 列出全部内置标准库并标注执行路径要求 (见下), 退出 0,**不需要**位置参数 |
+| `--libs` | — | 列出全部内置标准库并标注类别 (见下), 退出 0,**不需要**位置参数 |
 
-`--build-info` 的字段包含版本、Python 实现与版本、平台/架构、JIT 可用性、包路径,
+`--build-info` 的字段包含版本、Python 实现与版本、平台/架构、包路径,
 以及**原生库是否可用、自报版本号、是否与包版本一致** —— 排查"原生库过期/未加载"时
 先看这里, 不必再手工比对 `codecin --version` 与原生库自报串:
 
 ```text
-Code CIN 构建信息 (build info) - 5.6.0
-  version          : 5.6.0
-  version_info     : (5, 6, 0)
+Code CIN 构建信息 (build info) - 5.9.0
+  version          : 5.9.0
+  version_info     : (5, 9, 0)
   python           : 3.14.6 (CPython)
   platform         : win32/AMD64
   system           : Windows
   machine          : AMD64
-  native           : 可用: codecin-native 5.6.0 (Go)
-  native version   : codecin-native 5.6.0 (Go)
+  native           : 可用: codecin-native 5.9.0 (Go)
+  native version   : codecin-native 5.9.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
-  jit              : 可用
   package path     : D:\...\codecin
   executable       : C:\...\python.exe
 ```
 
-原生库不可用时 `native` 行为 `不可用 (回退纯 Python 解释执行)`, `native matches` 行为
-`(未知)`; 版本字段无法解析为 `x.y.z` 时 `version_info` 显示 `(无法解析为 x.y.z)` ——
-**这个命令永远以退出码 0 结束**, 不会因为原生库缺失而失败。
+原生库不可用时 `native` 行为 `不可用 (请运行 codecin/native/build.ps1 或 build.sh 重建)`,
+`native matches` 行为 `(未知)`; 版本字段无法解析为 `x.y.z` 时 `version_info` 显示
+`(无法解析为 x.y.z)` —— **这个命令永远以退出码 0 结束**, 不会因为原生库缺失而失败。
 
 `--build-info --json` 输出同一份信息的 JSON (可直接 `json.loads`),
 适合脚本判断"原生库是否需要重建":
@@ -66,26 +70,27 @@ Code CIN 构建信息 (build info) - 5.6.0
 codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
 ```
 
-`--libs` 列出 `codecin/lib/` 全部官方标准库, 并按**执行路径要求**标注三类
+`--libs` 列出 `codecin/lib/` 全部官方标准库, 并按**类别**标注三类
 (分类由源码扫描内建引用得出, 与库头注释保持一致):
 
 ```text
 Code CIN 内置标准库清单
 
   模块             类别      说明
-  cstd.cin       兼容层     C 语言兼容层 (cstd)
-  cppstd.cin     兼容层     C++ 标准库 (STL) 兼容层 (cppstd)
-  gostd.cin      兼容层     Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]
-  gui.cin        需原生运行时  GUI 窗口 + 画布绘图助手 (gui) [14 个宿主内建]
-  io.cin         需原生运行时  文件与路径 (io) [8 个宿主内建]
+  cstd.cin       C 兼容层    C 语言兼容层 (cstd)
+  cppstd.cin     C++ 兼容层  C++ 标准库 (STL) 兼容层 (cppstd)
+  gostd.cin      Go 兼容层   Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]
+  ffi.cin        需原生运行时  FFI 动态库调用便捷封装 (ffi)
+  gui.cin        需原生运行时  GUI 窗口 + 画布绘图助手 (gui)
+  net.cin        需原生运行时  网络便捷封装 (net)
   math.cin       纯 CIN   ...
 ```
 
-- **纯 CIN**: 只调用语言内建, 解释 / JIT / 原生三路径一致 (含 `--no-native`);
+- **纯 CIN**: 只调用语言内建, 原生 / AOT 全路径行为一致;
 - **兼容层**: C / C++ / Go 标准库兼容层 (`cstd` / `cppstd` / `gostd`), 同样纯 CIN
-  三路径一致; 个别函数的原生依赖以方括号标注 (如 `gostd` 的 `go_os_args_*`);
-- **需原生运行时**: 转调宿主能力内建 (`gui` / `key` / `io` / `termux`),
-  `--no-native` 与 `--sandbox` 下调用会报错。
+  实现; 个别函数的原生依赖以方括号标注 (如 `gostd` 的 `go_os_args_*`);
+- **需原生运行时**: 转调宿主能力内建 (`gui` / `key` / `io` / `termux` / `ffi` /
+  `net` 等), `--sandbox` 下调用会被拦截。
 
 ## 位置参数
 
@@ -97,33 +102,28 @@ Code CIN 内置标准库清单
 `--build-info` 都在读取位置参数之前就退出, 所以 `codecin --build-info` 不带任何程序文件
 也能成功运行 (退出码 0)。`--json` 只作为 `--build-info` 的修饰符, 不能代替位置参数。
 
-**命令行参数传递** (`--`): 解析器遇到独立 `--` 后, 其余参数不再按选项解析, 而是
-原样转交 CIN 程序, 程序内用 `arg_count()` / `arg(i)` 读取 (AOT 产物等价于
-`os.Args[1:]`):
+**程序参数直传**: 程序文件之后的裸参数原样传给 CIN 程序, 程序内用
+`arg_count()` / `arg(i)` 读取 (AOT 产物等价于 `os.Args[1:]`):
 
 ```bash
-codecin args_demo.cin -- --flag "hello 中文" 42
+codecin 压测.cin https://example.com 24      # 裸参数直传
+codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程序参数
 ```
 
-## 执行路径
+规则:
+
+- `--` 分隔符**优先级最高**——其后的参数不再按 CLI 选项解析, 全部转交程序;
+- 已知 CLI 选项放在程序之前或之后均可识别;
+- 形如选项的直传参数 (如 `-n 24`) 会得到一条 **stderr** 提示,
+  建议用 `--` 显式分隔; `--help` 的 Program arguments 段有说明。
+
+## 日志
 
 | 选项 | 默认 | 说明 |
 |------|------|------|
-| `--no-native` | 关闭 | 禁用 Go 原生库, 强制纯 Python 解释执行 |
-| `--jit` | 关闭 | 启用 Python JIT (基本块动态编译); 与 `--debug` 互斥 (debug 优先) |
-| `--no-jit` | — | 显式关闭 JIT (隐藏选项, 默认即关闭) |
-
-## 日志与调试
-
-| 选项 | 默认 | 说明 |
-|------|------|------|
-| `--debug` | 关闭 | 超详细 rich 追踪: CPU 初始化 dump、逐指令/寄存器/内存/栈/缓存/SYS 埋点 (隐含 DEBUG 日志级别) |
-| `--step` | 关闭 | 交互式单步执行 (`step>` 命令集, 见 [交互式调试器](/tools/debugger)) |
-| `--debug-server <PORT>` | 关闭 | 启动 TCP 远程调试服务, 由客户端驱动 step/continue/break/regs/mem/history |
 | `--log-level <LVL>` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL` |
 | `--log-file <FILE>` | 无 | 日志写入文件 (终端仍显示) |
-| `--sandbox` | 关闭 | 沙箱模式 (限制宿主访问) |
-| `--no-io` | 关闭 | 禁止 `IN`/`OUT` 与宿主 I/O |
+| `--sandbox` | 关闭 | 沙箱模式 (引擎侧拦截全部宿主能力系统调用, 仅放行 ALLOCFRAME/TIMEUS/TIMENS) |
 
 ::: tip 日志与程序输出在同一流
 日志默认输出到 **stdout**。需要只保留程序输出时用 `--log-level ERROR` (或 `CRITICAL`)。
@@ -134,12 +134,8 @@ codecin args_demo.cin -- --flag "hello 中文" 42
 
 | 选项 | 默认 | 说明 |
 |------|------|------|
-| `--profile` | 关闭 | 执行后输出 `Instruction Cycle Profile` 与 `Performance Counters` 两张统计表 |
-| `--cache-size <N>` | `64` | 缓存行数 (最小 8) |
-| `--cache-assoc <N>` | `4` | 缓存关联度 |
-| `--mem-size <BYTES>` | `65536` | 虚拟机内存大小 (最小 256) |
-| `--max-instructions <N>` | `100000000` | 指令数上限 (防死循环; 最小 1) |
-| `--execution-interval <SEC>` | `0.0` | 每指令间隔秒数 (演示减速用) |
+| `--mem-size <BYTES>` | `1073741824` (1 GiB) | 虚拟机内存大小 (最小 256, 上限 1 TiB)。4 KiB 稀疏分页按需提交, 只有真正写入的部分占物理内存, **大数组/大缓冲不需要再调它** (默认即可 `int a[1000000]`) |
+| `--max-instructions <N>` | `100000000` | 指令数上限 (防死循环; 最小 1), 超限报 `instruction limit reached (N steps)` |
 
 ## 编译与 CROM
 
@@ -147,9 +143,9 @@ codecin args_demo.cin -- --flag "hello 中文" 42
 |------|------|------|
 | `--compile` | 关闭 | 编译为 `.bin` 字节码后继续执行 |
 | `--compile-only` | 关闭 | 只编译为 `.bin`, 不执行 |
-| `-o, --output <FILE>` | `<程序名>.bin` | 指定 `.bin` 字节码输出路径 (`--save` 的 `.crom` 路径固定为 `<程序名>.crom`, 不受此项影响) |
+| `-o, --output <FILE>` | `<程序名>.bin` | 指定输出文件 (`--save` 的 `.crom` 路径固定为 `<程序名>.crom`, 不受此项影响) |
 | `--crom <FILE>` | 无 | 加载指定 `.crom` 内存镜像 (仅对 `.pl` / `.asm` 生效; `.cin` / `.bin` 分支会忽略它, 并会自动探测同目录同名的 `<程序名>.crom`) |
-| `--save` | 关闭 | 执行后保存 `<程序名>.crom` 内存镜像 |
+| `--save` | 关闭 | 执行后保存 `<程序名>.crom` 内存镜像 (CROM v4 段式, 只存已分配页) |
 | `--no-compress` | 压缩开启 | `.crom` 不压缩 (默认 zlib) |
 | `--optimize <0-3>` | `0` | 优化级别 (越界自动裁剪到 0–3) |
 | `--strict` | 关闭 | 严格汇编模式 |
@@ -159,9 +155,8 @@ codecin args_demo.cin -- --flag "hello 中文" 42
 | 选项 | 默认 | 说明 |
 |------|------|------|
 | `--seed <N>` | 随机 | 随机种子, 保证 `rand()` 序列确定 |
-| `--bounds-check` | 关闭 | CIN 数组越界运行时检查 (会强制走解释执行) |
-| `--mmu` | 关闭 | 启用 MMU 分页 (identity 页表; 未映射页触发缺页错误) |
-| `--disasm` | 关闭 | 反汇编 `.bin` 为文本清单后退出 |
+| `--bounds-check` | 关闭 | CIN 数组越界检查 (编译期注入字节码, 与原生路径兼容) |
+| `--disasm` | 关闭 | 反汇编 `.bin` 为文本清单后退出 (支持 BIN v3 / 旧 v2 头) |
 
 ## AOT 构建
 
@@ -171,6 +166,8 @@ codecin args_demo.cin -- --flag "hello 中文" 42
 | `--build-target <OS/ARCH>` | 交叉编译目标: `windows/amd64`、`windows/arm64`、`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64` |
 | `--build-keep-temp` | 保留 `go build` 临时目录, 便于排查构建失败 |
 
+AOT 构建强制 `CGO_ENABLED=0` 纯静态链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
+
 ## 常用组合
 
 ::: tabs
@@ -179,17 +176,16 @@ codecin args_demo.cin -- --flag "hello 中文" 42
 
 ```bash
 codecin prog.cin --log-level ERROR          # 干净输出
-codecin prog.cin --debug                    # 逐指令追踪
-codecin prog.cin --step                     # 交互式单步调试
-codecin prog.cin --profile                  # 性能统计
+codecin prog.cin --strict --log-level DEBUG # 严格汇编 + DEBUG 日志
+codecin prog.cin arg1 arg2                  # 程序参数直传
 ```
 
 == 汇编 / ISA 调试
 
 ```bash
-codecin prog.asm --no-native --debug        # 汇编 + 逐指令追踪
-codecin prog.asm --strict --log-level DEBUG # 严格汇编模式
+codecin prog.asm                            # 汇编并执行
 codecin prog.bin --disasm                   # 反汇编查看
+codecin prog.asm --crom prog.crom           # 带内存镜像执行
 ```
 
 == 构建与产物
@@ -204,11 +200,10 @@ codecin prog.cin --build-exe prog           # AOT 单文件
 == 受控运行
 
 ```bash
-codecin prog.cin --mem-size 262144          # 256 KiB 内存 (深递归)
 codecin prog.cin --max-instructions 1000000 # 防死循环
 codecin prog.cin --seed 42                  # 确定性随机
-codecin prog.cin --mmu --bounds-check       # 分页 + 越界检查
-codecin prog.cin --sandbox --no-io          # 限制宿主访问
+codecin prog.cin --bounds-check             # 数组越界检查
+codecin prog.cin --sandbox                  # 禁宿主能力
 ```
 
 :::
@@ -240,17 +235,17 @@ codecin prog.cin --sandbox --no-io          # 限制宿主访问
 
 ## 还可以用 Python API 控制更多
 
-有些运行配置没有对应的命令行开关 (栈槽数、单次执行超时、显示字节数等), 可以在嵌入
-使用 `Config` 时直接设置:
+有些运行配置没有对应的命令行开关, 可以在嵌入使用 `Config` 时直接设置
+(如 `program_args` 程序参数、`compress_crom` 压缩开关等):
 
 ```python
 from codecin import CPU, Config
 
 cfg = Config()
-cfg.mem_size = 256 * 1024
-cfg.stack_size = 4096
-cfg.use_native = False
+cfg.mem_size = 64 * 1024 * 1024      # 64 MiB (默认 1 GiB)
 cfg.log_level = 'WARNING'
+cfg.program_args = ['--flag', '42']  # arg_count()/arg(i) 读取
+cfg.seed = 42                        # 确定性随机
 
 cpu = CPU(cfg, 'prog.cin')
 cpu.run()
