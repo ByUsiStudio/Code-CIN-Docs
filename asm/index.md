@@ -92,10 +92,10 @@ codecin prog.pl                   # PL 关键字风格
 codecin prog.bin                  # 已编译字节码
 ```
 
-文档中的示例统一使用纯 Python 解释路径, 以便在任何机器上复现:
+文档中的示例统一加上 `--log-level ERROR`, 保持输出干净:
 
 ```bash
-codecin test_asm.asm --no-native --log-level ERROR
+codecin test_asm.asm --log-level ERROR
 ```
 
 ```text
@@ -217,7 +217,7 @@ function main() -> int {
 ::: tip 从示例文件入手
 仓库里的 `test_asm.asm` 是端到端可运行的权威样例 (循环求和 + 字符串打印 + `.data` 段 + 间接寻址),
 `examples/asm_constants.asm` 演示 `.equ` 与表达式立即数。两个文件都可以直接用
-`codecin <文件> --no-native` 运行。
+`codecin <文件>` 运行。
 :::
 
 ::: warning 文档中的旧示例
@@ -232,6 +232,5 @@ Base ISA 的比较跳转只有 `JMP` / `JZ` / `JNZ` / `JE` / `JL` / `JG`, 请以
 - [指令语义参考](/asm/instructions)
 - [指令集编码表](/reference/isa)
 - [寄存器与内存模型](/reference/registers-memory)
-- [交互式调试器](/tools/debugger)
 - [CIN 语言总览](/language/)
 - [快速开始](/guide/quickstart)

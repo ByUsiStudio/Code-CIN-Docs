@@ -1,12 +1,14 @@
 ---
-description: "把 Code CIN 当作 Python 库使用: 包导出、Config 全部字段、CPU 构造与运行、异常层次、原生/JIT/AOT/CROM/反汇编/统计入口。"
+description: "把 Code CIN 当作 Python 库使用: 包导出、Config 全部字段、CPU 构造与运行、异常层次、原生库/AOT/CROM/反汇编/统计入口。"
 ---
 
 # Python 嵌入 API
 
 Code CIN 除了命令行工具, 也可以直接当作 Python 库嵌入到自己的程序里: 构造一个
-`Config`, 交给 `CPU`, 然后调用 `run()` 或逐条 `step()`。整条工具链 (汇编器、CIN
-编译器、Go 原生 VM 桥接、CROM 读写、反汇编、统计) 都是公开可调用的。
+`Config`, 交给 `CPU`, 调用 `run()` 一次性执行。v5.9.0 起是 **native-only 单引擎**:
+整份字节码一次调用交给 Go 原生引擎 (`codecin_run_v2`), 不再有逐条解释 / JIT /
+单步调试路径。整条工具链 (汇编器、CIN 编译器、Go 原生 VM 桥接、CROM 读写、AOT、
+反汇编、统计) 都是公开可调用的。
 
 本页所有签名均以当前源码为准: 包导出见 `codecin/__init__.py`, 配置字段见
 `codecin/config.py`, 运行时见 `codecin/cpu.py`。
@@ -18,11 +20,11 @@ Code CIN 除了命令行工具, 也可以直接当作 Python 库嵌入到自己�
 
 | 名称 | 类型 | 说明 |
 |------|------|------|
-| `CPU` | class | CPU 核心: 加载程序、执行、调试、状态查看 |
+| `CPU` | class | CPU 核心: 加载程序、一次性原生执行、状态查看 |
 | `Config` | dataclass | 运行配置, 全部字段见下表 |
 | `Opcode` | `enum.Enum` | 112 条指令的枚举, 值即 UCBC 编码 |
-| `Constants` | class | 常量集合: 寄存器数/内存默认值/`OPCODE_NAMES`/`ARG_COUNTS` 等 |
-| `Syscall` | `enum.IntEnum` | SYS 功能号 0–79 |
+| `Constants` | class | 常量集合: 寄存器数/`OPCODE_NAMES`/`ARG_COUNTS`/`OPCODE_NAME_TO_ENUM`/`PL_KEYWORDS` 等 |
+| `Syscall` | `enum.IntEnum` | SYS 功能号 0–157 (含 FFI 140–144 与网络 145–157) |
 | `CPUSimulatorError` | exception | 所有 Code CIN 错误的基类 |
 | `AssemblerError` | exception | 汇编阶段 (`.pl` / `.asm`) 错误 |
 | `CompilerError` | exception | CIN 编译阶段错误 |
@@ -37,23 +39,16 @@ from codecin import CPU, Config, Opcode, Constants, Syscall
 print(codecin.__version__)            # 打印版本号
 print(len(list(Opcode)))              # 112
 print(Constants.OPCODE_NAMES[Opcode.SYS])   # 'SYS'
-print(Syscall.PRINT_STR)              # 24
+print(Syscall.ALLOCFRAME)             # 137
 ```
-
-::: warning `PageFaultError` 不在顶层导出
-`codecin/errors.py` 里还有一个 `PageFaultError` (MMU 缺页, `MemoryAccessError`
-的子类), 但它**没有**出现在 `codecin/__init__.py` 的导出表里。要捕获它请显式
-`from codecin.errors import PageFaultError`。
-:::
 
 其余子系统需要按模块导入 (它们都是包的公开模块, 只是不在顶层短名单里):
 
 ```python
-from codecin import (native, aot, crom, disasm, stats, jit, memory, registers,
+from codecin import (native, aot, crom, disasm, stats, memory, registers,
                      version)
 from codecin.cin import CINCompiler
 from codecin.assembler import Assembler
-from codecin.errors import PageFaultError
 ```
 
 ## `Config` 全字段
@@ -64,50 +59,33 @@ from codecin.errors import PageFaultError
 
 | 字段 | 类型 | 默认值 | 含义 |
 |------|------|--------|------|
-| `mem_size` | `int` | `64 * 1024` | 内存字节数 (默认 65536) |
-| `stack_size` | `int` | `1024` | 栈槽数 (配置项, 默认 1024 槽) |
-| `step_mode` | `bool` | `False` | 交互式单步模式 (与原生/JIT 互斥) |
-| `debug_mode` | `bool` | `False` | 超详细调试: 强制 `log_level='DEBUG'`, 关闭原生与 JIT |
-| `auto_save_crom` | `bool` | `False` | 运行结束后保存 `.crom` 镜像 |
-| `execution_interval` | `float` | `0.0` | 每条指令之间的休眠秒数 (演示减速) |
-| `max_execution_time` | `float` | `60.0` | 墙钟执行上限 (配置项) |
-| `interactive_mode` | `bool` | `True` | 是否允许交互式会话 (关掉才可能走紧凑解释循环) |
-| `sandbox_mode` | `bool` | `False` | 沙箱模式 |
-| `max_instructions` | `int` | `100_000_000` | 指令数上限, 超出按失败处理 |
-| `allow_io` | `bool` | `True` | 是否允许 `IN` / `OUT` 宿主 I/O |
+| `mem_size` | `int` | `1 << 30` | 逻辑内存字节数 (默认 1 GiB, 稀疏分页按需提交); `validate()` 夹到 `[256, 1 TiB]` |
+| `auto_save_crom` | `bool` | `False` | `run()` 结束后自动保存同名 `.crom` 镜像 |
+| `max_instructions` | `int` | `100_000_000` | 指令数上限, 超出按失败处理; `< 1` 抬到 `1` |
+| `sandbox_mode` | `bool` | `False` | 沙箱模式: 只放行 ALLOCFRAME / TIMEUS / TIMENS 等核心系统调用 |
 | `log_level` | `str` | `'INFO'` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `log_file` | `Optional[str]` | `None` | 日志文件路径 (非空则同时写入文件) |
-| `show_memory_bytes` | `int` | `32` | 状态显示时转储的内存字节数 |
-| `show_vector_regs` | `bool` | `True` | 状态显示是否包含向量寄存器 |
-| `show_timings` | `bool` | `True` | 是否显示耗时统计 |
 | `strict_mode` | `bool` | `False` | 汇编器严格模式 |
 | `output_file` | `Optional[str]` | `None` | `.bin` / `.crom` 输出路径 |
-| `optimize` | `int` | `0` | 优化级别 0–3 |
-| `enable_jit` | `bool` | `False` | 启用 Python JIT (基本块编译) |
-| `use_native` | `bool` | `True` | 允许使用 Go 原生库加速 |
-| `cache_size` | `int` | `64` | 缓存行数 |
-| `cache_assoc` | `int` | `4` | 缓存组相联度 |
-| `profile` | `bool` | `False` | 结束后输出性能统计表 |
+| `optimize` | `int` | `0` | 优化级别 0–3 (夹取) |
 | `compress_crom` | `bool` | `True` | `.crom` 是否 zlib 压缩 |
 | `compile_to_bin` | `bool` | `False` | 编译为 `.bin` 后继续执行 |
 | `compile_only` | `bool` | `False` | 只编译不执行 |
-| `seed` | `Optional[int]` | `None` | 确定性随机种子 (`None` = 随机) |
-| `bounds_check` | `bool` | `False` | CIN 数组越界/断言检查 (关闭原生路径) |
-| `mmu` | `bool` | `False` | 启用 MMU 分页 (关闭原生路径) |
-| `debug_server_port` | `Optional[int]` | `None` | 远程调试端口 (`None` = 不启动) |
+| `seed` | `Optional[int]` | `None` | SYS RAND 确定性种子 (`None` / `0` = 随机) |
+| `bounds_check` | `bool` | `False` | CIN 定长数组越界检查 (编译期注入, 与原生引擎兼容) |
+| `program_args` | `List[str]` | `[]` | 传给 CIN 程序的参数 (`arg_count()` / `arg(i)` 的数据源) |
 
-`Config.validate()` 会把越界值夹回合法区间: `mem_size < 256 → 256`,
-`max_instructions < 1 → 1`, `optimize` 夹到 `0..3`, `cache_size < 8 → 8`。
+`Config.validate()` 会把越界值夹回合法区间: `mem_size < 256 → 256`、
+`mem_size > 1 TiB → 1 TiB`、`max_instructions < 1 → 1`、`optimize` 夹到 `0..3`。
 
 ```python
 from codecin import CPU, Config
 
 cfg = Config(
-    mem_size=128 * 1024,
     max_instructions=5_000_000,
     seed=1234,                 # 确定性 rand()
     log_level='ERROR',
-    interactive_mode=False,    # 嵌入式场景必须关掉交互
+    program_args=['--input', 'data.txt'],
 )
 cfg.validate()
 cpu = CPU(cfg, 'program.cin')
@@ -115,10 +93,10 @@ cpu.run()
 print('failed =', cpu.execution_failed)
 ```
 
-::: tip 嵌入式场景的两个必设项
-`interactive_mode=False` 与 `log_level='ERROR'`。前者避免程序命中断点/单步时阻塞在
-`input()` 上, 后者避免 rich 表格污染你自己的 stdout。需要捕获程序输出时, 见下面的
-`output_buffer`。
+::: tip 嵌入式场景的注意事项
+建议 `log_level='ERROR'`, 避免 rich 表格污染你自己的 stdout。需要捕获程序输出时,
+把 `cpu._capture_output` 置 `True`, 结果会收进 `cpu.output_buffer` (见下)。
+默认 1 GiB 内存是稀疏分页的, 不必为嵌入式场景刻意调小 `mem_size`。
 :::
 
 ## `CPU` 构造与方法
@@ -143,39 +121,38 @@ CPU(config: Config,
 `filename=None` 构造空 CPU, 然后手工灌入指令 (测试辅助 `tests/helpers.py: new_cpu()`
 就是这么做的)。
 
-### 加载与执行
+### 方法
 
-| 方法 / 属性 | 说明 |
-|-------------|------|
+v5.9.0 起执行是**一次性**的: `run()` 把整份字节码交给 Go 原生引擎, 结束后把
+寄存器 / 标志位 / 指针 / 脏内存段同步回 Python 侧对象。不再提供逐条
+`step()` / `execute()`、断点与交互调试会话。
+
+| 方法 | 说明 |
+|------|------|
 | `load_program(filename, crom_file=None, from_bin=False)` | 重新加载程序; 文件不存在抛 `CPUSimulatorError` |
-| `run()` | 按 `Config` 决定路径执行, 内部捕获异常并置 `execution_failed` |
-| `execute(opcode: str, args: list) -> bool` | 执行一条指令; 返回 `False` 表示 `HALT` |
-| `step() -> bool` | 执行 `pc` 处的一条指令; `pc` 越界返回 `False` |
-| `display_state(title='CPU State', opcode=None, args=None)` | 渲染寄存器/内存/栈状态面板 |
-| `add_breakpoint(addr)` / `remove_breakpoint(addr)` | 增删断点 |
-| `debug_command_loop()` | 进入交互式调试会话 (断点命中时由 `run()` 调用) |
+| `run()` | 装载好的程序一次性交给原生引擎执行; 内部捕获异常并置 `execution_failed` |
+| `display_state(title='CPU State', ...)` | 渲染寄存器/内存/栈状态面板 |
 
 ### 实例状态 (嵌入式最常读的几个)
 
 | 属性 | 说明 |
 |------|------|
-| `pc` / `sp` / `heap_ptr` | 程序计数器 / 栈指针 / 堆指针 |
+| `pc` / `sp` / `heap_ptr` / `heap_base` | 程序计数器 / 栈指针 / 堆指针 / 堆基址 |
 | `regs` | `RegisterFile`, 读 `cpu.regs.read(n)`, 全量 `cpu.regs.get_all()` |
 | `vec_regs` | `VectorRegisterFile`, `read_vector(n)` / `get_all()` |
 | `pstate` | `{'N': bool, 'Z': bool, 'C': bool, 'V': bool}` |
-| `memory` | `FastMemory` 实例 (读写/保护/MMU) |
-| `cache` | `Cache` 实例, `get_stats()` 给出命中率 |
+| `memory` | `FastMemory` 实例 (4 KiB 稀疏分页, `resident_bytes` 给出常驻字节数) |
 | `stats` | `Statistics` 实例, 见下文 |
 | `instructions` / `labels` / `data_labels` / `entry_pc` | 已加载的程序与符号表 |
-| `native_used` | 本次执行是否真的走了 Go 原生 VM |
-| `execution_failed` | 执行期是否发生过错误 (CLI 用它决定退出码) |
+| `input_buffer` / `_input_pos` | 程序读入内容的缓冲 (`read()` 内建的数据源) |
 | `output_buffer` / `_capture_output` | 输出重定向缓冲 (见下) |
+| `native_engine` / `native_used` | 原生引擎实例与本次执行是否真的走了 Go 原生 VM |
+| `execution_failed` | 执行期是否发生过错误 (CLI 用它决定退出码) |
 
 ```python
 from codecin import CPU, Config
 
-cpu = CPU(Config(use_native=False, interactive_mode=False, log_level='ERROR'),
-          'examples/control_flow.cin')
+cpu = CPU(Config(log_level='ERROR'), 'examples/control_flow.cin')
 cpu._capture_output = True          # 把 OUT / SYS 打印收进 output_buffer
 cpu.run()
 text = ''.join(cpu.output_buffer)
@@ -187,7 +164,14 @@ print('pc=0x%x sp=0x%x failed=%s native=%s'
 ::: warning `run()` 不抛异常
 `CPU.run()` 内部 `try/except` 掉所有 `Exception`, 写日志并置
 `execution_failed = True`。**判断成功要看 `cpu.execution_failed`**, 而不是等异常。
-真的需要异常请用 `execute()` / `step()` 手工驱动, 或直接调用底层模块。
+真的需要异常请直接调用底层模块 (见下文 `codecin.native`) —— 原生引擎返回
+错误状态时, 桥接层会抛 `ExecutionError`。
+:::
+
+::: danger 原生库缺失时没有回退
+v5.9.0 起 native-only: 找不到/加载不了 Go 原生库时, `run()` 直接报错并给出
+重建提示 (NATIVE_HINT), **不会**回退到 Python 解释器。构建方法见
+[Go 原生运行时](/runtime/native)。
 :::
 
 ## 异常层次
@@ -199,7 +183,6 @@ Exception
     ├── CompilerError                 # 附加 line_num / filename
     ├── ExecutionError                # 除零、未实现指令、栈溢出、SYS 未知号
     └── MemoryAccessError             # 越界 / 保护违例
-        └── PageFaultError            # MMU 缺页 / 物理越界
 ```
 
 | 异常 | 触发条件 |
@@ -207,22 +190,19 @@ Exception
 | `CPUSimulatorError` | 文件不存在、`.crom` 头非法、版本或校验和不符、字节码 magic 错误 |
 | `AssemblerError` | 汇编语法错误、未定义标签/符号、操作数个数不符; 消息形如 `file:line: Assembler error: <原文> -- <详情>` |
 | `CompilerError` | CIN 词法/语法/语义错误 (如 `Unknown function`、参数过少、非恒定 `case`) |
-| `ExecutionError` | `Division by zero`、`Unimplemented instruction: X`、`Stack overflow (collides with heap)`、`instruction limit reached (N steps)`、`Runtime abort: <msg>` |
+| `ExecutionError` | `Division by zero`、`Stack overflow (collides with heap)`、`Heap exhausted: …`、`instruction limit reached (N steps)`、原生引擎回传的运行期错误 |
 | `MemoryAccessError` | 地址越界、对只读页写入、保护位不允许该访问 |
-| `PageFaultError` | 访问 `unmap` 过的页, 或映射到的物理地址超出内存大小 |
 
 ```python
 from codecin import CPU, Config
 from codecin.errors import (
-    CPUSimulatorError, ExecutionError, MemoryAccessError, PageFaultError,
+    CPUSimulatorError, ExecutionError, MemoryAccessError,
 )
 
 try:
-    cpu = CPU(Config(mmu=True), 'prog.cin')
-    cpu.memory.mmu.unmap(0x1000)        # 手工制造缺页
-    cpu.memory.read_qword(0x1000)
-except PageFaultError as e:
-    print('缺页:', e)
+    cpu = CPU(Config(log_level='ERROR'), 'prog.cin')
+    cpu.memory.set_protection(0x1000, 'r')   # 制造只读页
+    cpu.memory.write_qword(0x1000, 1)
 except MemoryAccessError as e:
     print('访问违例:', e)
 except CPUSimulatorError as e:
@@ -244,10 +224,9 @@ except CPUSimulatorError as e:
 | `try_version_tuple(text)` | 同上但失败返回 `None`（不抛异常） |
 | `is_version_string(text)` | 是否是合法版本串（与 `version_tuple` 接受的形式一致） |
 | `compare(a, b)` | 只比较 `x.y.z` 三段数值，返回 `-1` / `0` / `1`；任一入参非法抛 `VersionError` |
-| `jit_available()` | JIT 是否可用 |
 | `build_info()` | 运行环境字典，**永不抛异常** |
-| `format_build_info(info=None)` | 渲染成 `--build-info` 的多行文本 |
 | `build_info_json(info=None)` | 渲染成可 `json.loads` 的 JSON 字符串 |
+| `format_build_info(info=None)` | 渲染成可读的多行纯文本（无 ANSI, 便于重定向/贴报告） |
 | `VersionError` | `version_tuple()` / `version_info()` 解析失败时抛出（`ValueError` 子类） |
 
 `build_info()` 的字段:
@@ -259,11 +238,10 @@ except CPUSimulatorError as e:
 | `python` / `python_implementation` | str | 解释器版本 / 实现名 |
 | `platform` | str | `"<sys.platform>/<machine>"` 形式（本机为 `win32/AMD64`） |
 | `system` / `machine` | str | `platform.system()` / `platform.machine()`（如 `Windows` / `AMD64`） |
-| `native` | bool | 原生库是否**可用** |
+| `native` | bool | 原生库是否**可用**（v5.9.0 起不可用即无法执行程序） |
 | `native_version` | str \| None | 原生库自报版本串原文 |
 | `native_path` | str \| None | 实际加载的库文件路径 |
 | `native_version_matches` | bool \| None | 自报串是否包含包版本；无法判定为 `None` |
-| `jit` | bool | JIT 是否可用 |
 | `package_path` | str | 包目录 |
 | `executable` | str | 当前解释器可执行文件 |
 
@@ -289,65 +267,96 @@ if info['native_version_matches'] is False:
 ## Go 原生库: `codecin.native`
 
 `codecin/native.py` 是 ctypes 桥接层。库文件按
-`codecin/native/` → 包目录 的顺序查找, 先试架构专属名
-(`libcodecin_native-linux-x64.so`), 再试通用名 (`libcodecin_native.so`); 也支持
-环境变量 `CODECIN_NATIVE_LIB` 强制指定。
+`codecin/native/` → 包目录 的顺序查找, 先试带平台/架构后缀的 Release 资产名
+(`libcodecin_native-linux-x64.so` / `libcodecin_native-win-amd64.dll`), 再试通用名
+(`libcodecin_native.so` / `.dll` / `.dylib`); 也支持环境变量 `CODECIN_NATIVE_LIB`
+强制指定。
 
 | 接口 | 说明 |
 |------|------|
 | `get_engine(logger=None) -> Optional[NativeEngine]` | 查找并加载原生库; 失败返回 `None` (结果被缓存, 只尝试一次) |
 | `NativeEngine.version()` | 库自报版本字符串, 如 `codecin-native <版本> (Go)` |
-| `NativeEngine.run(...)` | 整程序字节码执行, 返回结果字典 |
+| `NativeEngine.run_v2(bytecode, segments, entry, sp, heap_base, mem_size, ...)` | ABI v2 整程序执行, 返回结果字典 (见下) |
 | `NativeEngine.crom_pack(mem, compress)` / `crom_unpack(data)` | CROM 打包/解包 |
-| `encode_program(instructions, entry=0, labels=None) -> bytes` | 指令元组列表 → UCBC 字节码 |
+| `encode_program(instructions, entry=0, labels=None) -> bytes` | 指令元组列表 → UCBC 字节码 (`labels` 把 `('label', name)` 操作数解析为立即数) |
 | `decode_program(data) -> (instructions, entry)` | UCBC 字节码 → 指令元组列表 |
+
+### `run_v2` 详解
+
+```python
+run_v2(bytecode: bytes,
+       segments,                     # List[Tuple[int, bytes]]: 初始内存段
+       entry: int, sp: int, heap_base: int, mem_size: int,
+       input_data: bytes = b'',      # 程序 stdin
+       max_steps: int = 0,           # 0 = 不限
+       args: Optional[List[str]] = None,   # arg_count()/arg(i) 数据源
+       seed: Optional[int] = None,   # SYS RAND 种子
+       sandbox: bool = False,        # 沙箱标志
+       ) -> Optional[Dict[str, Any]]
+```
+
+返回字典 (底层通信失败返回 `None`):
+
+| 键 | 说明 |
+|----|------|
+| `status` | `0` OK / `1` Done (两者均为正常结束) / `2` 未实现指令 / `3` 运行期错误 |
+| `flags` | `{'N', 'Z', 'C', 'V'}` |
+| `pc` / `sp` / `heap_ptr` | 结束时的指针 |
+| `steps` | 已执行指令数 |
+| `regs` | 33 个 `u64` (x0–x31 + sp/fp 等) |
+| `vec_regs` | 32 × 4 个 `f64` |
+| `segments` | `List[(addr, bytes)]` 脏内存段 (引擎按 64 KiB 页合并) |
+| `output` | 程序全部 stdout (str) |
+| `error` | `status` 为 `2` / `3` 时的错误文本, 否则 `None` |
+
+`CPU.run()` 拿到结果后由 `_apply_native_state()` 同步: 寄存器/向量/标志位/指针写回,
+脏段 `write_block` 进稀疏内存, `steps` 一次性批量记入统计。
 
 ```python
 from codecin import native
 
 engine = native.get_engine()
-print(engine)                       # None 表示回退纯 Python
-if engine is not None:
-    print('native version:', engine.version())
+if engine is None:
+    raise SystemExit('原生库未加载: 请先构建 (codecin/native/build.ps1 / build.sh)')
+print('native version:', engine.version())
 
-# 手工编码并执行一个 9 条指令的小程序
+# 手工编码并执行一个小程序
 prog = [
     ('MOV', [('reg', 0), ('imm', 21)]),
-    ('MUL', [('reg', 0), ('imm', 2)]),
+    ('ADD', [('reg', 0), ('imm', 21)]),
     ('HALT', []),
 ]
 bc = native.encode_program(prog, entry=0)
-res = engine.run(bytecode=bc, mem=bytes(64 * 1024), entry=0,
-                 sp=0xFFF8, heap_base=0x8000, input_data=b'', max_steps=10_000)
-print(res['status'], res['halted'], res['regs'][0])   # 0 True 42
+mem_size = 1 << 30
+res = engine.run_v2(bytecode=bc, segments=[], entry=0,
+                    sp=(mem_size - 8) & ~0x7, heap_base=mem_size // 2,
+                    mem_size=mem_size, max_steps=10_000)
+print(res['status'], res['regs'][0])   # 正常结束, x0 = 42
 ```
 
-::: info 路径一致性对嵌入者的含义
-"三路径一致" 不是文档口号, 而是可执行的验收条件 (`script/check_paths.py`、
-`tests/test_three_paths.py`): 同一份 UCBC 字节码在**解释器 / JIT / Go 原生 VM**
-下必须给出相同的寄存器、内存、输出与退出状态。对嵌入者的实际含义是:
-
-- 你可以放心用 `Config(use_native=True)` 默认走原生 VM 拿性能, 只在需要
-  `--debug` / `--step` / `bounds_check` / `mmu` 时才退回解释器, **语义不变**;
-- 允许的差异只有两类: 与时间/环境相关的输出 (`time()`、`cwd()`、主机名), 以及
-  Python `math` 与 Go `math` 在超越函数上的末位舍入 (通常 ≤ 1 ulp);
-- 因此**不要**用"换条路径"来解释行为差异 —— 那是 bug。回归时先跑
-  `python script/check_paths.py`, 它会对 `examples/*.cin` 逐字节比较三条路径的 stdout。
+::: tip 内存布局公式
+`sp` 初值 = `(mem_size - 8) & ~0x7` (栈向下增长), `heap_base` = `mem_size // 2`
+(堆向上增长)。与 [寄存器与内存模型](/reference/registers-memory) 的区域表一致。
 :::
 
 ## AOT: `codecin.aot`
 
 `codecin/aot.py` 把 CIN 程序编译成**独立静态可执行文件** (内嵌 UCBC 字节码与初始
-内存镜像, 由内置 Go VM 执行, 运行时不需要 Python / Go / 动态库)。它只负责编排,
+内存段文件, 由内置 Go VM 执行, 运行时不需要 Python / Go / 动态库)。它只负责编排,
 真正的入口 shell 是与 Go 侧共用的 `codecin/native/aot/stub_main.go.txt`。
+构建强制 `CGO_ENABLED=0`, 因此 cgo 实现的 FFI 在 AOT 产物内调用会得到运行期错误
+(详见 [AOT 独立可执行文件](/runtime/aot))。
 
 | 接口 | 签名要点 |
 |------|----------|
 | `build_program(program_file, out=None, target=None, keep_temp=False, mem_size=None, logger=None) -> str` | 由 `.cin` 源文件一键构建, 返回产物绝对路径 |
-| `build(bytecode, mem_image, out, target=None, keep_temp=False, logger=None) -> str` | 底层入口, 直接吃字节码与内存镜像 |
+| `build(bytecode, seg_file, out, target=None, keep_temp=False, logger=None) -> str` | 底层入口, 直接吃字节码与段文件 (`pack_seg_file` 的产物) |
+| `pack_seg_file(mem_size, sp, heap_base, segs) -> bytes` | 打包初始内存段 + 布局参数为 `program.segs` 段文件 |
 | `program_dependencies(program_file) -> List[str]` | 依赖闭包 (含自身, 去重保序) |
 | `host_target() -> str` | 当前平台的 `os/arch` |
+| `parse_target(target) -> (goos, goarch)` | 解析/校验目标三元组 |
 | `supported_targets() -> List[str]` | 常用交叉编译目标列表 |
+| `sweep_stale_build_dirs(...)` | 清理过期临时构建目录 (默认 > 6 小时) |
 | `AotError` | 构建失败 (非 `CPUSimulatorError` 子类) |
 
 ```python
@@ -369,15 +378,15 @@ print('产物:', exe)                        # 绝对路径; Windows 目标自�
 
 | 接口 | 说明 |
 |------|------|
-| `save_crom(memory, path, compress=True, logger=None)` | 把 `FastMemory` 写成 CROM v3 镜像 (有原生库时走 Go 打包, 否则 zlib) |
-| `load_crom(memory, path, logger=None, enable_mmu=False)` | 读回镜像; `enable_mmu=True` 时同时恢复 MMU 页表尾部元数据 |
-| `save_bin(cpu, path, logger=None)` | 把 CPU 的指令 + 内存镜像写成 CPUSA `.bin` 容器 |
-| `load_bin(cpu, path)` | 读回 `.bin`, 重建 `instructions` / `pc` / `sp` (内存不足时自动 `resize`) |
+| `save_crom(memory, path, compress=True, logger=None)` | 把 `FastMemory` 写成 **CROM v4** 段式镜像 (只存已分配页; 有原生库时走 Go 打包, 否则 zlib) |
+| `load_crom(memory, path, logger=None)` | 读回镜像, 自动识别 CROM v4 (段式) 与 v3 (旧全量, 只读兼容) |
+| `save_bin(cpu, path, logger=None)` | 把 CPU 的指令 + 内存镜像写成 **BIN v3** 容器 |
+| `load_bin(cpu, path)` | 读回 `.bin` (v3, 亦可读 v2), 重建 `instructions` / `pc` / `sp` |
 
 ```python
 from codecin import CPU, Config, crom
 
-cfg = Config(interactive_mode=False, log_level='ERROR')
+cfg = Config(log_level='ERROR')
 cpu = CPU(cfg, 'examples/control_flow.cin')
 cpu.run()
 
@@ -385,16 +394,16 @@ crom.save_crom(cpu.memory, 'snapshot.crom', compress=True)
 crom.save_bin(cpu, 'snapshot.bin')
 
 # 读回 CROM 到一个新 CPU
-cpu2 = CPU(Config(interactive_mode=False, log_level='ERROR'))
+cpu2 = CPU(Config(log_level='ERROR'))
 crom.load_crom(cpu2.memory, 'snapshot.crom')
 
 # 读回 .bin (直接当作程序加载也可以: CPU(cfg, 'snapshot.bin'))
-cpu3 = CPU(Config(interactive_mode=False, log_level='ERROR'))
+cpu3 = CPU(Config(log_level='ERROR'))
 crom.load_bin(cpu3, 'snapshot.bin')
 print(len(cpu3.instructions), hex(cpu3.pc))
 ```
 
-格式细节 (头布局、flags、CRC32、MMU 尾部) 见 [二进制格式](/runtime/formats)。
+格式细节 (段式头布局、flags、CRC32) 见 [二进制格式](/runtime/formats)。
 
 ## 反汇编: `codecin.disasm`
 
@@ -412,77 +421,44 @@ for line in disasm.disassemble_file('prog.bin')[:12]:
     print(line)
 ```
 
-同模块还导出 `disassemble_bytes(data)` (直接吃 `bytes`) 与 `_extract_from_cpusa(data)`
-(解析容器头, 返回 `(bytecode, mem_size, entry, sp)` 或 `None`)。命令行等价物是
+同模块还导出 `disassemble_bytes(data)` (直接吃 `bytes`) 与容器解析辅助
+`_extract_from_cpusa(data)` / `_extract_from_bin_v3(data)` / `_extract_from_bin_v2(data)`
+(返回 `(bytecode, mem_size, entry, sp)` 或 `None`)。命令行等价物是
 `codecin prog.bin --disasm`, 见 [命令行参考](/guide/cli)。
 
 ## 统计: `codecin.stats`
 
 `CPU.stats` 是一个 `Statistics` 实例。注意原生 VM 路径**不按指令逐个记账**
-(一次性批量写入), 所以原生执行后 `opcode_count` 是空的, 只有总数可靠。
+(整程序执行完毕一次性批量写入), 所以 `opcode_count` 是空的, 只有总数可靠。
 
 | 成员 | 说明 |
 |------|------|
 | `instruction_count` | 已执行指令总数 |
-| `opcode_count` | `defaultdict(int)`, 各助记符执行次数 (解释/JIT 路径) |
+| `opcode_count` | `defaultdict(int)`, 各助记符执行次数 (原生路径为空) |
 | `execution_time` | `start()` / `stop()` 之间的墙钟秒数 |
 | `memory_reads` / `memory_writes` | 内存读写次数 |
-| `get_hot_instructions(top_n=10)` | 最热的指令列表 |
-| `inst_profiler` | `InstructionProfiler`: `cycles` 与 `latency` 表, `get_total_cycles()` |
-| `performance_counters` | `PerformanceCounters`: `get_stats()` 给出 IPC / 分支准确率 / 缓存命中率 |
-| `display_summary(console, cache_stats=None, jit_stats=None, native_used=False)` | 渲染统计表 |
+| `get_hot_instructions(top_n=10)` | 最热的指令列表 (原生路径只有 `'?'` 一项) |
+| `inst_profiler` | `InstructionProfiler`: 指令周期表, `get_total_cycles()` |
+| `performance_counters` | `PerformanceCounters`: `get_ipc()` / `get_stats()` 给出 IPC / 分支准确率等 |
+| `display_summary(console=None, cache_stats=None, native_used=True)` | 渲染统计表 (`cache_stats` 为兼容保留的透传参数) |
 
 ```python
 from codecin import CPU, Config
 
-cpu = CPU(Config(use_native=False, interactive_mode=False, log_level='ERROR',
-                 profile=True))
+cpu = CPU(Config(log_level='ERROR'))
 cpu.run()
 print('instructions =', cpu.stats.instruction_count)
 print('exec time    = %.4fs' % cpu.stats.execution_time)
-print('top hot      =', cpu.stats.get_hot_instructions(5))
-print('cache        =', cpu.cache.get_stats())
 print('perf         =', cpu.stats.performance_counters.get_stats())
+cpu.stats.display_summary(cpu.console, native_used=cpu.native_used)
 ```
-
-## JIT: `codecin.jit`
-
-JIT 把**无分支基本块**动态编译成 Python 函数并缓存, 适合没有 Go 工具链、又想比纯解释
-快一些的场景。它由 `Config(enable_jit=True)` 经 `CPU.run()` 自动启用, 也可以直接调用。
-
-| 接口 | 说明 |
-|------|------|
-| `JITCompiler(logger=None)` | 构造; `blocks` / `block_ranges` 为内部缓存 |
-| `compile_block(cpu) -> Optional[int]` | 编译 `cpu.pc` 起的基本块, 返回块结束 PC (`None` 表示不可编译) |
-| `try_step(cpu) -> Optional[bool]` | 尝试按块执行; `None` = 该指令不适合 JIT 应回退解释 |
-| `get_stats() -> dict` | `blocks_compiled` / `cached_blocks` / `total_calls` / `cache_hits` / `hit_rate` |
-
-```python
-from codecin import CPU, Config, jit
-
-cpu = CPU(Config(enable_jit=True, use_native=False,
-                 interactive_mode=False, log_level='ERROR'),
-          'examples/control_flow.cin')
-cpu.run()
-print(cpu.jit.get_stats())
-
-# 或者手工编排: 编译 pc 处的基本块, 再用 try_step 执行
-j = jit.JITCompiler()
-end_pc = j.compile_block(cpu)        # 返回块结束 PC, None 表示该处不可编译
-print('block end =', end_pc, j.get_stats())
-```
-
-::: tip JIT 的边界
-`_JIT_OPS` 只包含直线指令 (数据传输/算术/逻辑/加载存储/栈); 控制流、`SYS`、`IN`/`OUT`
-一律结束当前块。`--debug` 或 `--step` 与 JIT 互斥 —— `CPU.run()` 会优先保证追踪完整性。
-本页与 [JIT 编译](/runtime/jit) 描述的是同一套实现。
-:::
 
 ## 相关页面
 
 - [寄存器与内存模型](/reference/registers-memory) — 寄存器/内存/栈帧约定
 - [指令集编码表](/reference/isa) — `Opcode` 枚举的完整编码
-- [执行路径](/guide/execution-paths) — 三条路径的选择规则与回退顺序
-- [Go 原生运行时](/runtime/native) — 原生库加载与查找顺序
-- [二进制格式 (.bin/.crom)](/runtime/formats) — UCBC 与 CROM v3 布局
+- [执行路径](/guide/execution-paths) — native-only 单引擎的数据流与装载格式
+- [Go 原生运行时](/runtime/native) — ABI v2、原生库查找顺序与重建
+- [二进制格式 (.bin/.crom)](/runtime/formats) — UCBC 与 CROM v4 布局
+- [内存模型与运行时开关](/tools/memory-cache) — 稀疏分页与 `--mem-size` 等
 - [命令行参考](/guide/cli) — 与 `Config` 字段一一对应的 CLI 选项
