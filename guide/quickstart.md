@@ -1,5 +1,5 @@
 ---
-description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语言、三条执行路径、编译为字节码与 AOT 单文件。
+description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语言、原生引擎单路径执行、编译为字节码与 AOT 单文件。
 ---
 
 # 快速开始
@@ -114,37 +114,21 @@ codecin hello.asm        # 汇编
 - `sys #24` 是宿主系统调用 `PRINT_STR` (打印 `x0` 指向的 NUL 结尾字符串), `out` 输出数值,
   值为 `10` 时输出换行 —— 详见 [指令语义参考](/asm/instructions)。
 
-## 3. 三条执行路径
+## 3. 单执行路径: Go 原生引擎
 
-同一个程序可以用三种方式执行, 结果一致 (详见 [执行路径](/guide/execution-paths)):
-
-::: tabs
-
-== 解释执行 (纯 Python)
-
-```bash
-codecin hello.cin --no-native
-```
-
-支持全部 `--debug` / `--step` 功能, 速度最慢。
-
-== JIT 基本块编译
-
-```bash
-codecin hello.cin --jit --no-native
-```
-
-把热点基本块编译成 Python 代码, 与 `--debug` 互斥。
-
-== Go 原生 VM (默认优先)
+所有程序都由**同一条路径**执行 (详见 [执行路径](/guide/execution-paths)):
 
 ```bash
 codecin hello.cin
 ```
 
-整程序一次性交给 Go 原生 VM, 速度最快; 原生库缺失时自动回退。
+Python 侧负责编译与装载, 然后通过 ABI v2 的 `codecin_run_v2` 把整程序一次调用
+交给 Go 原生引擎执行, 结束后回传寄存器/向量/标志/脏内存段与输出。
+v5.9.0 起**没有解释器/JIT 回退**: 原生库缺失时会直接抛 `CPUSimulatorError` 并附
+重建指引 (源码树 `codecin/native/` 下的 `build.ps1` / `build.sh`, 需 Go 1.26+),
+所以[安装后构建原生库](/guide/installation)是必要步骤。
 
-:::
+内存默认 **1 GiB** (4 KiB 稀疏分页、按需提交), 大数组/大缓冲不再需要 `--mem-size`。
 
 ## 4. 编译产物与内存镜像
 
@@ -161,7 +145,7 @@ codecin hello.bin --disasm
 ```
 
 ```text
-; CPUSA binary: 30 instructions, mem=65536 bytes, entry=0x0, sp=0xfff8
+; CPUSA binary: 30 instructions, mem=1073741824 bytes, entry=0x0, sp=0x3ffffff8
 ;
 0000: CALL #2
 0001: HALT
@@ -171,7 +155,7 @@ codecin hello.bin --disasm
 0005: SYS #24
 ```
 
-运行后保存内存镜像 (CROM v3, 默认 zlib 压缩):
+运行后保存内存镜像 (段式 CROM v4, 默认 zlib 压缩, 只保存实际使用的内存页):
 
 ```bash
 codecin hello.cin --save             # 生成 hello.crom (固定为 <程序名>.crom, 不受 -o 影响)
@@ -283,10 +267,10 @@ Sum 1..10 = 55
 
 :::
 
-::: details 用 Go 原生路径运行同一批示例
-把上面命令里的 `--log-level ERROR` 换成不加 `--no-native` 即可 (例如
-`codecin examples/control_flow.cin`), 输出应当完全一致 —— 这正是
-[三路径一致性](/guide/execution-paths)要保证的约束。
+::: tip 运行示例前确认原生库就绪
+所有示例 (尤其是 `gui_demo.cin` / `local_audio.cin` 这类宿主能力示例) 都依赖 Go 原生
+引擎库。缺失时会直接抛 `CPUSimulatorError`, 用 `codecin --build-info` 可核对原生库
+版本与包版本是否匹配, 重建方法见 [安装 Code CIN](/guide/installation)。
 :::
 
 ## 7. 编辑器支持
@@ -306,5 +290,5 @@ Sum 1..10 = 55
 - [命令行参考](/guide/cli) — 全部选项、默认值与退出码
 - [CIN 语言总览](/language/) — 类型、控制流、函数、struct、数组、字符串
 - [标准库总览](/stdlib/) — 36 个内置库与逐函数参考
-- [交互式调试器](/tools/debugger) — 单步、断点、寄存器/内存查看
+- [宿主能力](/language/host-abilities) — 画布、GUI、音频、FFI 与网络
 - [示例程序集](/guide/examples) — 按主题整理的完整示例

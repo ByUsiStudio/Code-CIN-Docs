@@ -1,5 +1,5 @@
 ---
-description: Code CIN 的两种二进制格式：.bin（CPUSA 容器 + UCBC 字节码）与 .crom v3 内存镜像的字段、命令、兼容性与限制。
+description: Code CIN 的两种二进制格式：.bin（CPUSA v3 容器 + UCBC 字节码）与 .crom v4 段式内存镜像的字段、命令、兼容性与限制。
 ---
 
 # 二进制格式
@@ -8,33 +8,49 @@ Code CIN 有两条不同的二进制产物线，用途完全不同：
 
 | 格式 | 是什么 | 谁产生 | 能否直接运行 |
 | --- | --- | --- | --- |
-| `.bin` | **程序**：CPUSA 容器 + UCBC 字节码 + 初始内存镜像 | `--compile` / `--compile-only` | 可以：`codecin prog.bin` |
-| `.crom` | **内存镜像**：某个时刻的整块内存快照（v3 带 CRC32，可 zlib 压缩） | `--save` | **不可以**：它要配合 `.pl`/`.asm` 用 `--crom` 载入 |
+| `.bin` | **程序**：CPUSA 容器 + UCBC 字节码 + 初始内存段表 | `--compile` / `--compile-only` | 可以：`codecin prog.bin` |
+| `.crom` | **内存快照**：某个时刻已分配页的段式快照（v4，可 zlib 压缩） | `--save` | **不可以**：它要配合 `.pl`/`.asm` 用 `--crom` 载入 |
 
 两者魔数、版本号、头部布局都不一样，**互不通用**：把 `.crom` 当程序喂进去会失败，反之亦然。本页给出两种格式的准确字段、命令与限制。
 
-## `.bin`：CPUSA 容器
+## 为什么是段式格式
 
-`codecin/crom.py:save_bin()` 写出的容器布局（全部小端）：
+v5.9.0 起默认内存是 **1073741824 字节（1 GiB）**，物理占用按需分配（详见[寄存器与内存模型](/reference/registers-memory)）。如果继续沿用旧版的"整块内存镜像"，一个 hello world 也会写出 1 GiB 的文件——显然不可行。
+
+因此 v5.9.0 把两种格式都改成了**段式**：只保存实际写过的内存页，其余地址空间隐式为零。
+
+| 版本 | 布局 | 状态 |
+| --- | --- | --- |
+| CROM **v4** / BIN **v3** | 头部 + 段表（每段 `addr + len + data`）+ 字节码（仅 `.bin`） | **当前写出格式** |
+| CROM v3 / BIN v2 | 头部 + 整块内存镜像 + 字节码（仅 `.bin`） | **仍可读取，不再写出** |
+
+## `.bin`：CPUSA 容器 (v3)
+
+`codecin/crom.py:save_bin()` 写出的容器布局（全部小端），固定头部 50 字节（`BIN_V3_HEADER`）：
 
 | 偏移 | 大小 | 字段 | 说明 |
 | --- | --- | --- | --- |
 | 0x00 | 5 | Magic | `'CPUSA'`（`Constants.MAGIC_NUMBER`） |
-| 0x05 | 1 | Version | `0x02`（`Constants.BIN_VERSION`） |
-| 0x06 | 4 | Memory Size | 初始内存镜像字节数（u32） |
-| 0x0A | 4 | Entry | 入口 PC（u32） |
-| 0x0E | 8 | SP | 初始栈指针（u64） |
-| 0x16 | 4 | Bytecode Length | 紧随其后的 UCBC 段长度（u32） |
-| 0x1A | 8 | Reserved | 保留，写 0 |
-| 0x22 | N | Memory Image | 初始内存内容（Memory Size 字节） |
+| 0x05 | 1 | Version | `0x03`（`Constants.BIN_VERSION`） |
+| 0x06 | 8 | Memory Size | 内存逻辑大小（u64，默认 `0x40000000` = 1 GiB） |
+| 0x0E | 4 | Entry | 入口 PC（u32） |
+| 0x12 | 8 | SP | 初始栈指针（u64） |
+| 0x1A | 8 | Heap Base | 初始堆基址（u64） |
+| 0x22 | 4 | Bytecode Length | UCBC 段长度（u32） |
+| 0x26 | 4 | Seg Count | 段表条目数（u32） |
+| 0x2A | 8 | Reserved | 保留，写 0 |
+| 0x32 | 16×S | 段表 | 每段：`addr u64 + len u64 + data`（`len` 为该段字节数） |
 | — | M | Bytecode | UCBC 字节码段（Bytecode Length 字节） |
 
-固定头部 34 字节（`0x22`），因此字节码段起点 = `34 + mem_size`。载入时 `load_bin()` 的行为是：
+段表统一编码为"顺序拼接"：每段先写 8 字节起始地址、8 字节数据长度，再跟数据本体。**段粒度是 4 KiB 页**——`FastMemory.snapshot_segments()` 把每个已分配页输出为一个段，按地址升序排列；只写过几 KB 的程序就只有几个段。
+
+载入时 `load_bin()` 的行为是：
 
 1. 校验 magic 与 `BIN_VERSION`，不符分别报 `Invalid binary file (bad magic)` 与 `Unsupported binary version: <x>`；
-2. 若镜像长度大于当前内存，**扩容内存**并把 `config.mem_size` 同步为镜像长度；
-3. 把镜像写回物理地址 0；
-4. 解码 UCBC 段，设置 `pc = Entry`、`sp = SP`。
+2. 解析段表（段表不完整 / 段数据越界报 `段表不完整 (文件损坏?)` / `段数据不完整 (文件损坏?)`）；
+3. 若头部 `Memory Size` 大于当前内存，**扩容内存**并把 `config.mem_size` 同步为该值；
+4. 把各段写回稀疏内存（未覆盖的地址保持 0）；
+5. 解码 UCBC 段，设置 `pc = Entry`、`sp = SP`、`heap_base = heap_ptr = Heap Base`。
 
 ### UCBC 字节码段的编码
 
@@ -51,8 +67,8 @@ magic[4] = 'UCBC' | version u8 (0x01) | entry u32 | instr_count u32
 操作数: kind u8 | value i64 | extra i64        （每个操作数 17 字节, 小端）
 ```
 
-- `opcode` 是 `codecin/isa.py` 中 `Opcode` 枚举的数值（`MOV=0`、`LOAD=1` … `SYS=111`）；
-- `argc` 是操作数个数，必须与指令语义匹配（Go VM 会按 `argCounts` 表校验，声明个数不对直接报错）；
+- `opcode` 是 `codecin/isa.py` 中 `Opcode` 枚举的数值（`MOV=0`、`LOAD=1` … `DNSLOOKUP=157`）；
+- `argc` 是操作数个数，必须与指令语义匹配（Go 引擎会按 `argCounts` 表校验，声明个数不对直接报错）；
 - `i64` 字段以二进制补码写入，Python 侧用 `_i64()` 把无符号掩码值还原为有符号数。
 
 操作数 `kind` 取值与含义：
@@ -75,27 +91,37 @@ magic[4] = 'UCBC' | version u8 (0x01) | entry u32 | instr_count u32
 - `float` 用 `struct.pack('<d', ...)` 取位模式，`decode_operand()` 按同样方式还原。
 - `cond` 解码时用 `Cond.NAMES[value & 15]` 还原为 `EQ`/`NE`/… 名字。
 
-## `.crom`：内存镜像 v3
+### BIN v2 遗留格式（只读）
 
-`codecin/crom.py` 与 Go 侧 `codecin/native/engine/crom.go` 实现同一格式，头部 16 字节：
+v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + bc_len u32 + 保留 8B`，之后是**整块内存镜像**与字节码。`load_bin()` 仍按该布局读取：镜像大于当前内存时同样扩容；镜像从地址 0 整块写回。旧 `.bin` 无需转换即可继续运行，但新保存的 `.bin` 一律是 v3 段式。
+
+## `.crom`：段式内存镜像 (v4)
+
+`codecin/crom.py:save_crom()` 写出的格式，头部 16 字节：
 
 | 偏移 | 大小 | 字段 | 说明 |
 | --- | --- | --- | --- |
 | 0x00 | 4 | Magic | `'CROM'` |
-| 0x04 | 1 | Version | `0x03` |
-| 0x05 | 4 | Memory Size | 内存字节数（u32） |
-| 0x09 | 1 | Flags | bit0 = zlib 压缩；bit1 = 尾部含 MMU 页表元数据 |
+| 0x04 | 1 | Version | `0x04`（`Constants.CROM_VERSION`） |
+| 0x05 | 1 | Flags | bit0 = zlib 压缩；其余保留 |
+| 0x06 | 4 | Seg Count | 段表条目数（u32） |
 | 0x0A | 4 | Checksum | 载荷的 CRC32（IEEE，`zlib.crc32`） |
 | 0x0E | 2 | Reserved | 保留 |
-| 0x10 | N | Data | 压缩或原始载荷 |
+| 0x10 | N | Data | 可选 zlib 压缩的段表 |
 
-- **压缩**：`Flags` bit0 置位时载荷是 zlib 流。Python 侧用 `zlib.compress(payload, level=6)`，Go 侧用 `zlib.NewWriter`（`flate.DefaultCompression = 6`），两边级别一致；不压缩时载荷就是原始字节。
-- **CRC32 覆盖范围**：`Data` 段的全部字节。若带 MMU 尾部元数据，校验和同样覆盖尾部。
-- **MMU 尾部**：`Flags` bit1 置位时，`Data` 在 `Memory Size` 字节的内存之后还跟着一段页表元数据，序列化为 `identity u8 | 条目数 u32 | (vpn u32, ppn u32, perms 3B)* | 黑名单数 u32 | (vpn u32)*`。载入时只有 `enable_mmu=True`（CLI 的 `--mmu`）才会恢复它，否则忽略并仍按物理地址加载内容。
-- **余量上限**：载荷允许比 `Memory Size` 多出最多 4 MiB（`CROM_MAX_TRAILER`），这一余量是留给 MMU 尾部的。超出即判为损坏/恶意文件。
-- **旧版裸格式**：若前 4 字节不是 `'CROM'`，`load_crom()` 会按"旧版裸镜像"处理——把这 4 字节当 `mem_size`，要求它与文件实际长度自洽，否则报 `Not a .crom file`。任意垃圾文件不会被静默当成内存镜像载入。
+- **载荷**：与 `.bin` 相同的段表编码（每段 `addr u64 + len u64 + data`），段粒度 4 KiB 页、按地址升序——`--save` 只保存实际写过的页，hello world 级程序的 `.crom` 通常只有几百字节。
+- **压缩**：`Flags` bit0 置位时载荷是 zlib 流（`zlib.compress(body, level=6)`）；`--no-compress` 时载荷就是原始段表字节。
+- **CRC32 覆盖范围**：`Data` 段的全部字节（压缩后校验，载入时先验校验和再解压）。不匹配报 `.crom checksum mismatch (file corrupted?)`。
+- **载入**：`load_crom()` 解析段表后用 `memory.load_segments()` 写回稀疏内存；**不清空现有页**，因此汇编器随后写的数据段会覆盖镜像中同一地址的内容。
 
-`--mmu` 之外，MMU 与页保护的完整语义见 [寄存器与内存模型](/reference/registers-memory)。
+### 旧格式兼容（只读）
+
+| 输入 | 行为 |
+| --- | --- |
+| CROM **v3** | 按整块镜像读取（16 B 头 + 载荷），解压余量上限 `mem_size + 4 MiB`（`CROM_MAX_TRAILER`，原为 MMU 尾部预留）。若发现尾部 MMU 页表元数据，**忽略**并提示 `.crom v3 含 MMU 页表 (v5.9.0 起已移除 MMU), 忽略` |
+| CROM **v4** | 按段表读取（本页主格式） |
+| 非 CROM 魔数 | 按"旧版裸镜像"处理——前 4 字节当 `mem_size`，要求与文件实际长度自洽，否则报 `Not a .crom file`；任意垃圾文件不会被静默当成内存镜像载入 |
+| 其他版本号 | 报 `Unsupported .crom version: <x>` |
 
 ## 常用命令
 
@@ -110,15 +136,14 @@ codecin basic.cin --compile                     # 编译为 .bin 后继续执行
 
 ```text
 INFO  CIN compiled: 16 instructions
-INFO  Binary saved to basic.bin (385 bytecode bytes)
+INFO  Binary saved to basic.bin (385 bytecode bytes, 2 segments)
 Compiled to basic.bin
 ```
 
 == 运行 .bin
 
 ```bash
-codecin basic.bin                 # 走默认（原生优先）路径
-codecin basic.bin --no-native     # 纯解释执行同一份字节码
+codecin basic.bin                 # 由 Go 原生引擎直接执行
 ```
 
 ```text
@@ -134,7 +159,7 @@ codecin basic.cin --save --no-compress   # 不压缩
 ```
 
 ```text
-INFO  .crom saved to basic.crom (131 bytes, compressed=True, mmu=False)
+INFO  .crom saved to basic.crom (131 bytes, segments=2, compressed=True)
 ```
 
 == 加载 .crom
@@ -153,18 +178,18 @@ codecin basic.asm --crom basic.crom
 
 ### `--crom` 到底作用在哪
 
-`--crom <file>` 是"**把内存镜像恢复到虚拟机内存**"的机制，作用范围比名字听起来窄：
+`--crom <file>` 是"**把内存快照恢复到虚拟机内存**"的机制，作用范围比名字听起来窄：
 
 | 输入类型 | `--crom` 是否生效 | 说明 |
 | --- | --- | --- |
-| `.pl` / `.asm` | **生效** | 恢复镜像 → 再汇编；汇编器的数据段写入会覆盖镜像中同一地址的内容 |
+| `.pl` / `.asm` | **生效** | 恢复快照 → 再汇编；汇编器的数据段写入会覆盖快照中同一地址的内容 |
 | `.cin` | 不生效 | `codecin/cpu.py` 的 `load_program()` 在 `.cin` 分支直接返回 |
 | `.bin` | 不生效 | `.bin` 分支调用 `load_bin()` 后直接返回 |
 
 对 `.pl` / `.asm` 还有一条**自动探测**规则：未显式给 `--crom` 时，若同目录存在同名的 `<程序名>.crom`，会自动加载它：
 
 ```text
-INFO  Loaded .crom v3: 65536 bytes, compressed=True, mmu=False
+INFO  Loaded .crom v4: 2 segments, compressed=True
 ```
 
 ::: danger 别把 `.crom` 当可执行产物
@@ -175,7 +200,7 @@ INFO  Loaded .crom v3: 65536 bytes, compressed=True, mmu=False
 
 ## 反汇编查看：`--disasm`
 
-`--disasm` 接受两种输入：`.bin`（CPUSA 容器）与**裸 UCBC 段**。它属于"看一眼就退出"的模式，成功退出码 0：
+`--disasm` 接受三种输入：CPUSA **v3** 容器（当前 `.bin`）、CPUSA **v2** 遗留容器与**裸 UCBC 段**。它属于"看一眼就退出"的模式，成功退出码 0：
 
 ```bash
 codecin basic.bin --disasm
@@ -186,7 +211,7 @@ codecin basic.bin --disasm
 == CPUSA 容器
 
 ```text
-; CPUSA binary: 16 instructions, mem=65536 bytes, entry=0x0, sp=0xfff8
+; CPUSA binary: 16 instructions, mem=1073741824 bytes, entry=0x0, sp=0x3ffffff8
 ;
 0000: CALL #2
 0001: HALT
@@ -194,7 +219,7 @@ codecin basic.bin --disasm
 0003: MOV X29 X32
 ```
 
-首行格式为 `; CPUSA binary: <指令数> instructions, mem=<内存字节数> bytes, entry=0x<入口>, sp=0x<栈指针>`，指令行的格式是"四位十六进制指令序号 + 助记符 + 操作数"。
+首行格式为 `; CPUSA binary: <指令数> instructions, mem=<内存字节数> bytes, entry=0x<入口>, sp=0x<栈指针>`，指令行的格式是"四位十六进制指令序号 + 助记符 + 操作数"。v2 遗留容器同样走这条输出路径（`mem`/`sp` 取自旧头部）。
 
 == 裸 UCBC 段
 
@@ -207,7 +232,7 @@ codecin basic.bin --disasm
 0003: MOV X29 X32
 ```
 
-裸段没有内存镜像与 SP，首行只有指令数与入口；`#N` 表示立即数，`X29` 表示寄存器。
+裸段没有内存段表与 SP，首行只有指令数与入口；`#N` 表示立即数，`X29` 表示寄存器。
 
 给出非 `.bin`/非 `UCBC` 的文件时报错并提示先编译：
 
@@ -217,29 +242,19 @@ codecin basic.bin --disasm
 
 :::
 
-## 两种实现的二进制兼容性
+## 实现与二进制兼容性
 
-Go 与 Python 的 CROM 实现是**格式级兼容**的，可以互相读写：
-
-| 维度 | Python（`codecin/crom.py`） | Go（`codecin/native/engine/crom.go`） |
-| --- | --- | --- |
-| 头部布局 | 16 字节，同上表 | 相同 |
-| 压缩级别 | `zlib.compress(level=6)` | `zlib.NewWriter`（默认级别 6） |
-| 校验和 | `zlib.crc32(body)` | `crc32.ChecksumIEEE(payload)` |
-| 解压上限 | `mem_size + 4 MiB` | 同一常量 |
-| 版本校验 | 不等即报错 | 不等即返回失败 |
-
-打包时会**优先调用原生库**（`engine.crom_pack`），不可用时回退 `zlib`；含 MMU 尾部元数据时跳过 Go 打包，改由 Python 侧排版，以保证两种实现产出完全一致的字节流。`tests/test_native_hardening.py` 覆盖了往返一致与异常输入。
-
-字节码侧同理：Python `encode_program()` 产出的 UCBC 段能被 Go VM 直接执行（原生路径就是这么做的），Go VM 的 `decodeBytecode` 会校验 magic、版本、指令条数、`argc` 与操作数完整性——畸形输入被安全拒绝，不会 OOM 或越界 panic。
+- **`.crom` / `.bin` 的唯一写出方是 Python 侧 `codecin/crom.py`**：压缩用 `zlib.compress(level=6)`，校验和用 `zlib.crc32`（IEEE）。格式是纯数据规范，任何符合本页布局的工具都能读写。
+- **字节码与原生引擎共用**：Python `encode_program()` 产出的 UCBC 段就是原生执行路径的输入（`CPU` 编译后直接把字节码与段表交给 Go 引擎），Go 侧 `decodeBytecode` 会校验 magic、版本、指令条数、`argc` 与操作数完整性——畸形输入被安全拒绝，不会 OOM 或越界 panic。
+- **同构的段式思想贯穿三层**：CROM v4 / BIN v3 的段表、原生 ABI v2 回传的脏内存段、AOT 产物的 `program.segs` 段文件，都是"每段 `addr + len + data`"的同族编码，细节各有差异，见各自页面。
 
 ## 限制与版本策略
 
-- **版本号是硬门槛，没有迁移逻辑**：`BIN_VERSION = 2`、`BC_VERSION = 1`、`CROM_VERSION = 3`。载入时版本不符分别报 `Unsupported binary version: <x>`、`Unsupported bytecode version: <x>`、`Unsupported .crom version: <x>`。跨版本兼容策略**以源码为准**，不要假设旧产物能在新版本里直接跑。
-- **`.bin` 的 `mem_size` 会改变内存布局**：`load_bin()` 在镜像大于当前 `--mem-size` 时会扩容内存，并同步 `config.mem_size`。
-- **`.crom` 的载荷大小受头部约束**：解压结果超过 `mem_size + 4 MiB` 视为损坏或 zip bomb；不压缩载荷同样受该上限约束。
-- **`.bin` 尾部多余字节被忽略**：`decode_program()` 按 `instr_count` 精确读取，读满即停，不做尾部校验。
-- **操作数个数由指令决定**：手改 `.bin` 很容易让 `argc` 与指令语义不匹配，Python 解码会读错偏移、Go VM 会直接拒绝。
+- **版本号是硬门槛，没有迁移逻辑**：`BIN_VERSION = 3`、`BC_VERSION = 1`、`CROM_VERSION = 4`。载入时版本不符分别报 `Unsupported binary version: <x>`、`Unsupported bytecode version: <x>`、`Unsupported .crom version: <x>`。旧版本（BIN v2 / CROM v3）保留**只读**兼容，不会写出。
+- **`.bin` 的 `mem_size` 会改变内存布局**：`load_bin()` 在头部声明值大于当前 `--mem-size` 时扩容内存，并同步 `config.mem_size`。
+- **段表是自描述的**：段数、每段长度都在文件里，解析器逐段校验完整性（`段表不完整` / `段数据不完整`），损坏文件被明确拒绝而不是载入半页数据。
+- **`.bin` 尾部多余字节被忽略**：按 `instr_count` 精确读取字节码，读满即停，不做尾部校验。
+- **操作数个数由指令决定**：手改 `.bin` 很容易让 `argc` 与指令语义不匹配，Python 解码会读错偏移、Go 引擎会直接拒绝。
 
 ::: tip 需要人眼核对时优先用 `--disasm`
 
@@ -249,8 +264,8 @@ Go 与 Python 的 CROM 实现是**格式级兼容**的，可以互相读写：
 
 ## 相关页面
 
-- [执行路径](/guide/execution-paths)——字节码在三条路径上的执行差异
-- [Go 原生运行时](/runtime/native)——原生库如何打包/解包 CROM
-- [AOT 独立可执行文件](/runtime/aot)——把 `.bin` 的字节码内嵌进静态单文件
-- [寄存器与内存模型](/reference/registers-memory)——MMU 页表与内存布局
+- [执行路径](/guide/execution-paths)——native-only 架构下的单一路径与产物形态
+- [Go 原生运行时](/runtime/native)——原生引擎如何接收段表并回传脏内存段
+- [AOT 独立可执行文件](/runtime/aot)——把字节码与内存段内嵌进静态单文件
+- [寄存器与内存模型](/reference/registers-memory)——1 GiB 稀疏分页与内存布局
 - [命令行参考](/guide/cli)——`--compile` / `--save` / `--crom` / `--disasm` 全表

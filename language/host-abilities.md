@@ -1,29 +1,31 @@
 ---
-description: "CIN 宿主能力：GUI 窗口（Windows Win32 / Linux X11）、2D 画布导出 PNG、本地音频（beep 合成 / 进度 / 暂停恢复 / 音量）、命令行参数与行输入、文件/路径/进程/系统信息、HTTP 网络、哈希与 Base64、桌面集成（剪贴板/通知/打开 URL）与 Termux/Android API，均需 Go 原生运行时。"
+description: "CIN 宿主能力：GUI 窗口（Windows Win32 / Linux X11）、2D 画布导出 PNG、本地音频（beep 合成 / 进度 / 暂停恢复 / 音量）、命令行参数与行输入、文件/路径/进程/系统信息、网络（HTTP/TCP/UDP/DNS）、FFI 动态库调用、哈希与 Base64、桌面集成（剪贴板/通知/打开 URL）与 Termux/Android API，均由 Go 原生引擎实现。"
+
 ---
 
 # 宿主能力
 
 除了纯计算, CIN 还能直接调用宿主: GUI 窗口 (Windows Win32 / Linux X11)、画布绘图
 (导出 PNG)、本地音频 (beep 合成 / 播放进度 / 暂停恢复 / 音量)、命令行参数与行输入、
-文件与路径操作、进程与系统信息、HTTP 网络请求、哈希与 Base64、桌面集成
-(剪贴板 / 通知 / 打开 URL), 以及在 Android Termux 下调用 Termux 与 Android API。
+文件与路径操作、进程与系统信息、网络 (HTTP / TCP / UDP / DNS)、FFI 动态库调用、
+哈希与 Base64、桌面集成 (剪贴板 / 通知 / 打开 URL), 以及在 Android Termux 下调用
+Termux 与 Android API。
 
-::: danger 这些能力只有 Go 原生实现
-宿主能力内建**没有纯 Python 实现**。用 `--no-native` (或原生库加载失败) 时调用它们会直接
-报错并以退出码 1 结束:
+::: danger `--sandbox` 下宿主 SYS 被拦截
+v5.9.0 起所有程序都由 Go 原生引擎执行, 宿主能力内建就是引擎里的 SYS 调用。
+`--sandbox` 运行不可信程序时, 仅放行内存帧分配与高精度计时 (`ALLOCFRAME` 137 /
+`TIMEUS` 138 / `TIMENS` 139), 其余宿主 SYS (网络 / FFI / 音频 / 画布 / 文件 / GUI /
+Termux 等) 一律报错并以退出码 1 结束:
 
 ```text
-ERROR    Execution error: host builtins (GUI/audio/system/Termux) require the
-         native Go runtime (run without --no-native)
+ERROR    Execution error: Host capability disabled in sandbox mode (SYS 147: TCPDIAL)
 +------------------------------ Execution Error ------------------------------+
-| host builtins (GUI/audio/system/Termux) require the native Go runtime (run  |
-| without --no-native)                                                        |
+| Host capability disabled in sandbox mode (SYS 147: TCPDIAL)                 |
 +-----------------------------------------------------------------------------+
 ```
 :::
 
-除此之外的所有语言功能 (含全部纯 CIN 标准库) 在三路径下行为一致。
+其余语言功能 (含全部纯 CIN 标准库) 不发起宿主 SYS 调用, 在 `--sandbox` 下也可正常运行。
 
 ## 2D 绘图画布
 
@@ -144,7 +146,7 @@ function main() -> int {
 
 ## 命令行参数与行输入
 
-跨平台一致的输入语义 (SYS 129..131, 由 Go 原生引擎实现, 解释器路径下报宿主内建错误):
+跨平台一致的输入语义 (SYS 129..131, 由 Go 原生引擎实现):
 
 | 函数 | 返回 | 说明 |
 |------|------|------|
@@ -268,31 +270,117 @@ sleep_ms(100)                           // 睡 100 毫秒 (上限 600000)
 ```
 
 ::: warning 这是真实的宿主权限
-`exec` / `file_write` / `file_delete` / `dir_remove` / `download` / `http_get` / `http_post` / `chdir`
+`exec` / `file_write` / `file_delete` / `dir_remove` / `download` / `http_get` / `http_post` /
+`tcp_dial` / `udp_sendto` / `dlopen` / `chdir`
 具备当前进程的文件与网络权限, 不会沙箱化。
-运行不可信程序时用 `--sandbox` (限制宿主访问) 与 `--no-io` (禁止 `IN`/`OUT` 与宿主 I/O),
-或者根本不要在原生路径下运行。
+运行不可信程序时用 `--sandbox` (仅放行内存与计时 SYS) 与 `--no-io` (禁止 `IN`/`OUT` 与宿主 I/O)。
 :::
 
-## 网络 (HTTP/HTTPS)
+## 网络 (HTTP / TCP / UDP / DNS)
+
+HTTP 之外, 5.9.0 新增自定义方法请求、状态码查询、TCP 客户端/服务端、UDP 数据报与
+DNS 解析 (SYS 145..157, Go 标准库实现)。主机名参数统一支持域名
+(`tcp_dial("example.com", 80)` / `udp_sendto(fd, "example.com", 53, ...)`), 不必先手工解析 IP。
+
+### HTTP
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
 | `http_get(url)` | string | GET 并返回响应体; 失败空串 (**15 秒超时, 8 MiB 上限**) |
 | `http_post(url, body)` | string | POST (`text/plain; charset=utf-8`) 并返回响应体; 失败空串 (同样 15 秒 / 8 MiB) |
+| `http_req(method, url, headers, body)` | string | 自定义方法与头部 (SYS 145); `headers` 为 `"Key: Value\n"` 换行分隔, 空串表示无头; 失败空串 |
+| `http_code()` | int | 最近一次 HTTP 请求状态码 (SYS 146); 从未请求 `-1` (`http_get` / `http_post` / `http_req` 语义一致) |
 | `download(url, path)` | int | 下载到文件; `0` 成功 / `-1` 失败 (**非 2xx 算失败**, 落盘上限 256 MiB) |
 
-> `http_get` / `http_post` 不检查状态码, 非 2xx 也会返回响应体; `download` 把非 2xx 视为失败。
+> `http_get` / `http_post` / `http_req` 不检查状态码, 非 2xx 也会返回响应体 (用
+> `http_code()` 自行判断); `download` 把非 2xx 视为失败。
 
-```c
-string page = http_get("https://example.com/")
-println("长度 = " + int_to_str(strlen(page)))
+```cin
+function main() -> int {
+    string body = http_req("GET", "https://api.example.com/v1/info",
+                           "Authorization: Bearer xxx\nAccept: application/json", "")
+    println("HTTP " + int_to_str(http_code()))     // 200 / 404 ...
+    println("长度 = " + int_to_str(strlen(body)))
+    return 0
+}
+```
 
-string echo = http_post("https://example.com/api", "name=cin")
-println("返回 " + int_to_str(strlen(echo)) + " 字节")
+### TCP (SYS 147..152)
 
-int rc = download("https://example.com/logo.png", "logo.png")
-println("download = " + int_to_str(rc))          // 0 成功
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `tcp_dial(host, port)` | int | 建立连接 (10 秒超时), 返回连接句柄; 失败 `-1` |
+| `tcp_send(fd, buf, n)` | int | 发送 `n` 字节, 返回发送字节数; 失败 `-1` |
+| `tcp_recv(fd, buf, max)` | int | 接收至多 `max` 字节写入 `buf`; 对端关闭 `0`, 失败 `-1` (单次上限 4/8 MiB) |
+| `tcp_close(fd)` | int | 关闭连接, `0` / `-1` |
+| `tcp_listen(port)` | int | 监听端口, 返回监听句柄; 失败 `-1` |
+| `tcp_accept(lfd)` | int | 阻塞接受一个连接, 返回连接句柄; 失败 `-1` |
+
+```cin
+function main() -> int {
+    int fd = tcp_dial("example.com", 80)      // 域名直接可连
+    if (fd <= 0) { println("连接失败"); return 1 }
+    string req = "GET / HTTP/1.0\r\nHost: example.com\r\n\r\n"
+    tcp_send(fd, req, strlen(req))
+    int buf[512]
+    int n = tcp_recv(fd, buf, 4096)           // 字节流原样写入缓冲内存
+    println("收到 " + int_to_str(n) + " 字节")
+    tcp_close(fd)
+    return 0
+}
+```
+
+### UDP (SYS 153..156)
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `udp_open(port)` | int | 打开 UDP 套接字并绑定端口 (`0` = 系统分配); 失败 `-1` |
+| `udp_sendto(fd, host, port, buf, n)` | int | 发送数据报 (host 支持域名/IP), 返回发送字节数; 失败 `-1` |
+| `udp_recvfrom(fd, buf, max, srcbuf)` | int | 接收数据报, 源地址 `"ip:port"` 写入 `srcbuf` (传 `0` 忽略); 失败 `-1` |
+| `udp_close(fd)` | int | 关闭套接字, `0` / `-1` |
+
+### DNS (SYS 157)
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `dns_lookup(host)` | string | 解析主机名为 IP 字符串 (偏好 IPv4); 失败空串 |
+
+- CIN 数组每个元素占 8 字节, `tcp_recv` / `udp_recvfrom` 把收到的字节流**原样写入缓冲内存**;
+- 按行收发、`http_ok()` 判断、TCP 回环等便捷封装见标准库 `net.cin`
+  ([标准库参考](/stdlib/reference#net))。
+
+## FFI 动态库调用
+
+5.9.0 新增 (SYS 140..144): 加载动态库 (`dlopen`)、查找导出符号 (`dlsym`)、
+调用外部函数 (`ffi_call` / `ffi_callf`)、卸载 (`lib_close`)。最多 8 个参数、每个占 8 字节;
+`argbuf` 是 VM 内存中 8 字节对齐的参数缓冲 —— int 数组槽即 int64 位模式,
+float 数组槽即 IEEE754 位模式; 浮点参数经 Windows x64 `XMM0-3` / SysV `XMM0-7`
+寄存器正确传参。
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `dlopen(path)` | int | 加载动态库, 返回库句柄; 失败返回 `0` (不抛异常) |
+| `dlsym(handle, symbol)` | int | 查找导出符号, 返回函数句柄; 失败返回 `0` |
+| `ffi_call(fn, argbuf, n)` | int | 以 `n` 个整数参数调用函数, 返回 int64 |
+| `ffi_callf(fn, argbuf, n)` | float | 以 `n` 个浮点参数调用函数, 返回值按 double 位模式进 X0 |
+| `lib_close(handle)` | int | 卸载动态库, `0` 成功 / `-1` 失败 |
+
+- `dlopen` / `dlsym` 失败返回 `0` 不抛异常, 调用前应检查句柄; 无效句柄 / 参数越界报明确运行时错误;
+- 整数调用 `ffi_call0` .. `ffi_call8`、浮点调用 `ffi_callf1` .. `ffi_callf4` 便捷封装见标准库
+  `ffi.cin` ([标准库参考](/stdlib/reference#ffi))。
+
+```cin
+import "ffi.cin"
+
+function main() -> int {
+    int lib = ffi_load("kernel32.dll")       // Linux/macOS: libc.so.6 / libc.dylib
+    if (lib == 0) { println("加载失败"); return 1 }
+    int fn = ffi_find(lib, "GetTickCount64")
+    if (fn == 0) { ffi_free(lib); return 1 }
+    println("开机毫秒 = " + int_to_str(ffi_call0(fn)))
+    ffi_free(lib)
+    return 0
+}
 ```
 
 ## 编码与哈希
@@ -406,8 +494,8 @@ if (is_android() == 1) {
 
 面向游戏循环 / TUI 的**非阻塞**键盘轮询, 需要**真实终端**: 首次调用会把终端切到原始输入
 (不回显、无行缓冲), 程序退出自动恢复。管道 / 重定向 / IDE 捕获输出的环境下**优雅失败**
-(`key_hit` 恒 `0`, `get_key` 恒 `-1`), 不阻塞、不报错; `--no-native` 下报
-`require the native Go runtime`, `--sandbox` 同样拦截。
+(`key_hit` 恒 `0`, `get_key` 恒 `-1`), 不阻塞、不报错; `--sandbox` 下同样拦截
+(报 `Host capability disabled in sandbox mode`)。
 
 | 函数 | 返回 | 说明 |
 |------|------|------|
@@ -459,24 +547,26 @@ function main() -> int {
 
 ## 能力矩阵
 
-| 能力 | 纯 Python / JIT | Go 原生 | 说明 |
-|------|:---------------:|:-------:|------|
-| GUI 窗口 / 鼠标 | ❌ | ✅ | `gui_new` 系列 (Windows Win32 / Linux X11) |
-| 画布 / PNG 导出 / 查看器 | ❌ | ✅ | `canvas` 系列 |
-| 本地音频 (合成 / 播放控制) | ❌ | ✅ | `beep` / `audio_play` (WAV) / 进度 / 暂停恢复 / 音量 |
-| 命令行参数 / 行输入 | ❌ | ✅ | `arg_count` / `arg` / `input_str` (原生内建; CLI `--` 与管道注入) |
-| 文件 / 目录 / 路径 | ❌ | ✅ | 真实文件系统权限 (`file_*` / `path_*` / `dir_remove` / `chdir`) |
-| 进程 / 环境变量 / 系统信息 | ❌ | ✅ | `exec` / `getenv` / `os_name` / `time_ms` / `mem_info` |
-| 网络 (HTTP/HTTPS) | ❌ | ✅ | `http_get` / `http_post` / `download` |
-| 编码与哈希 | ❌ | ✅ | `sha256` / `base64_*` |
-| 桌面集成 | ❌ | ✅ | 剪贴板 / 通知 / `open_url` |
-| Termux API 与 Android 扩展 | ❌ | ✅ | 需 Termux:API; 非 Android 优雅失败 |
-| 键盘输入 (非阻塞轮询) | ❌ | ✅ | 需真实终端; Unicode 码点 + F1..F12 + Ctrl/Shift 组合 |
-| 纯 CIN 标准库 (`math`/`sort`/`hash`…) | ✅ | ✅ | 三路径一致 |
+| 能力 | 内建 | 说明 |
+|------|------|------|
+| GUI 窗口 / 鼠标 | `gui_new` 系列 | Windows Win32 / Linux X11 |
+| 画布 / PNG 导出 / 查看器 | `canvas` 系列 | — |
+| 本地音频 (合成 / 播放控制) | `beep` / `audio_play` (WAV) / 进度 / 暂停恢复 / 音量 | — |
+| 命令行参数 / 行输入 | `arg_count` / `arg` / `input_str` | CLI `--` 与管道注入 |
+| 文件 / 目录 / 路径 | `file_*` / `path_*` / `dir_remove` / `chdir` | 真实文件系统权限 |
+| 进程 / 环境变量 / 系统信息 | `exec` / `getenv` / `os_name` / `time_ms` / `mem_info` | — |
+| 网络 (HTTP / TCP / UDP / DNS) | `http_get` / `http_req` / `tcp_*` / `udp_*` / `dns_lookup` | HTTP 15 s 超时 / 8 MiB 上限 |
+| FFI 动态库调用 | `dlopen` / `dlsym` / `ffi_call` / `ffi_callf` / `lib_close` | 最多 8 个 8 字节参数 |
+| 编码与哈希 | `sha256` / `base64_*` | — |
+| 桌面集成 | 剪贴板 / 通知 / `open_url` | — |
+| Termux API 与 Android 扩展 | `termux_*` / `android_intent` | 需 Termux:API; 非 Android 优雅失败 |
+| 键盘输入 (非阻塞轮询) | `key_hit` / `get_key` / `key_flush` | 需真实终端; Unicode 码点 + F1..F12 + Ctrl/Shift 组合 |
+| 纯 CIN 标准库 (`math`/`sort`/`hash`…) | — | 只依赖语言内建, `--sandbox` 下不受影响 |
+
+以上宿主内建均由 Go 原生引擎实现; `--sandbox` 下仅放行内存与计时 SYS。
 
 ## 相关页面
 
-- [执行路径](/guide/execution-paths) — 为什么宿主能力必须走原生
 - [Go 原生运行时](/runtime/native) — 原生库加载与宿主调用区段
 - [内建函数](/language/builtins) — 宿主内建的完整清单
-- [标准库参考](/stdlib/reference) — `io` / `gui` / `termux` / `key` 库的封装函数
+- [标准库参考](/stdlib/reference) — `io` / `gui` / `termux` / `key` / `net` / `ffi` 库的封装函数

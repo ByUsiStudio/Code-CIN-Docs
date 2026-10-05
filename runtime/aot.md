@@ -4,9 +4,10 @@ description: AOT 独立可执行文件：用 --build-exe 把 CIN 程序编译成
 
 # AOT 独立可执行文件
 
-`--build-exe` 把 CIN 程序编译成**静态链接的独立可执行文件**（Windows / Linux / macOS）。产物内嵌 UCBC 字节码与初始内存镜像，由内置的 Go VM 执行：
+`--build-exe` 把 CIN 程序编译成**静态链接的独立可执行文件**（Windows / Linux / macOS）。产物内嵌 UCBC 字节码与初始内存段表，由内置的 Go 引擎执行（与动态库原生路径是同一份代码）：
 
 - **运行时不需要 Python**，不需要 Go 工具链，不需要 libc 或任何动态库；
+- **构建强制 `CGO_ENABLED=0`**：纯静态、无 cgo，带 cgo 构建标签的 Go 源文件在 AOT 构建时被排除（对 FFI 的影响见[下文](#静态构建与-ffi)）；
 - `import` 依赖闭包在**编译期展开**并嵌入产物，产物运行时不读取任何 `.cin`；
 - 构建期只需要 Go 工具链 + 仓库里的 Go 源码树。
 
@@ -42,7 +43,7 @@ codecin program.cin --build-exe              # 省略路径: 输出 <程序名>[
 | `--build-exe [OUT]` | 编译成独立静态可执行文件后**退出**（不执行）；省略 `OUT` 时输出 `<程序名>` + 平台后缀 |
 | `--build-target OS/ARCH` | 交叉编译目标，默认当前平台（`aot.host_target()`） |
 | `--build-keep-temp` | 保留 `go build` 的临时包目录，排查失败用 |
-| `--mem-size BYTES` | 初始内存镜像大小，默认 `65536` |
+| `--mem-size BYTES` | 内存逻辑大小，默认 `1073741824`（1 GiB）；产物按段式只嵌入数据段实际覆盖的范围 |
 
 两点容易踩的细节：
 
@@ -117,10 +118,10 @@ AOT build 完成: D:\...\prog.exe
 2. **依赖完整性检查**：用 `collect_imported_files()` 展开 `import` 闭包，缺失/循环引用报 `依赖检查失败: ...`，缺失文件报 `依赖库缺失: <列表>`——不必等 `go build` 才失败；
 3. **编译**：`CINCompiler().compile()` 产出指令、标签与数据段写入，失败报 `编译失败: ...`；
 4. **编码字节码**：`encode_program()` 生成 UCBC 段（与 `.bin` 里的字节码段同格式）；
-5. **生成初始内存镜像**：默认 65536 字节（`--mem-size` 覆盖），下限 256；数据段写入按地址落到镜像里；
+5. **生成初始内存段表**：默认 1 GiB（`--mem-size` 覆盖，下限 256）；不再预填整个地址空间的零块，只为数据段实际覆盖的范围分配内容；数据段写入落在声明大小之外时**直接报错**（见下文「数据段越界与 `--mem-size`」）；
 6. **清扫陈旧残留**：建新目录之前先调 `aot.sweep_stale_build_dirs()`，删掉 `codecin/native/` 下**超过 6 小时**的 `.aotbuild-*` / `.aotprobe-*` 残留（清理是尽力而为，失败绝不影响本次构建）；
-7. **生成临时包**：在 `codecin/native/` 内建 `.aotbuild-<随机十六进制>/`，写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.mem`；
-8. **交叉编译**：`CGO_ENABLED=0` + `GOOS`/`GOARCH` 执行
+7. **生成临时包**：在 `codecin/native/` 内建 `.aotbuild-<随机十六进制>/`，写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.segs`；
+8. **交叉编译**：强制 `CGO_ENABLED=0`（纯静态、无 cgo）+ `GOOS`/`GOARCH` 执行
 
    ```text
    go build -trimpath -tags netgo,osusergo -ldflags "-s -w" -o <输出> ./.aotbuild-xxxx
@@ -134,11 +135,11 @@ AOT build 完成: D:\...\prog.exe
 //go:embed program.ucbc
 var bytecode []byte
 
-//go:embed program.mem
-var memImage []byte
+//go:embed program.segs
+var segFile []byte
 
 func main() {
-	os.Exit(aot.Main(bytecode, memImage))
+	os.Exit(aot.Main(bytecode, segFile))
 }
 ```
 
@@ -181,17 +182,19 @@ AOT: 残留临时目录清理失败: D:\...\codecin\native\.aotbuild-1a2b3c4d5e6
 - `import "x.cin"`（裸名字）→ 解析到内置标准库 `codecin/lib/`（`lib/` 前缀保留为兼容写法）；
 - 同一文件每次编译只包含一次，循环引用报错。
 
-因为展开发生在编译期，**产物不读任何 `.cin`**。实测：把带 `import "stat.cin"` 的程序构建到临时目录后，在没有 `codecin/lib` 的目录里直接运行产物，输出与解释器一致（`sum=55 stat=15`）。
+因为展开发生在编译期，**产物不读任何 `.cin`**。实测：把带 `import "stat.cin"` 的程序构建到临时目录后，在没有 `codecin/lib` 的目录里直接运行产物，输出与直接 `codecin` 运行一致（`sum=55 stat=15`）。
 
 ## 产物行为
 
 | 行为 | 说明 |
 | --- | --- |
 | 启动 | 从 PC 0 开始执行内嵌字节码（CIN 编译结果的首条是 bootstrap `CALL main; HALT`） |
-| 初始状态 | `SP = 内存大小 - 8`（栈从内存末尾向下增长），堆基址 = 内存大小 / 2 |
-| 步数上限 | `100000000`，超出按运行期错误处理 |
+| 初始状态 | `SP = 内存大小 - 8`（栈从内存末尾向下增长），堆基址 = 内存大小 / 2；默认 1 GiB 下即 `SP = 0x3ffffff8`、堆基址 `0x20000000` |
+| 步数上限 | `100000000`（固定值，不随 CLI 的 `--max-instructions` 变化），超出按运行期错误处理 |
+| 内存 | 由 VM 按 `mem_size` 动态分配（OS 懒提交），实际物理占用只有写过的页 |
 | stdout | 打印程序输出（`OUT` / `println` 等） |
 | stdin | **只在被重定向（管道/文件）时读取**；交互式终端下不会挂起等待 EOF |
+| FFI | 不可用：静态构建无 cgo，`dlopen` 系列调用返回运行时报错（见[下节](#静态构建与-ffi)） |
 | 正常结束 | 退出码 **0** |
 | 运行期错误 | 消息写 **stderr**，退出码 **1** |
 
@@ -211,32 +214,56 @@ $ echo $?
 
 | 环节 | 做法 | 效果 |
 | --- | --- | --- |
-| 静态链接 | `CGO_ENABLED=0` | 不链接 libc/任何动态库 |
+| 静态链接 | `CGO_ENABLED=0`（AOT 构建强制设置，不依赖环境） | 不链接 libc/任何动态库 |
 | 纯 Go DNS/用户库 | `-tags netgo,osusergo` | 不依赖 glibc 的 NSS/getaddrinfo |
 | 路径与符号 | `-trimpath -ldflags "-s -w"` | 去掉本机路径与符号表，缩小体积 |
-| 体积 | 单个静态二进制 | 实测约 6.2 MiB（含 Go 运行时与 VM） |
+| 体积 | 单个静态二进制 | 实测约 6.2 MiB（含 Go 运行时与引擎） |
 
 `tests/test_aot.py` 会把产物按 ELF 解析并断言**不存在 `PT_INTERP` 段**——这是"Linux 产物不依赖 glibc"的机器可验证形式。
 
-## 数据段越界与 `--mem-size`
+## 静态构建与 FFI
 
-编译期生成内存镜像时，任何落在声明大小之外的数据段写入都会**直接报错**（不会静默丢弃）：
+AOT 构建把 `CGO_ENABLED` 固定为 `0`，`go build` 因此只编译**无 cgo** 的 Go 源文件。原生引擎里带 cgo 构建标签的实现会被排除：
+
+| 源文件 | 构建标签 | AOT 构建下的命运 |
+| --- | --- | --- |
+| `codecin/native/engine/ffi_windows.go` | `windows && cgo` | 被排除 |
+| `codecin/native/engine/ffi_unix.go` | `!windows && cgo` | 被排除 |
+| `codecin/native/engine/ffi_nocgo.go` | `!cgo` | **参与编译**（桩实现） |
+
+`ffi_nocgo.go` 提供的桩让引擎包在无 cgo 下照常编译，但 FFI 系统调用（`dlopen` / `dlsym` / `ffi_call` / `dlclose`，功能号 140–144）在运行时返回明确错误：
 
 ```text
-数据段超出内存大小 65536 字节: addr=0x0 size=70001; 用 --mem-size 增大后重试
+FFI unavailable: built without cgo (static AOT build); use the dynamic-library runtime for ffi_*
 ```
 
-触发方式通常是超过默认内存的数据（例如一个 70000 字符的字符串字面量）。按提示增大后即可通过：
+也就是说：**AOT 产物调用 FFI 会得到运行时报错，而不是构建期链接失败**。其余能力（VM、网络、音频、画布、键盘）全部走纯 Go 实现，不受影响。需要 FFI 的程序请用动态库原生路径运行（`codecin program.cin`），或把 AOT 产物视为"无 FFI"的分发形态并在文档里注明。
+
+::: tip 网络与 FFI 的取舍
+
+`HTTPREQ` / `TCPDIAL` 等网络系统调用由 Go 标准库实现，在 AOT 产物里完全可用（这正是 `-tags netgo,osusergo` 的意义）；被静态构建关掉的只有依赖 cgo 的动态库加载。
+
+:::
+
+## 数据段越界与 `--mem-size`
+
+编译期生成内存段表时，任何落在声明大小之外的数据段写入都会**直接报错**（不会静默丢弃）：
+
+```text
+数据段超出内存大小 1048576 字节: addr=0x0 size=1048592; 用 --mem-size 增大后重试
+```
+
+默认内存已是 1 GiB，绝大多数程序的数据段直接放下；只有显式给了更小的 `--mem-size`、或数据真的巨大（例如一个上吉字节的字符串字面量）才会触发。按提示增大后即可通过：
 
 ```bash
-codecin bigstr.cin --build-exe bigstr2 --mem-size 1048576
+codecin bigstr.cin --build-exe bigstr2 --mem-size 4294967296
 ```
 
-注意这一点**只在构建期检查数据段**；运行期对栈/堆的越界行为与解释器一致（需要检查时用 `--bounds-check`，见 [CIN 语言限制与常见错误](/language/errors)）。`--mem-size` 小于 256 会被抬到 256。
+注意这一点**只在构建期检查数据段**；运行期对栈/堆的越界行为与动态库原生路径一致（需要数组越界检查时用 `--bounds-check`，见 [CIN 语言限制与常见错误](/language/errors)）。`--mem-size` 小于 256 会被抬到 256。
 
 ::: tip 内存大小要一次定对
 
-产物内置的内存大小在构建时固化。数据段放不下时构建直接失败（好事），但运行期才发现的"内存不够"需要重新构建，所以给够余量（例如 `--mem-size 1048576`）。
+产物内置的内存大小在构建时固化。数据段放不下时构建直接失败（好事），但运行期才发现的"内存不够"需要重新构建，所以给够余量。得益于 1 GiB 默认值与稀疏分页（大数组不再需要显式 `--mem-size`），这一步通常不用操心。
 
 :::
 
@@ -265,7 +292,7 @@ GOCACHE=/tmp/gocache codecin prog.cin --build-exe prog
 codecin prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
 ```
 
-`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`、`program.ucbc` 与 `program.mem`；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。
+`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`、`program.ucbc` 与 `program.segs`；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。
 
 :::
 
@@ -289,17 +316,17 @@ codecin prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
 
 | 对比 | `.bin` | AOT 产物 |
 | --- | --- | --- |
-| 运行需要 | Python + Code CIN | 什么都不需要 |
-| 输入形态 | 字节码 + 内存镜像 | 静态单文件（内嵌同样内容） |
+| 运行需要 | Python + codecin-native 动态库 | 什么都不需要 |
+| 输入形态 | 字节码 + 内存段表 | 静态单文件（内嵌同样内容） |
 | 适用 | 开发期反复运行、反汇编检查 | 分发用户程序 |
 | 体积 | 几十 KB 级 | 约 6 MB 级 |
 
-产物里的 VM 与原生路径是**同一份 Go 引擎**（`codecin/native/engine`），因此宿主能力（文件、进程、音频、画布、Termux）在 AOT 产物里同样可用，且不依赖 Python。三条执行路径的语义一致性见 [执行路径](/guide/execution-paths)。
+产物里的引擎与动态库原生路径是**同一份 Go 引擎**（`codecin/native/engine`），因此宿主能力（文件、进程、音频、画布、Termux、网络）在 AOT 产物里同样可用，且不依赖 Python——唯一例外是无 cgo 下的 FFI（见[上节](#静态构建与-ffi)）。native-only 架构下的执行语义见 [执行路径](/guide/execution-paths)。
 
 ## 相关页面
 
-- [二进制格式](/runtime/formats)——AOT 内嵌的 UCBC 字节码与内存镜像格式
-- [Go 原生运行时](/runtime/native)——被内嵌的 Go VM 与宿主能力
+- [二进制格式](/runtime/formats)——AOT 内嵌的 UCBC 字节码与内存段表格式
+- [Go 原生运行时](/runtime/native)——被内嵌的 Go 引擎与宿主能力
 - [Python 嵌入 API](/reference/python-api)——`codecin.aot.build_program()` 的编程接口
 - [命令行参考](/guide/cli)——`--build-exe` / `--build-target` / `--build-keep-temp`
 - [常见问题 (FAQ)](/guide/faq)

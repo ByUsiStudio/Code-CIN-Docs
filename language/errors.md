@@ -14,8 +14,8 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
    浮点取模报错。
 3. **位运算只接受整数**: `& | ^ << >> ~` 不接受 float/string; `>>` 是算术右移 (符号扩展),
    移位量按低 6 位取模。
-4. **递归深度受栈区限制**: 默认内存 64 KiB, 栈约 1024 个 8 字节槽; 过深递归报
-   `Stack overflow`。用 `--mem-size` 扩容 (例如 `--mem-size 262144`)。
+4. **递归深度受栈区限制**: 默认内存 1 GiB (4 KiB 稀疏分页, 按需提交), 大数组开箱即用;
+   但栈与堆相向生长, 过深递归报 `Stack overflow: frame needs ...`。需要时用 `--mem-size` 扩容。
 5. **struct 字段限制**: 字段可以是标量、嵌套 struct、固长数组, 但**不能是变长指针数组
    (`T[]`)**; 字符串字段是指针, 拼接/复制会产生新堆块。
 6. **全局初始化顺序**: 按声明顺序写入数据区; 数组字面量长度超过声明维度会报错。
@@ -43,9 +43,10 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
 | `Type mismatch ...` | 赋值/传参类型不匹配 | 显式转换或修正类型 |
 | `Expected RBRACE ... at line N` | 花括号不配对, 或块内语句缺少换行 | 检查第 N 行附近 |
 | `Import file not found` | 模块名写错, 或自建模块漏了 `"./"` 前缀 | 见 [模块与标准库](/language/modules) |
-| `Stack overflow (collides with heap)` | 递归过深 / 局部数组过大 / 堆栈相撞 | `--mem-size` 扩容, 或减少局部大对象 |
-| `Memory access out of bounds` 类错误 | 越界读写或保护违例 | 打开 `--bounds-check` 定位 |
-| `host builtins ... require the native Go runtime` | 纯 Python 路径下调用宿主能力 | 去掉 `--no-native` (见 [宿主能力](/language/host-abilities)) |
+| `Stack overflow: frame needs N bytes, stack headroom only M bytes ...` | 递归过深 / 局部数组过大, 栈帧分配后 SP 低于堆警戒线 | `--mem-size` 扩容, 或减少递归深度 / 局部大对象 |
+| `Heap exhausted: need N bytes, free M bytes ...` | 堆分配空间不足 | `--mem-size` 扩容, 或减少分配 |
+| `Address 0x... out of bounds` (可能带 `negative address: stack overflow or bad pointer?` hint) | 越界读写; 按位模 2^64 后为负的地址通常意味着栈溢出或野指针 | 打开 `--bounds-check` 定位 (见下方内存错误说明) |
+| `Host capability disabled in sandbox mode (SYS N: NAME)` | `--sandbox` 下调用了白名单 (`ALLOCFRAME` / `TIMEUS` / `TIMENS`) 之外的宿主 SYS | 去掉 `--sandbox` (见 [宿主能力](/language/host-abilities)) |
 | `Cannot assign to enum member: X (constants are read-only)` | 给枚举成员赋值 | 成员是编译期常量, 改用普通变量 |
 | `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 用定长数组或下标循环 |
 | `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
@@ -62,6 +63,21 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
 └────────────────────────────────────────────────────────────┘
 ```
 
+## 内存错误 (5.8.2+)
+
+所有内存访问错误统一为 `MemoryAccessError` (旧的 `PageFaultError` 已并入, `MemoryError`
+是其兼容别名)。5.8.2 起错误信息带具体数值与提示:
+
+```text
+Stack overflow: frame needs 720896 bytes, stack headroom only 4096 bytes (SP 0x..., guard 0x..., memory 1073741824 bytes). Try --mem-size or smaller local arrays
+Heap exhausted: need 1048576 bytes, free 4096 bytes (heap 0x...). Try --mem-size or reduce allocations
+Address 0xffffffffffffe000 out of bounds (negative address: stack overflow or bad pointer?)
+```
+
+- 默认内存 **1 GiB** (4 KiB 稀疏分页, 按需提交), 大数组不再需要预先扩容;
+- `negative address` hint 表示地址按位模 2^64 后为负, 典型成因是栈溢出 (SP 被推到负地址) 或野指针;
+- 深递归 / 更大堆占用仍可用 `--mem-size` 扩容。
+
 ## 排错流程
 
 ::: tabs
@@ -73,24 +89,10 @@ codecin prog.cin                # 面板里的 文件:行号 就是第一现场
 codecin prog.cin --log-level DEBUG --log-file codecin.log
 ```
 
-== 2. 语义对照
+== 2. 边界与资源
 
 ```bash
-codecin prog.cin --no-native              # 纯解释执行 (语义基准)
-codecin prog.cin --no-native --debug      # 逐指令追踪, 看最后一条 PC/寄存器
-```
-
-== 3. 交互定位
-
-```bash
-codecin prog.cin --no-native --step       # step> 提示符: b <地址> 设断点, p regs, p mem <地址>
-codecin prog.cin --debug-server 9999      # 供 IDE/脚本驱动 (换行文本协议)
-```
-
-== 4. 边界与资源
-
-```bash
-codecin prog.cin --no-native --bounds-check     # 数组越界检查
+codecin prog.cin --bounds-check                 # 数组越界检查
 codecin prog.cin --mem-size 262144              # 栈/堆扩容
 codecin prog.cin --max-instructions 1000000     # 死循环保护 (默认 1 亿)
 ```
@@ -99,9 +101,7 @@ codecin prog.cin --max-instructions 1000000     # 死循环保护 (默认 1 亿)
 
 更多排错入口:
 
-- [日志与错误输出](/tools/logging) — 日志级别、`--debug` 详细内容、退出码
-- [交互式调试器](/tools/debugger) — `step>` 命令集与打印目标
-- [远程调试协议](/tools/remote-debug) — `--debug-server` 命令/响应
+- [日志与错误输出](/tools/logging) — 日志级别与退出码
 - [常见问题 (FAQ)](/guide/faq) — 安装、性能、产物、宿主能力等问答
 
 ## 相关页面

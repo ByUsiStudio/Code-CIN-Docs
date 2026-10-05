@@ -42,8 +42,9 @@ function main() -> int {
 fib(10) = 55
 ```
 
-要点: 参数按值传递、返回值经 `X0` 传回、递归深度受栈区限制 (默认内存 64 KiB, 栈约 1024 槽,
-可用 `--mem-size` 扩容, 见 [限制与常见错误](/language/errors))。
+要点: 参数按值传递、返回值经 `X0` 传回、递归深度受栈区限制 (默认内存 1 GiB,
+4 KiB 稀疏分页、按需提交, 确有需要可用 `--mem-size` 调整, 见
+[限制与常见错误](/language/errors))。
 
 ## 3. 数组、struct 与标准库
 
@@ -226,16 +227,15 @@ os = windows
 cwd = D:\ByUsi\Projects\UCPU
 ```
 
-::: warning 纯 Python 路径下会报错退出
-宿主能力只有 Go 原生实现。`codecin prog.cin --no-native` 运行上面的程序会以退出码 1 结束:
-
-```text
-ERROR    Execution error: host builtins (GUI/audio/system/Termux) require the
-         native Go runtime (run without --no-native)
-```
+::: warning 沙箱模式下宿主调用会被拦截
+`--sandbox` 只放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS`, 上面的文件/系统类宿主调用
+会报 `Host capability disabled in sandbox mode` 并以非零退出码结束, 请在非沙箱
+模式运行。
 :::
 
-更多宿主能力 (画布导出 PNG、联网音频、Termux API) 见 [宿主能力](/language/host-abilities)。
+更多宿主能力 (画布导出 PNG、GUI 窗口与鼠标、本地音频、FFI 动态库调用
+`lib/ffi.cin`、HTTP/TCP/UDP 网络 `lib/net.cin`、Termux API) 见
+[宿主能力](/language/host-abilities)。
 
 ## 8. 汇编示例
 
@@ -354,8 +354,12 @@ codecin hello.cin --build-exe app --build-target linux/arm64   # 交叉编译
 | 文件 | 主题 |
 |------|------|
 | `basic.cin` | 综合回归基准 (类型、控制流、数组、字符串、函数、struct) |
+| `examples/args_demo.cin` | 命令行参数与行输入 (`arg_count`/`arg`/`input_str`, 程序名后裸参数直传, `--` 分隔) |
 | `examples/control_flow.cin` | `break`/`continue`/`do-while`/`switch`/三目/复合赋值 |
+| `examples/enum_range_for.cin` | `enum` 枚举、范围 `for`、switch 多值与闭区间 case、多参数 `println` |
+| `examples/gui_demo.cin` | GUI 窗口、键盘轮询与鼠标 (Windows Win32 / Linux X11, 需非沙箱模式) |
 | `examples/literals_types.cin` | 进制与字符字面量、类型别名、`++/--`、转换内建 |
+| `examples/local_audio.cin` | 本地音频: `beep` 合成、音量、播放进度、暂停恢复 |
 | `examples/bitwise_builtins.cin` | 位运算、`idiv`、字符串下标、数值/字符串内建 |
 | `examples/modules_demo.cin` | `import` 与内置标准库 |
 | `examples/stdlib_demo.cin` | 多库联动 (断言式演示) |

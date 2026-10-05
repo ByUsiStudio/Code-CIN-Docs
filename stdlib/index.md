@@ -1,17 +1,19 @@
 ---
-description: Code CIN 官方标准库总览：39 个内置库（含 C / C++ / Go 三语言标准库兼容层）的用途、前缀约定、宿主能力依赖与快速上手。
+description: Code CIN 官方标准库总览：41 个内置库（含 C / C++ / Go 三语言标准库兼容层）的用途、前缀约定、宿主能力依赖与快速上手。
+
 ---
 
 # 标准库总览
 
-Code CIN 官方标准库由 39 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
+Code CIN 官方标准库由 41 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
 它们本身是**用 CIN 语言写成的模块**，不是宿主内建函数：编译器在编译主文件时按需展开，
 因此函数签名、边界行为和返回值都可以直接阅读源码核对。
 
 标准库按职责分层：纯计算类库（数组、排序、数学、统计、哈希、位运算）只依赖语言内建，
-在三条执行路径下行为完全一致；**C / C++ / Go 标准库兼容层**（`cstd` / `cppstd` /
-`gostd`）用惯用命名封装同样只依赖内建的 API；而文件、画布、Termux、键盘这类库需要宿主
-提供能力，只能运行在 Go 原生引擎上。用 `codecin --libs` 可列出全部库及其执行路径要求。
+任何运行方式下行为一致；**C / C++ / Go 标准库兼容层**（`cstd` / `cppstd` /
+`gostd`）用惯用命名封装同样只依赖内建的 API；而文件、画布、Termux、键盘、网络（`net`）、
+FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandbox` 下调用会被拦截。
+用 `codecin --libs` 可列出全部库及其能力要求。
 
 ## 分发位置与查找规则
 
@@ -76,6 +78,8 @@ Code CIN 官方标准库由 39 个 `.cin` 源文件组成，随 pip 包一起分
 | `libc_` | `cstd.cin` | C 语言标准库兼容层（`<ctype.h>` / `<string.h>` …） |
 | `stl_` | `cppstd.cin` | C++ STL 兼容层（`std::string` / `vector` / `stack` / `queue`） |
 | `go_` | `gostd.cin` | Go 标准库兼容层（`strings` / `strconv` / `math` / `slices` / `os`） |
+| `ffi_` | `ffi.cin` | FFI 动态库调用便捷封装 |
+| —（函数名以 `http_` / `tcp_` / `udp_` / `dns_` 开头） | `net.cin` | 网络便捷封装 |
 
 ::: warning `t_` 前缀冲突
 `codecin/lib/time.cin` 与 `codecin/lib/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
@@ -115,10 +119,12 @@ Code CIN 官方标准库由 39 个 `.cin` 源文件组成，随 pip 包一起分
 | `combin.cin` | `comb_` | 26 | 素数筛、阶乘/排列/组合、卡特兰数、数论判定、进制转换 | 否 |
 | `csv.cin` | `csv_` | 23 | 单行 CSV 解析与生成：引号转义、字段取值、行缓冲 | 否 |
 | `dp.cin` | `dp_` | 13 | 0/1 背包、LCS、编辑距离、LIS、零钱、网格最小路径和 | 否 |
+| `ffi.cin` | `ffi_` | 16 | FFI 动态库调用：加载/查符号/整数与浮点调用（0..8 参数封装）/卸载 | **是**（Go 原生；`--sandbox` 拦截） |
 | `fmt.cin` | `fmt_` | 21 | 定点小数、千位分隔、对齐居中、比例条、表格单元格与边框 | 否 |
 | `frac.cin` | `fr_` | 19 | 有理数（分数）精确运算与比较、自动约分 | 否 |
 | `graph.cin` | `graph_` | 20 | 邻接矩阵图：BFS/DFS/拓扑排序/Dijkstra/连通性判定 | 否 |
 | `heap.cin` | `heap_` | 14 | 定长二叉堆（最小/最大）与就地堆排序 | 否 |
+| `net.cin` | `http_` `tcp_` `udp_` `dns_` | 17 | 网络便捷封装：带头部 HTTP、状态码判定、TCP 按行收发与回环、UDP 数据报、DNS 解析 | **是**（Go 原生；`--sandbox` 拦截） |
 | `path.cin` | `path_` | 18 | 纯字符串路径：分段、扩展名、规范化、公共前缀、包含判定 | 否 |
 | `set.cin` | `set_` | 26 | 整数集合（位图，128 元素三槽）：并/交/差与集合查询 | 否 |
 | `text.cin` | `txt_` | 22 | 大小写无关比较、替换、切片/插入/删除、标题化与词数 | 否 |
@@ -127,7 +133,7 @@ Code CIN 官方标准库由 39 个 `.cin` 源文件组成，随 pip 包一起分
 | `unionfind.cin` | `uf_` | 8 | 并查集（按秩合并 + 路径压缩） | 否 |
 | `cstd.cin` | `libc_` | 56 | C 标准库兼容层：ctype 字符类别、string 内存/串操作、stdlib abs/rand/qsort、math 取整三角、stdio 输出 | 否 |
 | `cppstd.cin` | `stl_` | 57 | C++ STL 兼容层：std::string 方法、vector/stack/queue（数组 + 长度游标）、algorithm 排序/钳制 | 否 |
-| `gostd.cin` | `go_` | 46 | Go 标准库兼容层：strings、strconv（含任意进制）、math、slices、os.Args | 否（`go_os_args_*` 依赖原生） |
+| `gostd.cin` | `go_` | 46 | Go 标准库兼容层：strings、strconv（含任意进制）、math、slices、os.Args | 否（`go_os_args_*` 依赖命令行参数内建） |
 
 ## C / C++ / Go 标准库兼容层
 
@@ -164,29 +170,29 @@ function main() -> int {
 - **cppstd**：CIN 无模板与引用，容器以「数组 + 长度游标」表达，
   `push_back` / `pop_back` 返回**新长度**由调用方存回；`npos` 以 `-1` 表示；
 - **gostd**：函数名保持 `pkg.Func` 习惯（`go_strings_trim_space` 对应
-  `strings.TrimSpace`）；`go_os_args_len` / `go_os_args_get` 依赖命令行参数内建，
-  需要原生路径。
+  `strings.TrimSpace`）；`go_os_args_len` / `go_os_args_get` 依赖命令行参数内建。
 
-三库都是**纯 CIN**（只调用语言内建），解释 / JIT / 原生三路径行为一致。
+三库都是**纯 CIN**（只调用语言内建），行为与运行方式无关。
 逐一核对函数签名与边界行为请直接阅读 `codecin/lib/*.cin` 源码。
 
 ## 纯 CIN 库与宿主能力库
 
 纯 CIN 库（上表「依赖宿主能力 = 否」的 35 个，含三个兼容层库）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
-只用数组与循环，`codecin/lib/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们的行为在
-**Go 原生 VM / JIT / 纯 Python 解释器**三条路径下完全一致，可直接用 `--no-native` 验证：
+只用数组与循环，`codecin/lib/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们不发起任何宿主 SYS
+调用，`--sandbox` 下也可正常运行：
 
 ```bash
-codecin prog.cin                # 自动选择原生/JIT/解释 (默认)
-codecin prog.cin --no-native    # 强制纯 Python 解释器
+codecin prog.cin                # Go 原生引擎执行 (默认)
+codecin prog.cin --sandbox      # 拦截宿主 SYS, 纯计算库不受影响
 ```
 
-宿主能力库（`io.cin` / `gui.cin` / `termux.cin` / `key.cin`）转调 `file_*`、`canvas`/`draw_line`、
-`termux_*`、`key_hit`/`get_key` 等内建，这些内建**全部由 Go 原生引擎实现**，在解释器下会给出明确错误。
-另有两个库处于中间地带：
+宿主能力库（`io.cin` / `gui.cin` / `termux.cin` / `key.cin` / `ffi.cin` / `net.cin`）转调
+`file_*`、`canvas`/`draw_line`、`termux_*`、`key_hit`/`get_key`、`dlopen`/`ffi_call`、
+`tcp_*`/`udp_*` 等内建，这些内建**全部由 Go 原生引擎实现**，`--sandbox` 下会被拦截并报
+`Host capability disabled in sandbox mode`。另有两个库处于中间地带：
 
 - `rand.cin` 依赖内建 `rand()`，`time.cin` 依赖内建 `time()`——它们由运行时的 `SYS` 指令实现，
-  三条路径都可用，因此不算宿主能力库；
+  不发起宿主调用，因此不算宿主能力库；
 - `gui.cin` 与 `io.cin` 的正确性测试需要原生引擎（`tests/test_libs.py` 里标了 `needs_native`）。
 
 宿主能力的完整清单与各平台可用性见 [宿主能力](/language/host-abilities)。

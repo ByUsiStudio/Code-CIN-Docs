@@ -1,6 +1,6 @@
 # Code CIN 开发者编译文档 (BUILDING)
 
-> 本文档面向开发者: 环境搭建、Go 原生库编译、字节码/CROM 构建产物、独立可执行文件打包、日志与调试、扩展指南。
+> 本文档面向开发者: 环境搭建、Go 原生库编译、字节码/CROM 构建产物、独立可执行文件打包、日志、扩展指南。
 > CIN 语言使用方法见 [CIN 编程指南](CIN_GUIDE.md)。
 
 ---
@@ -10,10 +10,10 @@
 - [1. 项目结构](#1-项目结构)
 - [2. 环境要求](#2-环境要求)
 - [3. 从源码运行](#3-从源码运行)
-- [4. 构建 Go 原生加速库](#4-构建-go-原生加速库)
+- [4. 构建 Go 原生库 (必需步骤)](#4-构建-go-原生库-必需步骤)
 - [5. 构建产物: .bin 字节码与 .crom 镜像](#5-构建产物-bin-字节码与-crom-镜像)
 - [6. 打包独立可执行文件](#6-打包独立可执行文件)
-- [7. 日志系统 (rich) 与 debug 超详细输出](#7-日志系统-rich-与-debug-超详细输出)
+- [7. 日志系统 (rich)](#7-日志系统-rich)
 - [8. 回归验证](#8-回归验证)
 - [9. 扩展指南: 新增指令 / 系统调用](#9-扩展指南-新增指令--系统调用)
 - [10. 常见问题](#10-常见问题)
@@ -26,29 +26,27 @@
 Code CIN/
 ├── cpu.py                  # 入口 (转发到 codecin.cli)
 ├── codecin/                   # 主 Python 包
-│   ├── __init__.py         # 包导出: CPU / Config / Opcode / 异常类
-│   ├── cli.py              # 命令行入口: 参数解析 -> 加载 -> 运行
+│   ├── __init__.py         # 包导出: CPU / Config / Opcode / 异常类 / __version__
+│   ├── cli.py              # 命令行入口: 参数解析 -> 加载 -> 调用原生引擎执行
 │   ├── config.py           # 运行配置 (dataclass) 与 CLI 参数映射
 │   ├── console.py          # rich 封装: Console / Table / Panel / Colors 适配层
 │   ├── logger.py           # rich 日志: DEBUG/INFO/WARNING/ERROR + trace/dump/hexdump
-│   ├── isa.py              # 指令集定义: Opcode(112) / Syscall / Cond / Constants
+│   ├── isa.py              # 指令集定义: Opcode(112) / Syscall(0..157) / Cond / Constants
 │   ├── assembler.py        # ASM / PL 汇编器 (统一入口, PL 关键字映射)
 │   ├── cin.py              # CIN 高级语言编译器 (词法/语法/代码生成)
-│   ├── cpu.py              # CPU 核心: 解释执行 + 逐指令追踪
-│   ├── jit.py              # Python JIT: 基本块动态编译 (exec 缓存)
-│   ├── memory.py           # FastMemory: 内存 + 保护 + 读写日志
+│   ├── cpu.py              # CPU 编排: 编译/装载 (.cin/.asm/.pl/.bin/.crom) + 调用原生引擎
+│   ├── memory.py           # FastMemory: 稀疏分页内存 (4 KiB 按需提交) + 保护 + 读写日志
 │   ├── registers.py        # RegisterFile (X0-X31 + XZR) / VectorRegisterFile
-│   ├── cache.py            # LRU 缓存 (可配置行数/关联度)
-│   ├── stats.py            # 统计: 指令/周期/缓存/分支/JIT
-│   ├── crom.py             # CROM v3 内存镜像 存/取 + .bin 字节码
-│   ├── native.py           # Go 原生库 ctypes 桥接 (自动回退纯 Python)
-│   ├── debugger.py         # 交互式调试器 (--step)
+│   ├── stats.py            # 统计: 指令计数 / 执行耗时
+│   ├── crom.py             # CROM v4 段式内存镜像 存/取 + .bin (BIN v3) 字节码
+│   ├── native.py           # Go 原生库 ctypes 桥接 (ABI v2: codecin_run_v2)
+│   ├── aot.py              # AOT 构建器: 生成临时包并调用 go build 产出独立可执行文件
+│   ├── disasm.py           # 字节码反汇编 (--disasm)
 │   ├── errors.py           # 异常层次: CPUSimulatorError 及子类
-│   └── native/             # Go 原生库源码 (Go 优先架构)
+│   └── native/             # Go 原生库源码 (唯一执行引擎)
 │       ├── go.mod          # Go 模块定义 (module codecin-native)
-│       ├── main.go         # c-shared 导出: codecin_run / codecin_crom_pack / ...
 │       ├── engine/         # 字节码 VM + CROM + UCBC 编码 (可复用包)
-│       │   ├── vm.go       # 原生字节码 VM (engine.Run)
+│       │   ├── vm.go       # 原生字节码 VM (engine.Run, 含全部宿主 SYS)
 │       │   ├── crom.go     # CROM 压缩/解压 (Go 端)
 │       │   ├── encode.go   # IR → UCBC 字节码编码
 │       │   └── isa_gen.go  # 生成常量 (操作码/SYS/操作数种类)
@@ -67,21 +65,23 @@ Code CIN/
 
 > **Go 侧不提供 CLI**: 语言实现全部在 Go, 但只以库的形式存在 ——
 > `codecin/native/` 下唯一的 `package main` 是 cgo 的 c-shared 库入口 `main.go`。
-> 唯一命令行入口是 Python (`python cpu.py` / 安装后的 `codecin`)。
+> 唯一命令行入口是 Python (`python cpu.py` / 安装后的 `codecin` console script;
+> 注意 `python -m codecin` 不可用, 包内没有 `__main__.py`)。
 > `tests/test_no_go_cli.py` 与 CI 的 `native` 作业都会对此把关。
 >
 > 构建产物 (`codecin/native/codecin*` 之类) 不入库, 构建命令一律是
-> `go build -buildmode=c-shared`, 详见 §3。
+> `go build -buildmode=c-shared`, 详见 §4。
 
-三条执行路径共享同一套 ISA / 汇编器 / 编译器:
+## 执行模型 (v5.9.0 native-only)
 
-| 路径 | 说明 | 选择方式 |
-|------|------|----------|
-| 解释执行 | 纯 Python, 逐指令 dispatch, 支持全部 debug 功能 | 默认; `--no-native --jit 不加` |
-| JIT | 基本块动态编译为 Python 机器码, 与 debug 互斥 | `--jit` |
-| Go 原生 | 整程序交给 c-shared VM 一次执行, 速度最快 | 默认优先; `--no-native` 强制关闭 |
-
-回退顺序: 原生库缺失或加载失败 -> 自动回退 JIT (若启用) -> 纯 Python 解释执行。
+唯一的执行路径是 **Go 原生引擎**: Python 侧完成编译/装载
+(`.cin` / `.asm` / `.pl` / `.bin` / `.crom`), 通过 ABI v2 (`codecin_run_v2`)
+一次调用把字节码、段式内存与输入交给原生 VM, 结束后回传寄存器、向量、
+NZCV 标志、脏内存段与程序输出。纯 Python 解释器与 JIT 已**整体删除**
+(`jit.py` / `debugger.py` / `cache.py` 不复存在), **没有解释器回退**:
+原生库缺失或版本不匹配 (缺少 `codecin_run_v2` 导出) 时抛 `CPUSimulatorError`,
+并附重建指引 (见 §4)。内存默认 1 GiB (1073741824 字节, 4 KiB 稀疏分页按需提交),
+堆基址 = `mem_size//2`, 栈顶 = `(mem_size-8) & ~0x7`。
 
 ---
 
@@ -89,14 +89,14 @@ Code CIN/
 
 | 组件 | 版本 | 必需 | 用途 |
 |------|------|------|------|
-| Python | 3.8+ | 是 | 解释器 / JIT / 工具链 |
+| Python | 3.8+ | 是 | 工具链: CLI / 编译 / 装载 / 持久化 |
 | rich | 任意近期版本 | 是* | 终端输出、日志、表格、错误面板与彩色 traceback |
-| Go | 1.26+ | 否** | 编译原生加速库 |
+| Go | 1.26+ | 是** | 编译原生库 (c-shared) 与 AOT 产物 |
 | C 编译器 | gcc / clang | 随 Go | Go cgo (c-shared 模式) 需要 |
-| Go + C 工具链 | 1.26+ | 否 | 编译原生加速库与 AOT 产物 |
 
 \* rich 为唯一第三方依赖, 未安装时可尝试运行但输出/日志功能受限。
-\** 不编译原生库也可运行, 会自动回退纯 Python (性能下降)。
+\** 原生库是唯一执行引擎: 源码检出必须先编译 (见 §4), 否则程序启动即抛
+`CPUSimulatorError`; `pip install codecin` (从 sdist) 会在安装时自动现场编译。
 
 安装依赖:
 
@@ -112,57 +112,79 @@ pip install rich
 git clone https://github.com/ByUsiStudio/codecin.git
 cd codecin
 
-python cpu.py basic.cin              # CIN 程序 (优先尝试 Go 原生)
-python cpu.py basic.cin --no-native  # 强制纯 Python 解释执行
-python cpu.py basic.cin --jit --no-native
-python cpu.py test_asm.asm           # 汇编程序
-python cpu.py program.pl             # PL 关键字风格汇编
-python cpu.py --help                 # 完整帮助
+# 0) 先构建原生库 (必需步骤, 见第 4 节)
+powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1   # Windows
+sh codecin/native/build.sh                                          # Linux / macOS / Termux
+
+codecin basic.cin                     # CIN 程序 (console script, pyproject 定义)
+python cpu.py basic.cin               # 等价入口 (仓库根的 cpu.py 转发到 codecin.cli)
+python cpu.py test_asm.asm            # 汇编程序
+python cpu.py program.pl              # PL 关键字风格汇编
+codecin --help                        # 完整帮助
+codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 / 包路径
 ```
 
-常用命令行选项 (完整列表见 `python cpu.py --help`):
+> `program` 之后的裸参数原样传给 CIN 程序 (`arg_count()` / `arg(i)` 读取);
+> 形如选项的参数请用 `--` 显式分隔。
+
+常用命令行选项 (完整列表见 `codecin --help`):
 
 | 选项 | 作用 |
 |------|------|
-| `--no-native` | 禁用 Go 原生库, 强制纯 Python |
-| `--jit` | 启用 Python JIT (基本块编译) |
-| `--debug` | **超详细 rich 调试**: 逐指令/寄存器/内存/栈/缓存追踪 (强制 DEBUG 日志级别) |
-| `--step` | 交互式单步执行 (`step>` 命令集与断点调试一致: s/c/p/b/d/q) |
-| `--profile` | 结束后输出性能统计表 |
-| `--sandbox` | 沙箱模式 (限制宿主访问) |
-| `--compile` / `--compile-only` | 编译为 .bin 字节码 |
+| `--help` / `-h` | 显示帮助 |
+| `--version` / `-V` | 显示版本号并退出 |
+| `--build-info` | 显示构建/运行环境信息后退出; 配合 `--json` 输出机器可读 JSON |
+| `--libs` | 列出内置标准库并标注执行路径要求后退出 |
+| `--sandbox` | 沙箱模式: 仅放行 ALLOCFRAME/TIMEUS/TIMENS, 其余宿主 SYS 报错 |
+| `--mem-size <bytes>` | 内存大小 (默认 1073741824, 即 1 GiB) |
+| `--max-instructions <n>` | 指令数上限 (默认 100000000, 防死循环) |
+| `--compile` / `--compile-only` | 编译为 .bin 字节码 (后者编译后退出) |
+| `-o, --output <file>` | 指定 .crom / .bin / --build-exe 输出路径 |
 | `--crom <file>` | 加载 .crom 内存镜像 |
 | `--save` / `--no-compress` | 保存 .crom / 关闭 zlib 压缩 |
-| `-o, --output <file>` | 指定 .crom / .bin 输出路径 |
-| `--mem-size <bytes>` | 内存大小 (默认 65536) |
-| `--max-instructions <n>` | 指令数上限 (防死循环) |
-| `--cache-size <n>` | 缓存行数 |
-| `--cache-assoc <n>` | 缓存关联度 (默认 4) |
-| `--optimize <0-3>` | 优化级别 (默认 0) |
-| `--execution-interval <sec>` | 每指令间隔秒数 (演示减速) |
-| `--no-io` | 禁止 IN/OUT 宿主 I/O |
+| `--optimize <0-3>` | 优化级别 |
 | `--strict` | 严格汇编模式 |
+| `--seed <n>` | 固定 `rand()` 随机种子 |
+| `--bounds-check` | 数组/内存边界检查 |
+| `--disasm` | 反汇编字节码 |
+| `--build-exe [name]` | AOT 编译为独立可执行文件 (见 §6.1) |
+| `--build-target OS/ARCH` | AOT 交叉编译目标 (如 `linux/arm64`) |
+| `--build-keep-temp` | 保留 AOT 临时构建目录 |
 | `--log-level <lvl>` | DEBUG / INFO / WARNING / ERROR |
 | `--log-file <file>` | 日志重定向到文件 |
 
-> 注意: `--debug` 与 `--jit` 互斥 (debug 需要逐指令解释追踪); 同时给出时 debug 优先。
-
 > CLI 参数表唯一来源为 `codecin/cli.py: build_parser()` (argparse); 本文档仅作摘要,
-> 完整列表与最新选项请以 `python cpu.py --help` 为准。
+> 完整列表与最新选项请以 `codecin --help` 为准。
 
 ---
 
-## 4. 构建 Go 原生加速库
+## 4. 构建 Go 原生库 (必需步骤)
 
-原生库通过 Go `-buildmode=c-shared` 编译为共享库, 由 `codecin/native.py` 用 ctypes 加载。导出接口:
+原生库通过 Go `-buildmode=c-shared` 编译为共享库, 由 `codecin/native.py` 用 ctypes 加载。
+**这是必需步骤**: 原生库是唯一执行引擎, 库缺失或版本不匹配时程序启动即抛
+`CPUSimulatorError` 并附重建指引, 没有解释器回退。Python 侧当前使用的导出接口:
 
 | 符号 | 功能 |
 |------|------|
-| `codecin_run` | 原生字节码 VM, 一次载入整程序执行, 返回完整状态快照 |
+| `codecin_run_v2` | 原生字节码 VM (ABI v2, 段式内存), 一次载入整程序执行, 回传寄存器/向量/NZCV/脏内存段/输出 |
 | `codecin_free` | 释放返回缓冲区 |
+| `codecin_set_args` | 传入命令行参数 (arg_count()/arg(i) 读取) |
 | `codecin_crom_pack` | CROM 打包 (含 zlib 压缩) |
 | `codecin_crom_unpack` | CROM 解包校验 |
 | `codecin_version` | 版本字符串 |
+
+加载器会检查 `codecin_run_v2` 导出是否存在: 旧版库 (只有 `codecin_run`) 会被识别为
+版本不匹配并提示重建, 不会带着错误 ABI 继续跑。
+
+`get_engine()` 的库搜索顺序 (`codecin/native.py: _lib_candidates`):
+
+1. 环境变量 `CODECIN_NATIVE_LIB` (显式指定);
+2. `codecin/native/<架构专属名>` → `codecin/native/<通用名>`;
+3. `codecin/<架构专属名>` → `codecin/<通用名>`;
+4. PyInstaller frozen 路径 (`_MEIPASS` 与 exe 目录)。
+
+架构专属名形如 `libcodecin_native-linux-arm64.so` / `codecin_native-windows-x64.dll`,
+同一目录内**架构专属名优先于通用名** (避免拿到"能 dlopen 但跑不了"的错架构库)。
 
 ### Windows (PowerShell)
 
@@ -171,6 +193,12 @@ python cpu.py --help                 # 完整帮助
 ```powershell
 cd codecin\native
 .\build.ps1
+```
+
+或在仓库根单行执行 (注意 PowerShell 不支持 `&&`, 需要分开或用单条命令):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1
 ```
 
 产物: `codecin/codecin_native.dll` (c-shared 附带的 `codecin_native.h` 会被脚本自动删除)。
@@ -233,7 +261,10 @@ sh build.sh
 python -c "from codecin import native; print(native.get_engine())"
 ```
 
-输出非 `None` 即加载成功。之后运行程序时日志会出现原生库路径; 若失败可看到回退 warning, 加 `--no-native` 可复现纯 Python 行为。
+输出非 `None` 即加载成功 (会打印库路径与 `codecin_version`)。之后运行程序时日志会出现原生库路径;
+若失败, `get_engine()` 返回 `None`, 运行程序会抛 `CPUSimulatorError`, 错误信息内含
+重建指引 (`powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1` /
+`sh codecin/native/build.sh`) 与检测到的加载原因。
 
 > 手动编译等价命令: `go build -buildmode=c-shared -o ../codecin_native.dll .` (在 `codecin/native/` 目录)。
 
@@ -261,17 +292,21 @@ cgo 的 c-shared 库入口 `main.go`。唯一 CLI 是 Python 侧
 
 ## 5. 构建产物: .bin 字节码与 .crom 镜像
 
-### .bin (UCBC 字节码)
+### .bin (UCBC 字节码, BIN v3)
 
-汇编/CIN 统一编译产物, 头部 `UCBC`。格式:
+汇编/CIN 统一编译产物, 头部 magic `CPUSA`。v3 起**段式存储** (只存已分配页):
 
 ```
-头部: magic[4]='UCBC' | version u8 | entry u32 | instr_count u32
-指令: opcode u8 | argc u8
-操作数: kind u8 | value i64 | extra i64   (小端, 每操作数 17 字节)
+头部 50B: MAGIC 5B | version u8 | mem_size u64 | entry u32 | sp u64 |
+          heap_base u64 | bc_len u32 | seg_count u32 | 保留 8B
+段表:     每段 (addr u64 + len u64 + data)
+字节码:   opcode u8 | argc u8
+操作数:   kind u8 | value i64 | extra i64   (小端, 每操作数 17 字节)
 ```
 
 操作数 kind: `0=reg 1=imm 2=vec 3=veclane 4=mem 5=cond 6=float(bits) 7=str`。
+
+旧版 BIN v2 (整块内存镜像) 仍可读入, 但写出始终是 v3。
 
 生成与执行:
 
@@ -281,17 +316,19 @@ python cpu.py basic.cin --compile                     # 编译并继续执行
 python cpu.py basic.bin                               # 直接运行字节码
 ```
 
-### .crom (内存镜像, v3)
+### .crom (内存镜像, v4 段式)
+
+v4 只保存**已分配的 4 KiB 页** (段式), 1 GiB 逻辑内存不再整块落盘:
 
 | 偏移 | 大小 | 字段 | 说明 |
 |------|------|------|------|
 | 0x00 | 4 | Magic | `'CROM'` |
-| 0x04 | 1 | Version | `0x03` |
-| 0x05 | 4 | Memory Size | 内存字节数 |
-| 0x09 | 1 | Flags | bit0: zlib 压缩; bit1: 尾部含 MMU 页表元数据 (校验和覆盖含尾部) |
-| 0x0A | 4 | Checksum | CRC32 |
+| 0x04 | 1 | Version | `0x04` |
+| 0x05 | 1 | Flags | bit0: zlib 压缩 (校验和覆盖压缩后的 body) |
+| 0x06 | 4 | Seg Count | 段数 |
+| 0x0A | 4 | Checksum | CRC32 (对压缩/原始 body) |
 | 0x0E | 2 | Reserved | 保留 |
-| 0x10 | N | Data | 压缩/原始内存 |
+| 0x10 | N | Body | 段表 (addr u64 + len u64 + data) , 可整体 zlib 压缩 |
 
 ```bash
 python cpu.py basic.cin --save                  # 运行后保存 basic.crom (zlib)
@@ -299,7 +336,8 @@ python cpu.py basic.cin --save --no-compress    # 不压缩
 python cpu.py --crom basic.crom                 # 加载镜像运行
 ```
 
-镜像由原生库 (Go) 或纯 Python (zlib) 打包, 两种实现二进制兼容。
+旧版 CROM v3 (整块内存) 可读入, 但写出始终是 v4。
+镜像打包优先走原生库 (Go), 原生库不可用时由 Python (zlib) 完成, 两种实现二进制兼容。
 
 ---
 
@@ -331,6 +369,11 @@ codecin build basic.cin -o basic --target windows/amd64              # 全 Go �
 产物行为: 标准输入只在被重定向时读取 (交互终端下不阻塞); 正常结束退出码 0,
 运行期错误打印 stderr 并以 1 退出。
 
+> **AOT 强制 `CGO_ENABLED=0`**: 依赖 cgo 的源文件被构建标签排除
+> (例如 FFI 的 cgo 实现, 另有 `ffi_nocgo.go` 桩保证纯 Go 包可编译)。
+> 因此 AOT 产物内**不能**使用 FFI (dlopen/ffi_call 等): 运行时调用会报错。
+> AOT 交叉编译也因此无需目标平台的 C 工具链。
+
 > 若默认 Go 构建缓存不可写 (只读 HOME / 受限 CI), 构建器会自动回退到仓库内
 > `.gocache` 重试一次, 并在仍失败时提示显式设置 `GOCACHE`。
 >
@@ -358,15 +401,16 @@ python -m build            # 需要 wheel 时手动构建 (默认会带上本机
 - `build.sh` / `build.bat` **只发布 sdist**。若把 wheel 也发到 PyPI, pip 会优先装
   wheel 而不执行上面那条构建, 用户就拿不到原生加速 —— 要发 wheel 就得自己确认
   清楚它的目标平台。
-- `CODECIN_SKIP_NATIVE=1` 可跳过本地编译 (产物仍可用, 只是回退纯 Python 解释执行);
-  CI/Release 构建发布物时都会设这个变量, 以保证 `dist/` 里没有任何平台二进制。
+- `CODECIN_SKIP_NATIVE=1` 可跳过本地编译 (仅用于 CI/发布场景: 产物**无法运行**,
+  因为原生库是唯一执行引擎; CI/Release 构建发布物时设这个变量, 是为了保证
+  `dist/` 里没有任何平台二进制, 用户安装时再现场编译);
 - `codecin/lib/*.cin` (内置标准库) 通过 `package-data` 与 `MANIFEST.in`
   **同时进入 wheel 与 sdist**; 缺了它们安装后任何 `import "math.cin"` 都会失败。
   CI 的 `dist` 作业会断言 wheel/sdist 内至少含 19 个 `.cin`, 断言**不含**预编译库,
   并实际从 sdist 安装后验证原生库确实被编译出来。
-- 原生库搜索路径见 `codecin/native.py: _lib_candidates`
-  (包目录、`codecin/native/`、exe 目录与 `_MEIPASS`)。
-- `--debug`/`--step` 的 rich 输出依赖终端。
+- 原生库搜索顺序见 §4 (`codecin/native.py: _lib_candidates`: 环境变量 →
+  `codecin/native/` → 包目录 → PyInstaller frozen 路径, 架构专属名优先)。
+- rich 输出 (表格/面板/彩色 traceback) 依赖终端。
 
 ### 6.3 预编译原生库资产 (x64 与 arm64)
 

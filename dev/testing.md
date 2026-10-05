@@ -1,12 +1,12 @@
 ---
-description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、两个文档/常量一致性检查、三路径验收、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
+description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、两个文档/常量一致性检查、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
 ---
 
 # 测试与 CI
 
-Code CIN 的回归体系分四层: **单元/指令级 pytest**、**两条一致性门禁**
-(`gen_isa_docs.py --check` 与 `gen_native_isa.py --check`)、**三执行路径验收**
-(`script/check_paths.py`)、以及 **GitHub Actions CI** (`test` / `integration` /
+Code CIN 的回归体系分三层: **pytest 测试套件**、**两条一致性门禁**
+(`gen_isa_docs.py --check` 与 `gen_native_isa.py --check`)、以及
+**GitHub Actions CI** (`test` / `integration` /
 `lint` / `native` / `dist` 五个作业)。
 
 ## 安装开发依赖
@@ -31,8 +31,8 @@ python -m pip install -r requirements-dev.txt
 
 ```bash
 python -m pytest                                   # 全量
-python -m pytest tests/test_three_paths.py         # 单个文件
-python -m pytest -k "mmu or crom" -v               # 按关键字
+python -m pytest tests/test_cli.py                 # 单个文件
+python -m pytest -k "crom or version" -v           # 按关键字
 python -m pytest -rs                               # 显示 skip 原因 (CI integration 用)
 python -m pytest --cov=codecin --cov-report=term-missing --cov-fail-under=70
 ```
@@ -50,7 +50,7 @@ python -m pytest --cov=codecin --cov-report=term-missing --cov-fail-under=70
 `tests/test_aot.py` 的临时目录用例也用 `workdir` + `monkeypatch` 把
 `aot._NATIVE_DIR` 指向假 `native/`, 而不是真去写 `codecin/native/`。
 
-依赖原生库的用例 (`test_three_paths.py`、`test_cin_host.py`、`test_cin_system.py`、
+依赖原生库的用例 (`test_cin_host.py`、`test_cin_system.py`、
 `test_libs.py`、`test_native_hardening.py`) 用
 `pytest.mark.skipif(native.get_engine() is None)` 跳过。**没编译原生库时它们会静默
 skip**, 所以 CI 的 integration 作业会先断言库真的能加载。
@@ -112,48 +112,6 @@ CI 的 `native` 作业另有 `gofmt -l .` 门禁 —— 生成器已按 gofmt �
 所以正常情况下 `gofmt -l` 应该是空的。
 :::
 
-## 三路径一致性验收
-
-三路径一致是这个项目的核心约束: 同一份 UCBC 字节码在解释器 / JIT / Go 原生 VM 下
-必须给出相同的 stdout、退出码与终态。
-
-```bash
-python script/check_paths.py                        # 默认检查 examples/*.cin
-python script/check_paths.py examples/control_flow.cin
-python -m pytest tests/test_three_paths.py tests/test_paths_consistency.py
-```
-
-`check_paths.py` 的三条路径与命令行参数:
-
-| 路径 | 参数 |
-|------|------|
-| 解释器 | `--no-native` |
-| JIT | `--no-native --jit` |
-| Go 原生 | (无额外参数) |
-
-输出形如:
-
-```text
-[ok]   bitwise_builtins.cin (三条路径输出一致, 412 字节)
-[FAIL] modules_demo.cin: 路径不一致 -> JIT
-    ...
-3/4 passed
-```
-
-它**排除** `system_interaction.cin` (按设计只能在原生路径运行, 见脚本里的
-`NATIVE_ONLY`), 也刻意不纳入根目录的 `basic.cin` (用了 `srand(time())`, 输出依赖时钟)。
-
-手工三路径:
-
-```bash
-codecin examples/control_flow.cin --no-native
-codecin examples/control_flow.cin --no-native --jit
-codecin examples/control_flow.cin
-```
-
-允许的差异只有两类: 与时间/环境相关的输出 (`time()`、`cwd()`、主机名), 以及
-Python `math` 与 Go `math` 在超越函数上的末位舍入 (通常 ≤ 1 ulp)。
-
 ## Go 侧检查
 
 ```bash
@@ -191,35 +149,28 @@ python -m pytest ../tests/test_no_go_cli.py
 | `helpers.py` | 测试辅助: `reg`/`imm`/`mem` 操作数构造、`new_cpu`、`run_program`、`run_cin_source`、`run_cin_file`、`asm_program`、`snapshot` |
 | `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux ELF 无 `PT_INTERP` (静态)、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
 | `test_assembler_ext.py` | 汇编器 `.equ` 常量、立即数/偏移表达式、符号算术、数据段表达式 |
-| `test_cache.py` | 缓存命中/缺失计数与 `stats` 单元行为 |
-| `test_cin_host.py` | CIN 宿主能力 (GUI 画布 / 联网音频); 依赖原生库, 无则 skip |
+| `test_cin_host.py` | CIN 宿主能力 (GUI 画布 / 联网音频 / 桌面集成) |
 | `test_cin_new_features.py` | 位运算符、`idiv`、字符串单字符访问、`min/max`、`floor/ceil/round`、`atoi`、`trim/ltrim/rtrim` |
 | `test_cin_syntax.py` | 新语法: break/continue、do-while、switch、复合赋值、自增自减、三目、类型别名与字面量、转换内建 |
 | `test_cin_system.py` | 系统原生交互 / Termux API 内建; 依赖原生库, 无则 skip |
 | `test_cli.py` | argparse 参数解析、帮助文本、退出码 |
 | `test_compiler_errors.py` | 非法程序必须被 Go 与 Python 两侧同时拒绝; 合法程序两侧都接受 |
-| `test_cpu_interpreted.py` | 解释器指令级黄金值 (指令元组直接注入)、栈/内存往返、向量、异常路径 |
-| `test_debugger.py` | 断点 continue 豁免重入、`--step` 与断点共用命令集、graceful quit |
-| `test_examples.py` | `examples/` 每个示例在解释路径完整运行且结果确定 |
+| `test_environment.py` | 工具链检测与安装提示: `find_tool`/`tool_available`/`install_hint`/`missing_tool_message` |
+| `test_examples.py` | `examples/` 每个示例在 Go 原生引擎上完整运行且结果确定 |
 | `test_features_ab.py` | `--bounds-check` / CIN assert、`--seed` 确定性、`--disasm` 反汇编 |
-| `test_features_crom_mmu.py` | CROM v3 + MMU 页表持久化 (roundtrip / 兼容 / 忽略模式) |
 | `test_features_import.py` | 字符串内建 (`substr`/`indexof`/`upper`/`lower`) 与 `import`/`lib` 模块化 |
 | `test_features_importloc.py` | import 行级源映射: 错误定位精确到模块 `file:line` |
-| `test_features_mmu.py` | MMU identity 页表、map / unmap / 权限 / 缺页 + CPU 集成 |
-| `test_features_remote.py` | `--debug-server` 远程驱动式调试协议 (socket 集成) |
-| `test_isa_dispatch.py` | Opcode 枚举与分组计数、dispatch 自动注册完整性、ISA 文档生成一致性 |
-| `test_isa_single_source.py` | ISA 单一真源守卫: 各手写映射表 (含 `jit._JIT_OPS`) 与 `isa.py` 不漂移 |
+| `test_ffi_net.py` | FFI 动态库调用与网络系统调用 (HTTP 扩展 / TCP / UDP / DNS) |
+| `test_isa_single_source.py` | ISA 单一真源守卫: 各手写映射表与 `isa.py` 不漂移 |
 | `test_libs.py` | 官方标准库 (`codecin/lib/*.cin`) 行为回归; 依赖原生库, 无则 skip |
 | `test_libs_ext.py` | 新增标准库 `bits/stat/hash/validate/matrix/queue` 回归 |
 | `test_literals_and_bom.py` | 数值字面量与带 UTF-8 BOM 源码中 `import` 的双端一致性 |
-| `test_memory_protection.py` | `memory.py` 保护检查统一: 浮点/块读写不可绕过保护 |
 | `test_native_hardening.py` | 原生库加固: 步数用尽报错、不可信字节码、CROM 解压上限 |
 | `test_native_lib_lookup.py` | 原生库查找顺序: 架构专属文件名优先于通用名 |
 | `test_no_go_cli.py` | 架构门禁: 唯一 `package main` 是 c-shared 入口; 源码树无构建产物 |
 | `test_packaging.py` | 打包设计: package-data 含内置库不含二进制、MANIFEST 带 Go 源码、只发 sdist、`BuildPyWithNative` |
-| `test_paths_consistency.py` | 源码级三路径一致性 (跑 `examples/*.cin` 逐字节比对 stdout) |
+| `test_sparse_memory.py` | 稀疏分页内存: 页按需分配、`resident_bytes`、越界与负地址提示、保护检查 |
 | `test_switch_semantics.py` | switch 语义回归 (Go 与 Python 双编译器对齐) |
-| `test_three_paths.py` | 解释 / JIT / 原生终态快照一致; 原生批量记账口径与逐条一致 |
 | `test_version.py` | 版本设施: pyproject 无静态 version、Go `BuildVersion` 同步、semver、`--version`/`--build-info`; `build_info()` 字段齐全且**永不抛异常** (原生库缺失 / dlopen 失败 / 平台探测异常都降级); `bump_version.py` 的 dry-run 不落盘、非法与不递增版本被拒、副本里真实跑通全链路; **CHANGELOG 门禁**: `CHANGELOG.md` 必须含当前版本小节 |
 | `test_workflows.py` | 工作流静态校验: YAML 可解析、表达式函数白名单 (无 `replace`)、`matrix.*` 已声明、job/step 形状、artifact 名唯一 |
 

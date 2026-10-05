@@ -1,12 +1,12 @@
 ---
-description: "Code CIN 的寄存器与内存模型: X0–X31/XZR、V0–V31 向量寄存器、SP/PC/NZCV、别名、内存布局与默认值、栈帧与调用约定、小端字节序、内存保护与 MMU 分页。"
+description: "Code CIN 的寄存器与内存模型: X0–X31/XZR、V0–V31 向量寄存器、SP/PC/NZCV、别名、1 GiB 稀疏分页内存布局、栈帧与调用约定、小端字节序、内存保护。"
 ---
 
 # 寄存器与内存模型
 
 Code CIN 的 UCPU 是一台 **64 位、小端、load/store 风格**的模拟机: 运算只在寄存器之间
 发生, 内存通过显式的加载/存储指令访问。本页描述寄存器文件、内存布局、栈帧与调用约定、
-保护与分页, 以及 CIN 类型到 64 位槽的映射。
+保护与页管理, 以及 CIN 类型到 64 位槽的映射。
 
 权威来源: `codecin/registers.py`、`codecin/isa.py` (`Constants`)、`codecin/memory.py`、
 `codecin/cpu.py`、`codecin/cin.py`。
@@ -24,8 +24,8 @@ Code CIN 的 UCPU 是一台 **64 位、小端、load/store 风格**的模拟机:
 - `read(31)` 直接返回 `0`, `write(31, v)` 是空操作 —— `XZR` 因此天然只读;
 - `write()` 一律 `& 0xFFFFFFFFFFFFFFFF`, 寄存器里永远是模 2⁶⁴ 的无符号位模式;
 - 索引越界抛 `ExecutionError("Invalid register index: X<n>")`;
-- `X0`–`X30` 与 `SP` 共 33 个"槽" (`Constants.NUM_REGS_TOTAL = 33`), 原生 VM 的
-  `regs` 数组也正好是 `[33]uint64`, 索引 32 即 `SP`。
+- `X0`–`X30` 与 `SP` 共 33 个"槽" (`Constants.NUM_REGS_TOTAL = 33`), 原生引擎的结果
+  回传 (ABI v2) 里 `regs` 也正好是 33 个 `uint64`, 索引 32 即 `SP`。
 
 ```python
 from codecin import CPU, Config
@@ -69,29 +69,32 @@ print(cpu.regs.get_all()[:4])                # X0..X3
 `VLD1` / `VST1` 一次搬运 16 字节, 按 `<4f` (4 个 32 位单精度) 打包解释 —— 注意这与
 内部 lane 的 `float64` 表示不同, 是内存侧的紧凑格式。
 
-::: warning 向量指令不在原生 VM 的支持列表里
-`codecin/native/engine/vm.go` 的 `opcodeSupported()` 只覆盖整数/内存/控制流/SYS 子集,
-向量操作数会直接返回 `StatusUnsupported`, Python 侧自动回退解释执行。因此含向量指令的
-程序仍然正确, 只是不会走原生加速。
+::: info 向量执行与结果回传
+
+原生引擎实现全部 ISA 指令 (含向量子集)。整程序由 Go 引擎一次执行完毕后, 32×4 个
+`float64` lane 与通用寄存器、NZCV、脏内存段、输出一起由原生库回传 (ABI v2),
+Python 侧据此恢复 `VectorRegisterFile` 的状态。
+
 :::
 
 ## SP 与 PC
 
 | 名称 | 初值 | 说明 |
 |------|------|------|
-| `PC` | `0`, CIN 程序为 `0` (bootstrap), 汇编程序为 `labels['main']` | `codecin/cpu.py: CPU.pc` |
-| `SP` | `(mem_size - Constants.STACK_SLOT) & ~0x7` | 默认 `65536 - 8 = 0xFFF8` |
-| 堆指针 | `mem_size // 2` | 默认 `0x8000`; `MALLOC` / 字符串操作从这里向上分配 |
+| `PC` | CIN 程序为 `0` (bootstrap), 汇编程序为 `labels['main']` | `codecin/cpu.py: CPU.pc` |
+| `SP` | `(mem_size - Constants.STACK_SLOT) & ~0x7` | 默认 `1073741824 - 8 = 0x3FFFFFF8` |
+| 堆指针 | `mem_size // 2` | 默认 `0x20000000`; `MALLOC` / 字符串操作从这里向上分配 |
 
 `SP` 满递减: `PUSH` 先 `SP -= 8` 再写 `[SP]`, `POP` 先读 `[SP]` 再 `SP += 8`。
 栈槽固定 8 字节 (`Constants.STACK_SLOT`)。
 
-关于 `PC` 的语义 (解释器与原生 VM 严格一致): **取指后先 `PC += 1` 再执行**。所以
-`CALL` / `BL` 压入的是已经自增过的返回地址 (`codecin/cpu.py: _op_call`)。
+关于 `PC` 的语义 (Go 原生引擎): **取指后先 `PC += 1` 再执行**。所以
+`CALL` / `BL` 压入的是已经自增过的返回地址。
 
 ## NZCV 标志
 
-四个 1 位条件标志, 保存在 `CPU.pstate` 字典里 (`{'N','Z','C','V'}`, 初值全 `False`)。
+四个 1 位条件标志, 保存在 `CPU.pstate` 字典里 (`{'N','Z','C','V'}`, 初值全 `False`),
+由原生引擎执行完毕后随结果回传。
 
 | 标志 | 含义 | 写入时机 |
 |------|------|----------|
@@ -121,9 +124,8 @@ print(cpu.regs.get_all()[:4])                # X0..X3
 
 ```python
 from codecin import CPU, Config
-from codecin.errors import ExecutionError
 
-cpu = CPU(Config(use_native=False, interactive_mode=False, log_level='ERROR'))
+cpu = CPU(Config(interactive_mode=False, log_level='ERROR'))
 cpu.instructions = [
     ('MOV',  [('reg', 0), ('imm', 5)]),
     ('CMP',  [('reg', 0), ('imm', 5)]),
@@ -135,40 +137,63 @@ print(cpu.pstate)                  # {'N': False, 'Z': True, 'C': True, 'V': Fal
 
 ## 内存布局
 
-`FastMemory` 是一块**平坦字节数组** (`bytearray`), 大小由 `Config.mem_size` 决定,
-默认 `64 * 1024 = 65536` 字节 (`Constants.DEFAULT_MEM_SIZE`)。没有独立的段寄存器:
+`FastMemory` 是 **4 KiB 页稀疏字典**: 逻辑地址空间大小由 `Config.mem_size` 决定,
+默认 **1073741824 字节 (1 GiB)**; 物理内存只有被写过的页才分配
+(`resident_bytes` 只统计已触碰页)。读未写过的地址返回 0, 写入时才真正落页 ——
+与 Go 原生引擎 `make([]byte, memSize)` 的 OS 懒提交行为一致。没有独立的段寄存器:
 代码、数据、栈、堆共用同一地址空间, 靠约定划分。
 
-| 区域 | 起始地址 (默认 64 KiB) | 增长方向 | 说明 |
-|------|------------------------|----------|------|
-| 代码 / 数据段 | `0x0000` | 向上 | 汇编器从 0 开始摆放代码, 数据段紧随其后; CIN 的数据段由编译器排版 |
-| 堆 | `0x8000` (`mem_size // 2`) | 向上 | `MALLOC` 与字符串内建在此分配; `heap_ptr` 跟踪高水位 |
-| SYS 静态缓冲 | `heap_ptr + 2048 + idx * 64` | 固定 | 8 个 64 字节轮转缓冲, 供 `ITOA` / `FTOA` / `BOOL_STR` 返回字符串 |
-| 栈 | `0xFFF8` (`mem_size - 8`) | 向下 | `SP` 初值; 每个 qword 槽 8 字节 |
+区域地址随 `mem_size` 缩放, 默认 1 GiB 下的具体值:
 
-栈溢出判定: `SP < heap_ptr + 4096` 时 `PUSH` 抛
-`ExecutionError("Stack overflow (collides with heap)")` —— 即栈与堆之间强制保留
-4 KiB 隔离带。栈下溢 (`POP` 时 `SP >= len(memory) - 8`) 抛
-`ExecutionError("Stack underflow")`。
+| 区域 | 起始地址 (默认 1 GiB) | 增长方向 | 说明 |
+|------|------------------------|----------|------|
+| 代码 / 数据段 | `0x00000000` | 向上 | 汇编器从 0 开始摆放代码, 数据段紧随其后; CIN 的数据段由编译器排版 |
+| 堆 | `0x20000000` (`mem_size // 2`) | 向上 | `MALLOC` 与字符串内建在此分配; `heap_ptr` 跟踪高水位 |
+| SYS 静态缓冲 | `heap_ptr + 2048 + idx * 64` | 固定 | 8 个 64 字节轮转缓冲, 供 `ITOA` / `FTOA` / `BOOL_STR` 返回字符串 |
+| 栈 | `0x3FFFFFF8` (`(mem_size - 8) & ~0x7`) | 向下 | `SP` 初值; 每个 qword 槽 8 字节 |
+
+因为栈与堆之间隔着约 512 MiB 未触碰空间, **大数组/大缓冲不再需要 `--mem-size`**:
+默认内存下 `int a[1000000]` (8 MB) 无论落在数据段还是栈帧都直接放下, 常驻物理内存
+只增加实际写过的几页。
 
 ```text
-0x0000  ┌──────────────────────┐
-        │ 代码 / 数据段         │  汇编器与编译器从这里向上排版
-        ├──────────────────────┤
-0x8000  │ 堆 (heap_ptr →)      │  MALLOC / 字符串分配, 向上
-        │  ↕ 4 KiB 隔离带       │  PUSH 越界即 Stack overflow
-0x9000+ │ SYS 静态缓冲 (8×64B)  │  ITOA / FTOA / BOOL_STR 返回值
-        ├──────────────────────┤
-        │ 未使用                │
-        ├──────────────────────┤
-0xFFF8  │ 栈 (SP ←, 向下增长)   │  8 字节/qword 槽
-0xFFFF  └──────────────────────┘
+0x00000000  ┌──────────────────────┐
+            │ 代码 / 数据段         │  汇编器与编译器从这里向上排版
+            ├──────────────────────┤
+0x20000000  │ 堆 (heap_ptr →)      │  MALLOC / 字符串分配, 向上
+            │  ↕ 4 KiB 警戒线       │  ALLOCFRAME 低于 heap_ptr + 4096 即报栈溢出
+            │ SYS 静态缓冲 (8×64B)  │  ITOA / FTOA / BOOL_STR 返回值
+            ├──────────────────────┤
+            │ 未触碰的地址空间      │  4 KiB 页按需分配, 不占物理内存
+            ├──────────────────────┤
+0x3FFFFFF8  │ 栈 (SP ←, 向下增长)   │  8 字节/qword 槽
+0x3FFFFFFFF └──────────────────────┘  地址空间 1 GiB (0x40000000)
 ```
+
+### ALLOCFRAME 函数序言的栈防护
+
+CIN 编译器生成的函数序言用 **`SYS 137 ALLOCFRAME`** 分配栈帧 (X0 = 帧字节数,
+见[栈帧与调用约定](#栈帧与调用约定)):
+
+- 引擎做**有符号比较**: `新 SP = SP - 帧长`, 与警戒线 `heap_ptr + 4096`
+  (栈与堆之间 4 KiB 隔离带) 比较; SP 绕回成负地址也判溢出, 不会先取模再比较;
+- 余量不足时中止并报错, 提示增大 `--mem-size` 或缩小局部数组:
+
+  ```text
+  Stack overflow: frame needs N bytes, stack headroom only M bytes (…)
+  Try --mem-size (default 1073741824) or smaller local arrays
+  ```
+
+- 分配成功则 `SP -= 帧长`, X0 返回新 `SP`。
+
+与之配合, 越界地址若 `>= 2^63` (按位模 2⁶⁴ 后表现为负数), `MemoryAccessError`
+的报错会追加 `(negative address: stack overflow or bad pointer?)` ——
+典型成因是栈溢出或野指针。
 
 ### 字节序与宽度
 
 整台机器是**小端**。所有多字节读写都用小端解码 (`struct.unpack_from('<H' / '<I' /
-'<Q' / '<f' / '<d')`), 原生 VM 侧同样使用 `binary.LittleEndian`。
+'<Q' / '<f' / '<d')`), 原生引擎侧同样使用 `binary.LittleEndian`。
 
 | 方法 | 宽度 | 掩码 |
 |------|------|------|
@@ -178,13 +203,16 @@ print(cpu.pstate)                  # {'N': False, 'Z': True, 'C': True, 'V': Fal
 | `read_qword` / `write_qword` | 8 字节 (小端) | `0xFFFFFFFFFFFFFFFF` —— `LD`/`SD`/`LDP`/`STP`/栈用它 |
 | `read_float` / `write_float` | 4 字节 IEEE-754 单精度 | — |
 | `read_double` / `write_double` | 8 字节 IEEE-754 双精度 | — |
-| `read_block` / `write_block` | N 字节 | 支持 MMU 跨页分块搬运 |
+| `read_block` / `write_block` | N 字节 | 整个范围统一做边界与权限检查 |
 | `read_string(addr, max_len=4096)` / `write_string(addr, text)` | UTF-8 + NUL | 字符串以 `\0` 结尾 |
 
-::: warning 定宽多字节访问不得跨页
-`_rw_phys()` 只对**首字节所在**地址做一次边界与保护检查。在开启 MMU 时, 一次
-4/8 字节访问不应跨越页边界, 否则检查不完整。块读写 (`read_block` / `write_block`)
-会逐页翻译, 是安全的跨页路径。
+::: info 定宽访问的检查范围
+
+定宽读写 (2/4/8 字节) 对 `[addr, addr+width)` 做**边界**检查 (不得超出地址空间),
+但**权限**只检查首字节; 块读写 (`read_block` / `write_block`) 对整个范围做权限检查
+(`_check_protection_range`), 浮点/块读写无法绕过。稀疏内存按 4 KiB 页分段完成
+实际读写, 跨页访问自动落到相邻页。
+
 :::
 
 ## 内存保护与越界
@@ -193,7 +221,7 @@ print(cpu.pstate)                  # {'N': False, 'Z': True, 'C': True, 'V': Fal
 
 | 机制 | 接口 | 说明 |
 |------|------|------|
-| 边界检查 | `_check_bounds(addr, size)` | `0 <= addr <= size - width`, 否则 `Address 0x... out of bounds` |
+| 边界检查 | `_check_bounds(addr, size)` | `0 <= addr <= size - width`, 否则 `Address 0x... out of bounds (memory size 0x..., access width N)`; 地址 `>= 2^63` 时追加 negative address 提示 |
 | 逐字节权限 | `set_protection(addr, perms, size=1)`、`check_access(addr, access)` | `perms` 是 `'r'`/`'w'`/`'x'` 的子串, 默认 `'rwx'` |
 | 块范围权限 | `_check_protection_range(addr, size, access)` | `read_block` / `write_block` 入口统一检查, 浮点/块读写无法绕过 |
 
@@ -216,50 +244,32 @@ except MemoryAccessError as e:
     print('越界:', e)
 ```
 
-## MMU 与分页概要
+## 页与持久化
 
-`Config(mmu=True)` 时, `CPU` 会给 `FastMemory` 挂上一个 `Mmu` (`codecin/memory.py`)。
+`FastMemory` 的页粒度是 4 KiB (`PAGE_BITS = 12`, `PAGE_SIZE = 4096`):
 
-| 属性 | 值 |
-|------|-----|
-| 页大小 | 4 KiB (`PAGE_BITS = 12`, `PAGE_SIZE = 4096`) |
-| 页表结构 | 扁平字典 `vpn -> (ppn, perms)`, 无多级页表 |
-| 默认映射 | 懒 identity: 未配置且未 `unmap` 的页按 `vpn == ppn`、`'rwx'` 直接放行 |
-| 黑名单 | 显式 `unmap` 过的 `vpn` 不会被 identity 回填 |
+- **写入按需落页** (`_ensure_page`), 读取未分配页返回 0;
+- `snapshot_segments()` 把每个已分配页输出为 `(页起始地址, 数据)` 段列表 (按地址升序),
+  是 CROM v4 / BIN v3 段表、原生 ABI v2 回传段与 AOT 段文件的统一出口;
+- `load_segments(segs)` 用 `(addr, data)` 列表恢复内容 (不清空现有页)。
 
-| 方法 | 说明 |
-|------|------|
-| `map(vpn, ppn=None, perms='rwx')` | 建立映射; `ppn` 省略即 identity |
-| `map_page(vaddr, paddr, perms='rwx')` | 按地址映射 (内部右移 12 位取页号) |
-| `unmap(vaddr) -> bool` | 解除映射, 之后再访问触发 `PageFaultError` |
-| `protect(vaddr, perms)` | 改权限; 对已 `unmap` 的页抛 `MemoryAccessError` |
-| `is_mapped(vaddr) -> bool` | 是否可访问 |
-| `translate(vaddr, access) -> int` | 翻译成物理地址; 权限不符抛 `MemoryAccessError`, 未映射或物理越界抛 `PageFaultError` |
-| `reset(mem_size=None)` | 清空页表与黑名单 |
-
-CROM v3 可以把页表与黑名单序列化到镜像尾部 (flags bit1), 由
-`load_crom(..., enable_mmu=True)` 恢复; 序列化细节见
-[二进制格式](/runtime/formats)。
+持久化字段布局见 [二进制格式](/runtime/formats)。
 
 ```python
-from codecin import CPU, Config
-from codecin.errors import PageFaultError, MemoryAccessError
-from codecin.memory import Mmu
+from codecin.memory import FastMemory
 
-cpu = CPU(Config(mmu=True, use_native=False,
-                 interactive_mode=False, log_level='ERROR'))
-mmu = cpu.memory.mmu
-mmu.protect(0x2000, 'r')            # 只读页
-try:
-    cpu.memory.write_qword(0x2000, 1)
-except MemoryAccessError as e:
-    print('页保护:', e)
-mmu.unmap(0x3000)
-try:
-    cpu.memory.read_byte(0x3000)
-except PageFaultError as e:
-    print('缺页:', e)
+mem = FastMemory()              # 默认 1 GiB 逻辑空间
+print(mem.resident_bytes)       # 0 —— 还没写任何页
+mem.write_qword(0x3FFF0000, 1)  # 栈区附近写 8 字节
+print(mem.resident_bytes)       # 4096 —— 落了一个 4 KiB 页
 ```
+
+### 错误类型
+
+内存访问错误统一抛 `MemoryAccessError` (`codecin/errors.py`)。v5.9.0 起没有独立的
+缺页错误: 旧的 MMU 分页机制已整体移除, 原 `PageFaultError` 并入 `MemoryAccessError`。
+`codecin.errors` 现在导出: `AssemblerError`、`CompilerError`、`CPUSimulatorError`、
+`ExecutionError`、`MemoryAccessError`。
 
 ## 栈帧与调用约定
 
@@ -269,7 +279,7 @@ CIN 编译器 (`codecin/cin.py`) 生成的调用约定:
 |------|------|
 | 参数传递 | 调用方从左到右求值并 `PUSH`, 被调方通过帧指针访问 |
 | 返回地址 | `CALL` / `BL` 压入已自增的 `PC`; `RET` 弹出并写回 `PC` |
-| 帧指针 | `FP = X29`。prologue 先 `PUSH X29`, 再 `MOV X29, SP` |
+| 帧指针 | `FP = X29`。prologue 先 `PUSH X29`, 再 `MOV X29, SP`; 有局部变量时再以 `SYS ALLOCFRAME(137)` 分配帧空间 (带栈溢出防护, 见[上文](#allocframe-函数序言的栈防护)) |
 | 参数位置 | `fp+16` 是**第一个** (最左) 参数, 其后每 8 字节一个; 参数区在 `fp+8` 的返回地址之上 |
 | 返回地址 / 保存的 FP | 位于 `fp+8` (返回地址) 与 `fp+0` (调用方 FP) |
 | 局部变量 | 负偏移: `fp - (8 + off)`; 定长数组块基址 `fp - (off + slots*8)` |
@@ -289,14 +299,14 @@ CIN 编译器 (`codecin/cin.py`) 生成的调用约定:
   ├──────────────────────┤
   │ 局部变量 / 数组       │  fp-8, fp-16, …           (负偏移)
   └──────────────────────┘
-低地址                          ← SP (移动后)
+低地址                          ← SP (ALLOCFRAME 分配帧后)
 ```
 
 epilogue 序列 (`cin.py: _epilogue`): `SP = FP` → `POP X29` → `RET`。返回值已经放在
 `X0`, 整个过程不触碰它。
 
-原生 VM 与解释器对栈的语义完全一致: 8 字节 qword 槽、满递减、`SP` 初值由调用方传入、
-`CALL`/`BL` 压入自增后的 `PC`。
+原生引擎对栈的语义: 8 字节 qword 槽、满递减、`SP` 初值由装载侧传入
+(`(mem_size - 8) & ~0x7`)、`CALL`/`BL` 压入自增后的 `PC`。
 
 ## CIN 类型 ↔ 64 位槽 ↔ 指令宽度
 
@@ -322,14 +332,14 @@ CIN 是 **64 位槽模型**: 每个标量占一个 qword 槽, 与 `int` / `char`
 
 ::: info 为什么浮点是"位模式"
 `SYS` 调用 (`SQRT` / `FADD` / `SIN` …) 通过 `X0`/`X1` 传递 `float64` 的**位模式**, 结果
-也以位模式写回 `X0` (见 `isa.py: Syscall` 的说明与 `cpu.py: _op_sys` 的
-`_f_to_bits` / `_bits_to_f`)。这样浮点运算不需要独立寄存器堆, 也不会与整数寄存器带宽冲突。
+也以位模式写回 `X0` (见 `isa.py: Syscall` 的说明)。这样浮点运算不需要独立寄存器堆,
+也不会与整数寄存器带宽冲突。
 :::
 
 ## 相关页面
 
-- [指令集编码表](/reference/isa) — 全部 112 条指令的助记符与编码
+- [指令集编码表](/reference/isa) — 全部指令的助记符与编码
 - [指令语义参考](/asm/instructions) — 逐条指令的行为
 - [汇编语法参考](/asm/syntax) — 寄存器/内存操作数的书写方式
 - [Python 嵌入 API](/reference/python-api) — 从 Python 直接读写寄存器与内存
-- [内存与缓存](/tools/memory-cache) — `--profile` 下的缓存与内存统计
+- [内存与运行时开关](/tools/memory-cache) — `--mem-size` / `--sandbox` 等运行时行为开关

@@ -11,6 +11,45 @@
 | origin (Gitee) | `git@gitee.com:byusistudio/codecin-docs.git` |
 | github | `git@github.com:ByUsiStudio/Code-CIN-Docs.git` |
 
+## 关于 Code CIN (v5.9.0)
+
+[Code CIN](https://github.com/ByUsiStudio/Code-CIN) (`pip install codecin`) 是一门
+语法近似 C/Go 的高级语言 (CIN) 及其工具链。v5.9.0 起 **native-only**: 全部程序由
+Go 原生引擎统一执行, 纯 Python 解释器与 JIT 已整体删除, 无解释器回退。
+
+- **单执行路径**: Python 侧负责编译/装载 (`.cin/.asm/.pl/.bin/.crom`), 通过
+  ABI v2 (`codecin_run_v2`) 一次调用回传寄存器/向量/NZCV/脏内存段/输出;
+- **FFI 与网络**: `dlopen` / `dlsym` / `ffi_call` / `ffi_callf` / `lib_close`
+  (标准库 `lib/ffi.cin`), `http_req` / `http_code` / `tcp_*` / `udp_*` /
+  `dns_lookup` (标准库 `lib/net.cin`);
+- **1 GiB 稀疏内存**: 默认 1073741824 字节, 4 KiB 分页按需提交, 大数组无需调整
+  `--mem-size`; 堆基址 = `mem_size//2`, 栈顶 = `(mem_size-8) & ~0x7`;
+- **持久化**: 段式 CROM v4 / BIN v3 (只存已分配页), 旧版可读不可写;
+- **GUI / 音频 / 键盘**: 窗口 (Win32/X11)、2D 画布、WAV 播放、非阻塞键盘轮询等
+  宿主能力, 全部由原生引擎实现;
+- **AOT**: `--build-exe` 产出静态单文件可执行程序 (`CGO_ENABLED=0`)。
+
+快速开始 (源码检出):
+
+```bash
+git clone https://github.com/ByUsiStudio/Code-CIN.git
+cd Code-CIN
+
+# 1) 构建原生库 (必需步骤, 需要 Go 1.26+)
+powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1   # Windows
+sh codecin/native/build.sh                                          # Linux / macOS / Termux
+
+# 2) 运行
+codecin basic.cin                                # 编译并由原生引擎执行
+codecin --build-info                             # 版本 / 平台 / 原生库状态
+codecin basic.cin --compile-only -o basic.bin    # 仅编译为 UCBC 字节码
+codecin basic.cin --build-exe basic              # AOT 独立可执行文件
+```
+
+> 原生库缺失或版本不匹配时, 程序启动即抛 `CPUSimulatorError` 并附重建指引。
+> `pip install codecin` 从 sdist 安装时会在用户机器上现场编译原生库。
+> 完整 CLI 选项以 `codecin --help` 为准; 开发细节见 [BUILDING](BUILDING.md)。
+
 ## 本地开发
 
 ```bash
@@ -38,7 +77,7 @@ docs/
 ├── language/               # CIN 语言: 词法/类型/运算符/控制流/函数/struct/数组/字符串/内建/宿主能力/模块
 ├── asm/                    # 汇编: 总览、语法参考、指令语义参考
 ├── stdlib/                 # 内置标准库总览与逐函数参考
-├── runtime/                # Go 原生运行时、JIT、二进制格式、AOT
+├── runtime/                # Go 原生运行时、二进制格式、AOT
 ├── tools/                  # 调试器、远程调试协议、日志、性能分析、内存与缓存
 ├── reference/              # 指令集编码表、寄存器与内存模型、Python API、更新日志
 ├── dev/                    # 项目结构、编译原生库、测试与 CI、打包、扩展、贡献

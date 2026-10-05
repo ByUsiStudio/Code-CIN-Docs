@@ -46,7 +46,7 @@ function main() -> int {         // 5) 入口
 | `T[]` 指针数组 | 空指针 | 用于参数/返回 |
 | enum 类型名 | 同 `int` (`0`) | `enum Color { RED, GREEN = 5, BLUE }` |
 
-转换: 整数→浮点自动; 浮点→整数**截断**; `atoi` / `int_to_str` / `float_to_str` / `bool_to_str`。
+转换: 整数→浮点自动; 浮点→整数**截断**; `to_int` / `to_float` 显式转换; `atoi` / `int_to_str` / `float_to_str` / `bool_to_str`。
 
 enum 成员是**编译期整数常量** (只读, 可用于表达式与 `case`):
 
@@ -119,6 +119,8 @@ function no_return(int a) -> void {     // -> void 可省略
 - 递归要有出口; 深递归用 `--mem-size` 扩容。
 
 常用内建: `print` `println` `abs` `sqrt` `pow` `sin` `cos` `tan` `floor` `ceil` `round` `min` `max` `rand` `srand` `time` `idiv`。
+
+计时与参数: `time_us` `time_ns`（单调计时, 程序内打点）; `arg_count` `arg(i)` `input_str()`（CLI 裸参数与行输入）。
 
 字符串内建: `strlen` `strcmp` `strcpy` `substr` `indexof` `upper` `lower` `trim` `ltrim` `rtrim` `atoi` `int_to_str` `float_to_str` `bool_to_str`。
 
@@ -197,7 +199,7 @@ println(s.score)
 | `r.a.x` 嵌套字段 | 互相覆盖 | 扁平字段 / 独立变量 |
 | 函数内 `int m[2][3] = {...}` | 初始化无效 | 循环填充 / 全局字面量 / 一维 `flat[i*cols+j]` |
 | `import "x.cin"  // 注释` | 编译失败 | 注释另起一行 |
-| `sqrt(-1)` 等数学域错误 | 两条路径一致返回 `NaN` | 需要时先判断定义域 |
+| `sqrt(-1)` 等数学域错误 | 返回 `NaN` | 需要时先判断定义域 |
 | `int[] a` 参数越界 | `--bounds-check` 管不到 | 自己保证循环用 `i < n` |
 | `for (int v : intArrParam)` | `int[]` 参数不是定长数组, 报 `range-for requires a fixed-size array` | 用定长数组或下标循环 |
 | `for (int v : m)` (多维) | 元素是数组, 报 `range-for over multi-dimensional arrays is not supported` | 两层下标循环 |
@@ -230,7 +232,7 @@ import "./helpers.cin"
 | `t_` | time / test | `t_now` `t_eq_int` `t_report` |
 | `io_` `g_` `tx_` | io / gui / termux | 需原生运行时 |
 
-## 宿主能力 (需原生运行时)
+## 宿主能力 (Go 引擎内建)
 
 ```c
 file_read(p) file_write(p, s) file_append(p, s) file_exists(p) file_size(p) mkdir(p) dir_list(p)
@@ -245,7 +247,7 @@ clipboard_get() clipboard_set(s) notify(t, b) open_url(url)
 canvas(w, h) set_color(rgb) fill_rect(...) fill_circle(...) draw_line(...) draw_text(...) save_png(p)
 audio_play(url) beep(freq, ms) audio_stop() audio_wait() audio_volume(v) audio_level()
 audio_pos() audio_duration() audio_playing() audio_pause() audio_resume()
-arg_count() arg(i) input_str()         // 命令行参数与行输入 (需原生)
+arg_count() arg(i) input_str()         // 命令行参数与行输入
 gui_new(w, h, t) gui_update() gui_close() gui_closed() gui_active() mouse_x() mouse_y()
 termux_notify(t, c) termux_toast(m) termux_vibrate(ms) termux_battery()
 android_intent(a, u) termux_call(n) termux_share(f) termux_torch(on) termux_volume(s, v)
@@ -253,24 +255,22 @@ termux_brightness(lv) termux_camera_photo(p) termux_fingerprint() termux_sensor(
 key_hit() get_key() key_flush()        // 键盘轮询, 需真实终端 (游戏循环)
 ```
 
-以上全部是 **Go 原生实现**: `--no-native` 下调用会报
-`host builtins ... require the native Go runtime`; 它们有**真实文件与网络权限**, 只运行可信脚本。
+以上内建由 **Go 引擎直接实现**, 拥有**真实文件与网络权限**, 只运行可信脚本;
+`--sandbox` 下宿主能力会被拦截（`Host capability disabled in sandbox mode`）。
 
 ## 命令行速查
 
 | 命令 | 作用 |
 |------|------|
-| `codecin prog.cin` | 运行 (默认走最快的原生路径) |
+| `codecin prog.cin` | 运行 (Go 原生引擎) |
 | `codecin prog.cin --log-level ERROR` | 只看程序输出 |
-| `codecin prog.cin --no-native` | 强制纯 Python 解释执行 |
-| `codecin prog.cin --jit --no-native` | 启用 JIT |
-| `codecin prog.cin --no-native --debug` | 逐指令追踪 (定位崩溃) |
-| `codecin prog.cin --no-native --step` | 交互式单步 (`b`/`p`/`list`/`c`/`q`) |
-| `codecin prog.cin --no-native --bounds-check` | 数组越界检查 |
-| `codecin prog.cin --profile` | 性能统计 |
-| `codecin prog.cin --mem-size 262144` | 内存扩到 256 KiB |
+| `codecin prog.cin --log-level DEBUG` | 看编译/引擎细节 (排错) |
+| `codecin prog.cin --bounds-check` | 数组越界检查 |
+| `codecin prog.cin --sandbox` | 沙箱模式 (拦截宿主能力) |
+| `codecin prog.cin --mem-size 2147483648` | 内存扩到 2 GiB |
 | `codecin prog.cin --max-instructions 100000` | 限制指令数 (抓死循环) |
 | `codecin prog.cin --seed 42` | 固定随机种子 |
+| `codecin --build-info` | 环境自检 (版本/原生库状态) |
 | `codecin prog.cin --compile-only -o prog.bin` | 只编译成字节码 |
 | `codecin prog.bin --disasm` | 反汇编查看 |
 | `codecin prog.cin --build-exe prog` | 编译成独立可执行文件 |
@@ -287,9 +287,9 @@ key_hit() get_key() key_flush()        // 键盘轮询, 需真实终端 (游戏�
 | `Bitwise operator ... requires integer operands` | 位运算只用于整数 |
 | `Expected RBRACE ... at line N` | 花括号/换行问题 |
 | `Import file not found` | 自建模块要写 `"./x.cin"` |
-| `Stack overflow (collides with heap)` | 递归太深或局部数组太大 → `--mem-size` |
+| `Stack overflow` (frame needs… / collides with heap) | 递归太深或局部数组太大 → 减递归或 `--mem-size` |
 | `Runtime abort: bounds-check: ...` | 数组越界, 检查循环条件 |
-| `host builtins ... require the native Go runtime` | 去掉 `--no-native` |
+| `Host capability disabled in sandbox mode` | 宿主能力被沙箱拦截, 去掉 `--sandbox` |
 | `Unknown instruction: jle` | 本 ISA 没有该指令, 用 `JG`/`JL`/`JE` |
 
 ## 最容易踩的坑
@@ -303,7 +303,7 @@ key_hit() get_key() key_flush()        // 键盘轮询, 需真实终端 (游戏�
 7. **struct 数组与嵌套 struct 字段当前不可靠** —— 表格用并行数组, 多段数据用独立变量;
 8. **函数内二维数组字面量初始化无效** —— 循环填充或压成一维 `flat[i * cols + j]`。
 
-> 完整清单 (含表现与规避写法) 见 [第 12 章 · 已知限制](/beginner/ch12-debug#_12-7-5-5-0-已知限制与规避-重点)。
+> 完整清单 (含表现与规避写法) 见 [第 12 章 · 已知语言坑速查](/beginner/ch12-debug)。
 
 ## 相关页面
 

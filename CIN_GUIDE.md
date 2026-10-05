@@ -1,7 +1,8 @@
 # CIN 编程指南
 
 > CIN 是 Code CIN 的高级语言, 语法近似 C/Go: 函数、struct、数组 (含多维)、浮点、字符串。
-> CIN 编译为 Code CIN 字节码后由解释器 / JIT / Go 原生 VM 三路径执行, 行为一致。
+> CIN 编译为 Code CIN 字节码后由 Go 原生引擎统一执行 (v5.9.0 起 native-only,
+> 纯 Python 解释器与 JIT 已删除, 无解释器回退)。
 > 开发环境/构建相关见 [开发者编译文档](BUILDING.md)。
 
 ---
@@ -517,6 +518,13 @@ string copy = strcpy(s)         // 拷贝为新堆块
 | `rand()` | int | 非负随机整数 |
 | `srand(n)` | void | 设置随机种子 |
 | `time()` | int | Unix 时间戳 (秒) |
+| `time_us()` | int | 单调时钟微秒数 (高精度基准测试) |
+| `time_ns()` | int | 单调时钟纳秒数 (time_us 的高分辨率版本) |
+| `to_int(x)` | int | 显式转 int (float 向零截断; 非数值报编译错) |
+| `to_float(x)` | float | 显式转 float (整数提升) |
+| `arg_count()` | int | 传给 CIN 程序的参数个数 (不含程序文件名) |
+| `arg(i)` | string | 第 i 个命令行参数 (越界为空串) |
+| `input_str()` | string | 读入一行 UTF-8 文本 (不含行尾; EOF 为空串) |
 | `strlen(s)` | int | 字符串长度 |
 | `strcmp(a, b)` | int | 字典序比较 (<0 / 0 / >0) |
 | `strcpy(s)` | string | 复制为新堆块 |
@@ -613,7 +621,7 @@ function music() -> int {
 }
 ```
 
-> MP3/OGG 解码依赖外部库，当前仅支持 WAV(PCM)；音频与 GUI 为 **Go 原生能力**，`--no-native` 下会给出明确错误。
+> MP3/OGG 解码依赖外部库，当前仅支持 WAV(PCM)；音频与 GUI 由 **Go 原生引擎**实现。
 
 ### 宿主能力: 系统原生交互 (Windows / Linux / macOS)
 
@@ -743,12 +751,16 @@ sleep_ms(200)                           // 睡 200 毫秒 (上限 600000)
 |------|------|------|
 | `http_get(url)` | string | GET 并返回响应体; 失败为空串 (**15 秒超时, 响应体上限 8 MiB**) |
 | `http_post(url, body)` | string | POST (`text/plain; charset=utf-8`) 并返回响应体; 失败为空串 (同样 15 秒 / 8 MiB) |
+| `http_req(method, url, headers, body)` | string | 自定义方法/头部/请求体的 HTTP 请求; `headers` 为 `\n` 分隔的 `"K: V"`, 无则传空串; 失败为空串 |
+| `http_code()` | int | 最近一次 `http_get` / `http_post` / `http_req` 的 HTTP 状态码 (无请求为 `-1`) |
 | `download(url, path)` | int | 下载到本地文件; `0` 成功 / `-1` 失败 (**非 2xx 状态码算失败**; 落盘上限 256 MiB) |
 
-> `http_get` / `http_post` **不检查状态码**: 非 2xx 也会返回响应体; `download` 则把非 2xx 视为失败。
+> `http_get` / `http_post` / `http_req` **不检查状态码**: 非 2xx 也会返回响应体,
+> 状态码一律用 `http_code()` 读取 (三者语义一致); `download` 则把非 2xx 视为失败。
 
 ```cin
 string body = http_get("https://example.com/")
+println("状态码: " + int_to_str(http_code()))
 if (strlen(body) > 0) {
     println("长度: " + int_to_str(strlen(body)))
 }
@@ -757,6 +769,72 @@ println("POST 返回 " + int_to_str(strlen(echo)) + " 字节")
 int rc = download("https://example.com/logo.png", "logo.png")
 println("download = " + int_to_str(rc))       // 0 成功
 ```
+
+### 宿主能力: 网络 (TCP / UDP / DNS, 标准库 `lib/net.cin`)
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `tcp_dial(host, port)` | int | 连接 TCP 服务端, 返回连接句柄 (失败 `-1`) |
+| `tcp_send(h, data, len)` | int | 发送数据, 返回已发送字节 (失败 `-1`) |
+| `tcp_recv(h, buf, max)` | int | 接收到 `buf`, 返回实际字节 (对端关闭为 `0`) |
+| `tcp_close(h)` | int | 关闭连接; `0` 成功 / `-1` 失败 |
+| `tcp_listen(port)` | int | 监听端口, 返回监听句柄 (失败 `-1`) |
+| `tcp_accept(lh)` | int | 接受连接, 返回连接句柄 (失败 `-1`) |
+| `udp_open(port)` | int | 打开 UDP 套接字 (`port` 传 `0` 由系统分配), 返回句柄 (失败 `-1`) |
+| `udp_sendto(h, host, port, data, len)` | int | 发送数据报到指定地址, 返回已发送字节 (失败 `-1`; 地址解析偏好 IPv4) |
+| `udp_recvfrom(h, buf, max, src_buf)` | int | 接收数据报, 返回实际字节; 来源 `"ip:port"` 写入 `src_buf` (传 `0` 不关心) |
+| `udp_close(h)` | int | 关闭套接字; `0` 成功 / `-1` 失败 |
+| `dns_lookup(host)` | string | 解析域名, 返回首个 IP 地址 (失败为空串) |
+
+```cin
+import "net.cin"
+
+// TCP echo 一步到位: 连接 -> 发送 -> 收一行 -> 关闭 (失败返回空串)
+string resp = tcp_roundtrip("127.0.0.1", 7000, "hello")
+println(resp)
+
+// UDP 单发 (底层内建; 失败返回 -1, 不抛异常)
+int u = udp_open(0)                      // port 传 0 由系统分配
+if (u != -1) {
+    udp_sendto(u, "127.0.0.1", 9000, "hi", 2)
+    udp_close(u)
+}
+```
+
+> `import "net.cin"` 提供字符串收发 / 按行接收 / 自定义头 HTTP 等封装
+> (`tcp_send_str` / `tcp_recv_line` / `http_get_headers` / `http_ok` ...);
+> 底层内建签名见上表。注意: 引擎的地址解析偏好 IPv4, 在 fake-ip 代理
+> 环境下任意域名都可能"解析成功", 请以实际连接结果为准。
+
+### 宿主能力: FFI 动态库调用 (标准库 `lib/ffi.cin`)
+
+加载本机动态库 (`.dll` / `.so` / `.dylib`) 并调用其导出函数, 最多 8 个 int64 参数;
+`ffi_callf` 用于返回浮点的函数 (浮点参数正确走 XMM 寄存器)。
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `dlopen(path)` | int | 加载动态库, 返回库句柄 (失败 `-1`) |
+| `dlsym(h, name)` | int | 取符号地址, 返回函数句柄 (失败 `-1`) |
+| `ffi_call(fn, args, n)` | int | 调用函数: `args` 为 8 字节对齐的 int64 数组指针, `n` 为参数个数 (≤8), 返回 int64 |
+| `ffi_callf(fn, args, n)` | float | 同上, 返回值按 float64 解释 |
+| `lib_close(h)` | int | 卸载动态库; `0` 成功 / `-1` 失败 |
+
+```cin
+import "ffi.cin"
+
+// 库内封装: ffi_load / ffi_find / ffi_call0..8 / ffi_free (失败返回 0)
+int lib = ffi_load("kernel32.dll")       // Linux: "libc.so.6"; macOS: "libc.dylib"
+if (lib != 0) {
+    int fn = ffi_find(lib, "GetTickCount64")
+    if (fn != 0) {
+        println(int_to_str(ffi_call0(fn)))   // 开机毫秒数
+    }
+    ffi_free(lib)
+}
+```
+
+> FFI 调用的是**宿主机原生代码**, 无任何沙箱隔离, 请只加载可信库;
+> `--sandbox` 模式下整组 FFI 调用被禁用。
 
 ### 宿主能力: 编码与哈希
 
@@ -879,11 +957,12 @@ if (is_android() == 1) {
 }
 ```
 
-> 以上全部宿主 API (画布 / 音频 / 系统交互 / 路径 / 网络 / 编码 / 桌面 / Termux / 键盘) 都是
-> **Go 原生引擎实现**: 纯解释路径 (`--no-native`) 调用它们会报
-> `host builtins (GUI/audio/system/Termux/keyboard) require the native Go runtime`。
-> 它们具备**真实文件与网络权限** (`exec` / `file_*` / `dir_remove` / `download` / `http_*` / `chdir`),
-> 请只运行可信脚本。
+> 以上全部宿主 API (画布 / GUI / 音频 / 系统交互 / 路径 / 网络 / FFI / 编码 / 桌面 / Termux / 键盘)
+> 都是 **Go 原生引擎实现**。原生库缺失或版本不匹配时程序无法启动 (抛 `CPUSimulatorError`
+> 并附重建指引, 见 [BUILDING](BUILDING.md))。
+> 它们具备**真实文件与网络权限** (`exec` / `file_*` / `dir_remove` / `download` /
+> `http_*` / `tcp_*` / `udp_*` / `chdir` / `dlopen`), 请只运行可信脚本;
+> `--sandbox` 模式下仅放行核心 VM 机制 (ALLOCFRAME/TIMEUS/TIMENS), 其余宿主 SYS 一律拒绝。
 
 ---
 
@@ -921,13 +1000,12 @@ function cpu_ops() -> void {
 ## 13. 编译与运行
 
 ```bash
-codecin prog.cin                    # 编译并运行 (自动选择原生/JIT/解释)
-codecin prog.cin --no-native        # 强制纯 Python
-codecin prog.cin --debug            # 超详细逐指令追踪 (rich)
-codecin prog.cin --profile          # 性能统计
+codecin prog.cin                    # 编译并由 Go 原生引擎执行
 codecin prog.cin --compile-only     # 仅编译为 prog.bin (UCBC 字节码)
 codecin prog.bin                    # 运行字节码
 codecin prog.cin --save             # 运行后保存 prog.crom 内存镜像
+codecin prog.cin --build-exe prog   # AOT 编译为独立可执行文件
+codecin prog.cin --log-level DEBUG --log-file codecin.log   # 全量日志落盘
 ```
 
 编译错误输出红色 rich 面板, 带 `文件:行号` 定位:
@@ -997,9 +1075,11 @@ function main() -> int {
 | `codecin/lib/matrix.cin` | `mat_` | `mat_zero` `mat_identity` `mat_get` `mat_set` `mat_add` `mat_sub` `mat_scale` `mat_mul` `mat_transpose` `mat_trace` `mat_sum` `mat_equals` `mat_is_symmetric` `mat_det` `mat_print` |
 | `codecin/lib/queue.cin` | `queue_` `stack_` | `queue_clear` `queue_push` `queue_pop` `queue_front` `queue_back` `queue_size` `queue_is_empty` `queue_is_full` `queue_capacity` + `stack_clear` `stack_push` `stack_pop` `stack_peek` `stack_size` `stack_is_empty` `stack_capacity` |
 | `codecin/lib/key.cin` | `k_` `K_*` | 键码常量 `K_UP` `K_DOWN` `K_LEFT` `K_RIGHT` `K_HOME` `K_END` `K_PGUP` `K_PGDN` `K_INS` `K_DEL` `K_F1..K_F10` `K_ESC` `K_ENTER` `K_TAB` `K_BACKSPACE` + `k_ctrl` `k_is_special` `key_wait` (依赖宿主能力) |
+| `codecin/lib/ffi.cin` | `ffi_` | `ffi_load` `ffi_find` `ffi_free` `ffi_call0..8` (整数调用) `ffi_callf*` (浮点返回, 封装 SYS 140-144; 依赖宿主能力) |
+| `codecin/lib/net.cin` | `http_` `tcp_` `udp_` `dns_` | `http_get_headers` `http_post_headers` `http_ok` `tcp_send_str` `tcp_send_line` `tcp_recv_str` `tcp_recv_line` `tcp_roundtrip` `tcp_server` + UDP/DNS 封装 (封装 SYS 145-157; 依赖宿主能力) |
 
-> `codecin/lib/io.cin` / `codecin/lib/gui.cin` / `codecin/lib/termux.cin` / `codecin/lib/key.cin` 依赖宿主能力 (需 Go 原生运行时);
-> 其余库为纯 CIN, 三执行路径一致。示例见 `examples/stdlib_demo.cin`。
+> `codecin/lib/io.cin` / `codecin/lib/gui.cin` / `codecin/lib/termux.cin` / `codecin/lib/key.cin` 依赖宿主能力 (Go 原生引擎实现);
+> 其余库为纯 CIN。示例见 `examples/stdlib_demo.cin`。
 >
 > `codecin/lib/matrix.cin` 的矩阵以一维数组行主序存放 (`m[i*n + j]`), `mat_det` 用拉普拉斯
 > 递归展开, 适合 `n <= 6`。`codecin/lib/queue.cin` 的队列/栈使用库内全局状态, 同一程序内
@@ -1012,7 +1092,7 @@ function main() -> int {
 1. **无指针/取地址运算**: `*` 仅是乘法、`&` 仅是位与 (不是解引用/取地址); "引用" 仅通过数组/struct 传参隐式实现。
 2. **`/` 恒为浮点除**: 整数除法用内建 `idiv(a, b)` (向零截断); `%` 仅支持整数取模, 浮点取模报错。
 3. **位运算仅整数**: `&` `|` `^` `<<` `>>` `~` 不接受 float/string 操作数; `>>` 为算术右移 (符号位扩展)。
-4. **递归深度**: 每层调用消耗栈槽 (默认内存 64KB, 栈区约 1024 槽); 过深递归触发栈溢出错误, 可用 `--mem-size` 加大内存。
+4. **递归深度**: 每层调用消耗栈槽 (栈位于内存高端向下生长, 默认内存 1 GiB, 4 KiB 分页按需提交); 过深递归触发栈溢出错误, 可用 `--mem-size` 加大内存。
 5. **struct 字段**: 不支持变长指针数组字段; 字符串字段是指针, 拼接/复制会产生新堆块。
 6. **全局初始化顺序**: 按声明顺序写入数据区; 数组字面量长度超过声明维度会报错。
 7. **函数先定义后使用不强制**: 同文件内的函数可互相调用 (两遍编译); 但变量必须先声明后使用。
@@ -1044,7 +1124,6 @@ function main() -> int {
 **调试技巧**:
 
 ```bash
-codecin prog.cin --debug           # 逐指令 rich 追踪, 定位崩溃点 PC
-codecin prog.cin --step            # 交互式单步, print regs / mem / cache
 codecin prog.cin --log-level DEBUG --log-file codecin.log   # 全量日志落盘
+codecin prog.cin --disasm             # 反汇编字节码
 ```

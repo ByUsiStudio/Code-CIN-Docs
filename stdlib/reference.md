@@ -1,10 +1,10 @@
 ---
-description: Code CIN 39 个官方标准库（含 C / C++ / Go 兼容层）的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
+description: Code CIN 41 个官方标准库（含 C / C++ / Go 兼容层）的逐库逐函数参考：签名、返回值、边界行为与可运行示例。
 ---
 
 # 逐库函数参考
 
-本页覆盖 `codecin/lib/` 下全部 **39 个**官方标准库（`codecin/lib/` 目录里就是 39 个 `.cin`），
+本页覆盖 `codecin/lib/` 下全部 **41 个**官方标准库（`codecin/lib/` 目录里就是 41 个 `.cin`），
 每个库一节，先说明用途与 `import` 语句，再以表格列出**该库的全部函数**，
 最后给出一个可直接运行的 CIN 示例。
 
@@ -14,10 +14,11 @@ description: Code CIN 39 个官方标准库（含 C / C++ / Go 兼容层）的�
 - CIN 数组**不携带长度**，因此所有数组接口都要求显式传入元素个数 `n`；
 - `void` 返回值表示该函数只产生副作用（原地修改数组、写输出数组、打印、写文件），无返回值；
 - `_sorted` 结尾的函数要求输入**已升序**，否则结果无意义；矩阵类 `_to` 风格函数把结果写入调用方提供的输出数组；
-- 三条执行路径（Go 原生 VM / JIT / 纯 Python 解释器）对纯 CIN 库的行为一致；
-  `io` / `gui` / `termux` / `key` 四库依赖宿主能力，需 Go 原生运行时；
-  `cstd` / `cppstd` / `gostd` 三个兼容层是纯 CIN，三路径一致（`gostd` 的
-  `go_os_args_*` 依赖命令行参数内建，需原生路径）。
+- 纯 CIN 库只调用语言内建，行为与运行方式无关；
+  `io` / `gui` / `termux` / `key` / `ffi` / `net` 六库依赖宿主能力，由 Go 原生引擎实现，
+  `--sandbox` 下调用会被拦截；
+  `cstd` / `cppstd` / `gostd` 三个兼容层是纯 CIN（`gostd` 的
+  `go_os_args_*` 依赖命令行参数内建）。
 
 ## array
 
@@ -65,7 +66,7 @@ function main() -> int {
 
 任意精度整数库。用**十进制数位数组**表示整数（`d[0]` 是个位，`n` 是有效数位个数，
 `neg` 是符号位），整块数据装在 `struct BigInt` 的固长数组里，不使用任何动态内存，
-也不依赖宿主能力内建（纯 Python 路径与 Go 原生路径行为一致）。
+也不依赖宿主能力内建。
 
 容量常量 `BIGINT_DIGITS = 64`，即最多 **64 位十进制数位**（最大 `10^64 - 1`，约
 `1.8e64`），足以精确表示 `2^64 = 18446744073709551616` 或 `25! = 15511210043330985984000000`。
@@ -306,7 +307,7 @@ function main() -> int {
 
 ## codec
 
-纯 CIN 编解码与简单密码（不依赖宿主能力，三条路径一致）。只用语言内建
+纯 CIN 编解码与简单密码（不依赖宿主能力）。只用语言内建
 （`strlen` / `substr` / `strcmp` / `s[i]` / `int_to_str` / `idiv`）。
 
 ::: warning 两条必须先知道的限制
@@ -508,7 +509,7 @@ function main() -> int {
 
 C++ 标准库 (STL) 兼容层，以 `std::` 命名习惯提供 `std::string` / `std::vector` /
 `std::stack` / `std::queue` 的常用方法与 `<utility>` / `<algorithm>` 工具。纯 CIN 实现，
-三路径一致。CIN 没有模板与引用包装，容器以「**数组 + 长度游标**」表达：数组是引用传递，
+行为与运行方式无关。CIN 没有模板与引用包装，容器以「**数组 + 长度游标**」表达：数组是引用传递，
 push/pop 返回**新的长度**，调用方把它存回自己的游标变量；push 前需自行保证数组容量。
 查找类的 `npos` 统一以 `-1` 表示。
 
@@ -578,7 +579,8 @@ function main() -> int {
 ## cstd
 
 C 语言兼容层，语义对齐 `<ctype.h>` / `<string.h>` / `<stdlib.h>` / `<math.h>` /
-`<stdio.h>`，让 C 程序员以惯用的名字与约定操作 CIN 的内置类型。纯 CIN 实现，三路径一致。
+`<stdio.h>`，让 C 程序员以惯用的名字与约定操作 CIN 的内置类型。纯 CIN 实现，
+行为与运行方式无关。
 类型映射：C `int/size_t` → `int`、C `char` → 字符码 `int`（可用 `'A'` 字符字面量）、
 C `char*` → `string`、C `float/double` → `float`、C `bool` → `int(0/1)`、
 C `EOF` → `-1`。差异：CIN 无裸指针，「写入 dst」类 API 返回新串、
@@ -632,7 +634,7 @@ function main() -> int {
 
 ## csv
 
-单行 CSV 解析与生成库，风格与 `json.cin` 一致：面向"一行一条记录"的轻量场景，不做完整语法解析。纯 CIN 实现，只使用非宿主能力内建（`strlen` / `substr` / `strcmp` / `indexof` / `int_to_str` / `trim` / `atoi`），`--no-native` 下同样可用。
+单行 CSV 解析与生成库，风格与 `json.cin` 一致：面向"一行一条记录"的轻量场景，不做完整语法解析。纯 CIN 实现，只使用非宿主能力内建（`strlen` / `substr` / `strcmp` / `indexof` / `int_to_str` / `trim` / `atoi`）。
 
 分隔符固定为 `,`（44），字段转义规则与 RFC 4180 一致：需要时字段两端加双引号，字段内部的 `"` 写成 `""`。解析侧同样识别引号字段（含 `""` 转义），因此 `csv_quote` / `csv_line_add` 生成的字段能被 `csv_get` 原样读回。
 
@@ -777,9 +779,46 @@ function main() -> int {
 }
 ```
 
+## ffi
+
+FFI 动态库调用便捷封装。封装内建 `dlopen` / `dlsym` / `ffi_call` / `ffi_callf` / `lib_close`
+（SYS 140-144，Go 引擎实现），**必须运行在 Go 原生引擎上**；`--sandbox` 下宿主调用会被拦截。
+调用约定：最多 8 个参数、每个占 8 字节；整数参数走 `ffi_call*` 封装（int 数组槽即 int64
+位模式），浮点参数走 `ffi_callf*` 封装（float 数组槽即 IEEE754 位模式，经 Windows x64
+`XMM0-3` / SysV `XMM0-7` 寄存器正确传参）；两种参数混用暂无封装。
+
+```c
+import "ffi.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `ffi_load` | `ffi_load(string path)` | `int` | 加载动态库，返回库句柄；失败返回 `0`（不抛异常，需自行判断）。路径平台相关：Windows `foo.dll`、Linux `libfoo.so` / `libfoo.so.6`、macOS `libfoo.dylib` |
+| `ffi_find` | `ffi_find(int lib, string name)` | `int` | 查找导出符号（函数/变量地址）；失败返回 `0` |
+| `ffi_free` | `ffi_free(int lib)` | `int` | 卸载动态库，`0` 成功 / `-1` 失败；卸载后其函数句柄全部失效 |
+| `ffi_call0` .. `ffi_call8` | `ffi_callN(int fn, int a0, ...)` | `int` | 以 N（0..8）个 int 参数调用函数，返回 int64 整数结果 |
+| `ffi_callf1` .. `ffi_callf4` | `ffi_callfN(int fn, float a0, ...)` | `float` | 以 N（1..4）个 float 参数调用函数，返回值按 double 位模式进 X0（CIN 的 float 本身就是位模式，可直接赋给 float 变量） |
+
+常量 `ffi_max_args = 8` 与引擎的参数上限一致（封装内部已固定，仅供检查）。
+`dlopen` / `dlsym` 失败返回 `0`，调用前应检查句柄；无效句柄 / 参数越界由引擎报明确运行时错误。
+
+```cin
+import "ffi.cin"
+
+function main() -> int {
+    int lib = ffi_load("kernel32.dll")        // Linux/macOS: libc.so.6 / libc.dylib
+    if (lib == 0) { println("加载失败"); return 1 }
+    int fn = ffi_find(lib, "GetTickCount64")
+    if (fn == 0) { ffi_free(lib); return 1 }
+    println("开机毫秒 = " + int_to_str(ffi_call0(fn)))
+    ffi_free(lib)
+    return 0
+}
+```
+
 ## fmt
 
-排版与格式化输出库。比 `conv` 更面向"排版"的一层：定点小数、千位分隔、对齐与居中、比例条、表格单元格与边框、定宽十六进制/二进制。纯 CIN 实现，只使用非宿主能力内建（`strlen` / `substr` / `strcmp` / `indexof` / `int_to_str` / `float_to_str` / `floor` / `idiv` / `trim`），`--no-native` 下同样可用；与 `conv`（进制与基础填充 `c_pad_*` / `c_to_hex` / `c_to_bin`）不重叠、互不依赖，可同时导入。
+排版与格式化输出库。比 `conv` 更面向"排版"的一层：定点小数、千位分隔、对齐与居中、比例条、表格单元格与边框、定宽十六进制/二进制。纯 CIN 实现，只使用非宿主能力内建（`strlen` / `substr` / `strcmp` / `indexof` / `int_to_str` / `float_to_str` / `floor` / `idiv` / `trim`）；与 `conv`（进制与基础填充 `c_pad_*` / `c_to_hex` / `c_to_bin`）不重叠、互不依赖，可同时导入。
 
 长度与宽度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致）：非 ASCII 按 UTF-8 字节序列计数，一个汉字算 3 字节、宽度算 3 列，`fmt_cell` 会在字节中间截断，不做码点解码。
 
@@ -915,8 +954,8 @@ function main() -> int {
 
 Go 标准库兼容层，以 `pkg.Func` 命名习惯提供 Go `strings` / `strconv` / `math` /
 `slices` / `os` 的常用函数（`go_strings_contains` 对应 `strings.Contains`），
-命名里的包段与 Go 文档一一对应，便于从 Go 移植或查阅语义。纯 CIN 实现，三路径一致；
-唯一例外是 `go_os_args_*`（依赖命令行参数内建，需原生路径）。
+命名里的包段与 Go 文档一一对应，便于从 Go 移植或查阅语义。纯 CIN 实现；
+唯一例外是 `go_os_args_*`（依赖命令行参数内建）。
 
 ```c
 import "gostd.cin"
@@ -951,8 +990,8 @@ import "gostd.cin"
 | `go_slices_reverse` / `go_slices_sort` | `(int[] a, int n)` | `void` | 原地反转 / 升序排序 |
 | `go_slices_equal` | `(int[] a, int[] b, int n)` | `int` | 前 `n` 个元素逐位相等（`1`/`0`） |
 | `go_slices_clone` | `(int[] dst, int[] src, int n)` | `int` | 拷贝到 `dst`，返回 `n`（调用方保证容量） |
-| `go_os_args_len` | `()` | `int` | `len(os.Args)`：CLI `--` 之后传给 CIN 程序的参数个数；**需原生路径** |
-| `go_os_args_get` | `(int i)` | `string` | `os.Args[i]`（越界空串；下标从 `0` 计 CIN 参数）；**需原生路径** |
+| `go_os_args_len` | `()` | `int` | `len(os.Args)`：CLI `--` 之后传给 CIN 程序的参数个数；依赖命令行参数内建 |
+| `go_os_args_get` | `(int i)` | `string` | `os.Args[i]`（越界空串；下标从 `0` 计 CIN 参数）；依赖命令行参数内建 |
 
 ```c
 import "gostd.cin"
@@ -1415,19 +1454,68 @@ function main() -> int {
 }
 ```
 
+## net
+
+网络便捷封装。封装内建 `http_req` / `http_code` / `tcp_*` / `udp_*` / `dns_lookup`
+（SYS 145-157，Go 引擎实现），**必须运行在 Go 原生引擎上**；`--sandbox` 下宿主调用会被拦截。
+缓冲约定：接收辅助函数收 `int[] buf`（CIN 数组每个元素占 8 字节，收到的字节流由引擎
+原样写入缓冲内存），按小端逐字节重组字符串；调用前无需清零。逐字节重组是 O(n²)
+堆拷贝，建议单次接收 `<= 4096` 字节；二进制 / 大流量场景直接用底层内建处理原始字节。
+
+```c
+import "net.cin"
+```
+
+| 函数名 | 签名 | 返回值 | 说明与边界行为 |
+| --- | --- | --- | --- |
+| `http_get_headers` | `http_get_headers(string url, string headers)` | `string` | GET（可带自定义头，`"Key: Value\n"` 换行分隔，空串表示无头），返回响应体；失败空串 |
+| `http_post_headers` | `http_post_headers(string url, string body, string headers)` | `string` | POST（自定义头与 body，`Content-Type` 等头由调用方提供），返回响应体；失败空串 |
+| `http_ok` | `http_ok()` | `int` | 最近一次 HTTP 请求是否 2xx（`1`/`0`）；从未请求返回 `0` |
+| `tcp_send_str` | `tcp_send_str(int fd, string s)` | `int` | 发送字符串（不含结尾 NUL），返回发送字节数 / `-1` |
+| `tcp_send_line` | `tcp_send_line(int fd, string s)` | `int` | 发送一行（自动追加 `\n`），文本协议友好 |
+| `tcp_recv_bytes` | `tcp_recv_bytes(int fd, int[] buf, int max)` | `int` | 原始接收：字节写入 `buf`（调用方自行解码），返回字节数 / `0` 对端关闭 / `-1` |
+| `tcp_recv_str` | `tcp_recv_str(int fd, int[] buf, int max)` | `string` | 接收并以字符串返回（遇 NUL 截断）；`n <= 0` 返回空串 |
+| `tcp_recv_line` | `tcp_recv_line(int fd, int[] buf, int max)` | `string` | 接收一行（到 `\n` 为止，不含 `\n`，行尾 `\r` 一并去掉）；缓冲区里 `\n` 之后的内容被丢弃，需保留请用 `tcp_recv_bytes` |
+| `tcp_roundtrip` | `tcp_roundtrip(string host, int port, string message)` | `string` | 连接 → 发送一行 → 收一行 → 关闭一步到位；任一步失败返回空串 |
+| `tcp_server` | `tcp_server(int port)` | `int` | 在端口上监听，返回监听句柄；失败 `-1` |
+| `tcp_server_accept` | `tcp_server_accept(int lfd)` | `int` | 阻塞接受一个连接，返回连接句柄；失败 `-1`（用完 `tcp_close`） |
+| `udp_bind` | `udp_bind(int port)` | `int` | 打开 UDP 套接字并绑定端口（`0` = 系统分配），即 `udp_open` 的别名 |
+| `udp_send_str` | `udp_send_str(int fd, string host, int port, string s)` | `int` | 发送字符串数据报（host 支持主机名或 IP 字面量），返回发送字节数 / `-1` |
+| `udp_recv_bytes` | `udp_recv_bytes(int fd, int[] buf, int max, int[] src)` | `int` | 原始接收：字节写入 `buf`，源地址 `"ip:port"` 写入 `src`（建议 `>= 64` 字节），返回字节数 / `-1` |
+| `udp_recv_str` | `udp_recv_str(int fd, int[] buf, int max)` | `string` | 接收数据报并以字符串返回（遇 NUL 截断，不取源地址） |
+| `dns_resolve` | `dns_resolve(string host)` | `string` | 解析主机名 → IP 字符串（`dns_lookup` 的语义别名）；失败空串 |
+| `dns_ok` | `dns_ok(string host)` | `int` | 主机名是否可解析（`1`/`0`） |
+
+```cin
+import "net.cin"
+
+function main() -> int {
+    string ip = dns_resolve("example.com")
+    if (strcmp(ip, "") == 0) { println("DNS 解析失败"); return 1 }
+    println("example.com = " + ip)
+
+    int fd = tcp_dial("example.com", 80)
+    if (fd <= 0) { println("连接失败"); return 1 }
+    tcp_send_line(fd, "GET / HTTP/1.0")
+    int buf[512]
+    println(tcp_recv_line(fd, buf, 4096))    // 首行响应
+    tcp_close(fd)
+    return 0
+}
+```
+
 ## path
 
 纯字符串路径工具库 (`codecin/lib/path.cin`, 前缀 `path_`)。与 `io` 库的
 `io_join` / `io_basename` / `io_dirname` 不同, 本库**不访问文件系统**、**不依赖任何宿主能力**:
-只用 `strlen` / `substr` / `strcmp` / `int_to_str`, 在纯 Python 解释器 (`--no-native`) 下
-也能完整运行。`/` 与 `\` 两种分隔符都识别 (等价), 输出统一用 `/`。
+只用 `strlen` / `substr` / `strcmp` / `int_to_str`, 不发起任何宿主调用。
+`/` 与 `\` 两种分隔符都识别 (等价), 输出统一用 `/`。
 
 ::: warning 命名冲突: 必须用 `path_str_*` 而不是内建名
 `path_join` / `path_basename` / `path_dirname` 是**宿主能力内建名**。CIN 编译器在
-`_gen_call` 里先分派内建, 因此**同名用户函数永远不会被调用**: 在 Go 原生运行时它们解析到
+`_gen_call` 里先分派内建, 因此**同名用户函数永远不会被调用**: 它们会解析到
 真实主机的 `path_join` / `path_basename` / `path_dirname` (在本机 Windows 上返回
-`a\b` 这类系统分隔符结果), 在 `--no-native` 下直接报
-`host builtins ... require the native Go runtime`。所以本库把这三个纯字符串版本命名为
+`a\b` 这类系统分隔符结果)。所以本库把这三个纯字符串版本命名为
 `path_str_join` / `path_str_basename` / `path_str_dirname`, 其余函数名与常规 `path_` 命名一致。
 :::
 
@@ -1898,7 +1986,7 @@ function main() -> int {
 
 ## text
 
-纯 CIN 文本处理库。比 `str` 更进一步的字符串操作：大小写无关比较、字节反转、全量/首次替换、区间编辑（切片 / 插入 / 删除）、首字母与标题化、大小写互换、词数统计。只依赖非宿主内建（`strlen` / `substr` / `indexof` / `upper` / `lower` / `strcmp`），`--no-native` 下同样可用。
+纯 CIN 文本处理库。比 `str` 更进一步的字符串操作：大小写无关比较、字节反转、全量/首次替换、区间编辑（切片 / 插入 / 删除）、首字母与标题化、大小写互换、词数统计。只依赖非宿主内建（`strlen` / `substr` / `indexof` / `upper` / `lower` / `strcmp`）。
 
 下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致）：非 ASCII 按 UTF-8 字节序列逐个处理，不做码点解码；大小写转换只折叠 ASCII 字母（`a-z` / `A-Z`），其余字节原样保留。
 
@@ -1993,7 +2081,7 @@ function main() -> int {
 
 ## token
 
-纯 CIN 切分/分词库。CIN 没有字符串数组类型，所以本库不返回数组，而是提供「按序号取第 n 个 token」的 API：计数、取内容、取长度、查序号、取首/尾 token，以及按空白切分的便捷封装。只依赖非宿主内建（`strlen` / `substr` / `strcmp`），`--no-native` 下同样可用；因为拿不到字符串数组，本库**不提供 join**。
+纯 CIN 切分/分词库。CIN 没有字符串数组类型，所以本库不返回数组，而是提供「按序号取第 n 个 token」的 API：计数、取内容、取长度、查序号、取首/尾 token，以及按空白切分的便捷封装。只依赖非宿主内建（`strlen` / `substr` / `strcmp`）；因为拿不到字符串数组，本库**不提供 join**。
 
 切分语义（与 Go `strings.Split` 一致）：`delim` 按**整串**匹配（多字符分隔符算一个整体，不是字符集合）；**保留空 token** —— 连续分隔符之间、串首/串尾分隔符旁边都会产生空 token；空串切分后是 1 个空 token；`delim` 为空串时整个串是唯一 token。下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致），非 ASCII 按 UTF-8 字节序列处理，分隔符请用完整字符。
 

@@ -8,11 +8,13 @@ description: Code CIN 常见问题与故障排查：安装、原生库、语言�
 
 ### `pip install codecin` 装完没有原生库, 正常吗?
 
-正常。发行包是 sdist, 安装阶段会尝试用**本机 Go 工具链**现场编译原生库; 机器上没有 Go/cgo
-时会跳过编译并打印提示, 安装依然成功, 运行时会回退纯 Python 解释执行。
+安装可以完成 (发行包是 sdist, 安装阶段会用**本机 Go 工具链**现场编译原生库, 没有
+Go/cgo 时会跳过编译并打印提示), 但**原生库是运行必需组件**: 没有它运行程序会直接抛
+`CPUSimulatorError` 并附重建指引, 不再有解释器回退。
 
-想让安装时编译: 装好 Go 1.26+ 与 C 编译器后重装即可; 不想装 Go: 从 Release 下载对应
-平台的预编译库放进包目录 (见 [安装 Code CIN](/guide/installation))。
+补齐办法: 装好 Go 1.26+ 与 C 编译器后重装; 从 Release 下载对应平台的预编译库放进
+包目录; 或在源码树 `codecin/native/` 下执行 `build.ps1` (Windows) / `build.sh`
+(Linux/Termux/macOS) 重建 (见 [安装 Code CIN](/guide/installation))。
 
 ### 怎么确认原生库到底加载了没有?
 
@@ -20,8 +22,8 @@ description: Code CIN 常见问题与故障排查：安装、原生库、语言�
 python -c "from codecin import native; print(native.get_engine())"
 ```
 
-输出非 `None` 即加载成功。也可以在运行时加 `--log-level DEBUG`, 初始化 dump 会打印
-`native` 字段的实际取值。想手动指定库路径可以用环境变量 `CODECIN_NATIVE_LIB`。
+输出非 `None` 即加载成功。也可以用 `codecin --build-info` 核对原生库版本与包版本
+是否匹配。想手动指定库路径可以用环境变量 `CODECIN_NATIVE_LIB`。
 
 ### `codecin: command not found` / 不是内部或外部命令
 
@@ -55,21 +57,16 @@ int r = idiv(-17, 5)     // -3
 
 ### 数组越界为什么不报错?
 
-默认不做运行时越界检查 (与 C 一致)。需要检查时加 `--bounds-check` (会强制走解释执行):
+默认不做运行时越界检查 (与 C 一致)。需要检查时加 `--bounds-check`:
 
 ```bash
-codecin prog.cin --no-native --bounds-check
+codecin prog.cin --bounds-check
 ```
 
 ### 递归报 `Stack overflow` 怎么办?
 
-默认内存 64 KiB, 栈区约 1024 槽。加大内存即可:
-
-```bash
-codecin prog.cin --mem-size 262144      # 256 KiB
-```
-
-同时可以把 `--max-instructions` 调大 (默认 1 亿) 以避免长循环被上限截断。
+默认内存已是 **1 GiB** (4 KiB 稀疏分页、按需提交), 常规深度的递归直接可用。
+确有特殊需求时再调大 `--mem-size`, 长循环注意 `--max-instructions` 上限 (默认 1 亿)。
 
 ### `input()` 读不到我输入的内容?
 
@@ -112,36 +109,31 @@ codecin prog.cin --mem-size 262144      # 256 KiB
 
 ## 执行路径与性能
 
-### 我的程序到底跑在哪条路径上?
+### 我的程序到底是怎么执行的?
 
-选择顺序: 原生 (默认优先) → JIT (`--jit`) → 解释 (兜底)。`--debug`、`--step`、
-`--bounds-check`、`--mmu` 任一开启都会关闭原生路径; `--debug` 与 `--jit` 同时给出时
-debug 优先。用 `--log-level DEBUG` 看初始化 dump 里的 `native` / `jit` 取值即可确认。
+v5.9.0 起只有**一条执行路径** (native-only): Python 侧完成编译与装载后, 通过 ABI v2
+的 `codecin_run_v2` 把整程序一次调用交给 Go 原生引擎执行, 再回传寄存器/向量/NZCV/
+脏内存段与输出。纯 Python 解释器与 JIT 已整体移除, `--no-native`、`--jit`、
+`--debug`、`--step`、`--profile`、`--mmu`、`--debug-server`、`--stats` 等选项也随之删除。
 详见 [执行路径](/guide/execution-paths)。
 
-### 没有 Go 工具链, 怎么让程序跑快一点?
+### 运行报 `CPUSimulatorError`, 提示原生库缺失怎么办?
 
-```bash
-codecin prog.cin --jit --no-native     # 基本块 JIT (不能与 --debug 同用)
-```
+原生引擎库是必需组件, 没有回退。到源码树 `codecin/native/` 下执行 `build.ps1`
+(Windows) 或 `build.sh` (Linux/Termux/macOS) 重建即可, 需要 Go 1.26+; 也可以从
+Release 下载预编译库放进包目录。构建后用 `codecin --build-info` 核对 native 版本
+与包版本是否匹配。
 
-或者下载预编译原生库放进包目录, 用默认路径获得最大加速。
+### 大数组/大缓冲需要调 `--mem-size` 吗?
 
-### 为什么 `--debug` 下程序明显变慢?
+一般不需要。默认内存已是 **1 GiB**, 采用 4 KiB 稀疏分页、按需提交, 只有实际写入的
+页才会占用真实内存。确有特殊需求时仍可用 `--mem-size` 调整。
 
-逐指令追踪、内存读写日志、缓存埋点都会真实产生开销, 这是预期行为。做性能测试时
-不要开 `--debug`, 用默认路径配合 `--profile` 才是有意义的数字。
+### `--sandbox` 会限制哪些能力?
 
-### 三条路径结果会不一样吗?
-
-除时间/环境类输出与超越函数末位舍入 (Python 与 Go 的 libm 差异, 通常 ≤ 1 ulp) 外,
-三路径必须完全一致, 由 `script/check_paths.py` 与 `tests/test_three_paths.py` 把关。
-
-### 为什么 `--profile` 里 `Cycles` / `IPC` 是 0?
-
-部分统计只在特定路径/实现下才有计数。纯 Python 路径下 `Cycles` 可能为 0,
-`IPC` 也随之显示 `0.00`; 这属于统计实现差异, 不代表程序没执行 (可看 `Instructions` 字段)。
-见 [性能分析](/tools/profiling)。
+沙箱模式下仅放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS` 三个宿主调用, 其余宿主 SYS
+(文件/进程/画布/音频/FFI/网络/Termux 等) 一律报
+`Host capability disabled in sandbox mode`。
 
 ## 调试与日志
 
@@ -161,31 +153,26 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 
 ### 怎么定位运行期崩溃的位置?
 
-```bash
-codecin prog.cin --no-native --debug      # 逐指令追踪, 看最后一条 PC 与寄存器
-codecin prog.cin --no-native --step       # 交互式单步: b <地址> 设断点, p regs, p mem <地址>
-```
+运行期错误会以 rich 彩色错误面板打印出错位置与寄存器现场; 需要更完整的上下文时,
+用上一条的 `--log-level DEBUG --log-file` 落盘日志排查。
 
-`--debug` 会打印 `PC=0x0004 #00000002 ADD X1=0x0(0) X2=0x1(1) SP=0xfff8` 这样的逐指令行,
-以及 `MEM WR/RD` 内存访问与 `N/Z/C/V` 标志。
-
-### 调试器命令有哪些? / 能给 IDE 接调试吗?
-
-交互式命令见 [交互式调试器](/tools/debugger); 需要程序化驱动 (编辑器/IDE 集成) 时用
-`--debug-server <port>` 的换行文本协议, 见 [远程调试协议](/tools/remote-debug)。
+排查内存越界类问题可以加 `--bounds-check`, 让越界在发生时立即报错而不是静默读写。
+(旧版 `--debug` / `--step` 交互式调试已随解释器一并移除。)
 
 ### `Ctrl+C` 中断会怎样?
 
-终端收到 `KeyboardInterrupt` 后打印 `User interrupt` 并结束本次执行 (缓存会被 flush,
-内存镜像若开了 `--save` 也会尽量保存)。
+终端收到 `KeyboardInterrupt` 后打印 `User interrupt` 并结束本次执行
+(内存镜像若开了 `--save` 会尽量保存)。
 
 ## 宿主能力
 
-### 报错 `host builtins ... require the native Go runtime` 是什么情况?
+### 程序里能调用动态库 / 访问网络吗?
 
-说明当前走的是纯 Python 路径 (例如加了 `--no-native`), 而 `file_*` / `exec` /
-`canvas` / `audio_*` / `termux_*` 这类宿主能力**只有 Go 原生实现**。去掉 `--no-native`
-并确保原生库可用即可, 退出码为 1。
+可以。v5.9.0 新增两组宿主 SYS: **FFI 动态库调用** (SYS 140-144: `dlopen` / `dlsym` /
+`ffi_call` / `ffi_callf` / `lib_close`, 标准库 `lib/ffi.cin`) 与**完整网络**
+(SYS 145-157: `http_req` / `http_code`、`tcp_*`、`udp_*`、`dns_lookup`, 标准库
+`lib/net.cin`)。注意 `--sandbox` 会拦截这些调用。详见
+[宿主能力](/language/host-abilities)。
 
 ### 音频/画布在无桌面环境能用吗?
 
@@ -196,7 +183,7 @@ codecin prog.cin --no-native --step       # 交互式单步: b <地址> 设断�
 ### `exec` / `file_write` 安全吗?
 
 它们是真实的宿主调用, 具备当前进程的文件与进程权限。运行不可信程序时用
-`--sandbox` 与 `--no-io` 限制宿主访问。
+`--sandbox` 限制宿主访问 (仅放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS`)。
 
 ## 产物与交付
 
@@ -209,7 +196,8 @@ codecin prog.cin --no-native --step       # 交互式单步: b <地址> 设断�
 | 用途 | 分发/复用编译结果, 可直接运行 | 保存/恢复内存状态 (可选 zlib 压缩 + CRC32) |
 | 通用性 | 只有 VM 能执行 | 不能当可执行文件用; `--crom` 仅在 `.pl` / `.asm` 路径生效 |
 
-细节见 [二进制格式](/runtime/formats)。
+v5.9.0 起为段式 **BIN v3 / CROM v4**, 只保存实际使用的内存页; 旧 BIN v2 / CROM v3
+产物仍可读取。细节见 [二进制格式](/runtime/formats)。
 
 ### 怎么把程序交付给没装 Python 的人?
 
@@ -235,7 +223,7 @@ Go 是语言实现的唯一核心, 但**只以库的形式存在** (c-shared), �
 
 ### 怎么新增一条指令或系统调用?
 
-需要同步改动 ISA、解释器、JIT、Go VM、汇编器、CIN 内建, 并重新生成常量后回归测试, 步骤见
+需要同步改动 ISA、Go 引擎、汇编器、CIN 内建, 并重新生成常量后回归测试, 步骤见
 [扩展指令 / 系统调用](/dev/extend)。
 
 ### 怎么改文档 / 本地预览这个文档站?

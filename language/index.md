@@ -1,5 +1,6 @@
 ---
-description: CIN 语言总览：语言定位、三路径执行、最小可运行程序、程序结构与语法速览
+description: CIN 语言总览：语言定位、原生执行模型、最小可运行程序、程序结构与语法速览
+
 ---
 
 # CIN 语言总览
@@ -10,7 +11,8 @@ CIN 是 Code CIN 的高级语言：一门**语法近似 C / Go 的静态类型�
 
 - 源文件扩展名 `.cin`，用 `codecin prog.cin` 编译并运行；
 - 语句**以换行结尾**（分号可选），字符串用 `+` 自动拼接与字符串化；
-- 同一份 `.cin` 源码由**解释器 / Python JIT / Go 原生 VM** 三条路径执行，语义一致。
+- v5.9.0 起为 **native-only**：全部程序由 **Go 原生引擎**执行（纯 Python 解释器与 JIT 已删除），
+  宿主能力（绘图 / 音频 / 文件 / 网络 / FFI / 系统交互）也由引擎的 SYS 调用实现。
 
 ::: tip 阅读顺序
 完全没接触过 CIN 建议先看 [初学者教程](/beginner/) (13 章、从零开始、每段代码都有实测输出)
@@ -28,42 +30,24 @@ function main() -> int {
 }
 ```
 
-::: tabs
-
-== 解释执行（纯 Python）
-
-```bash
-codecin hello.cin --no-native
-```
-
-== JIT 执行
-
-```bash
-codecin hello.cin --no-native --jit
-```
-
-== 原生 VM（默认）
-
 ```bash
 codecin hello.cin
 ```
-
-:::
 
 ```text
 Hello, Code CIN!
 2 + 3 = 5
 ```
 
-::: details 三条执行路径到底差在哪？
-| 路径 | 命令行 | 说明 |
-|------|--------|------|
-| Go 原生 VM | 默认 | 最快，宿主能力（绘图/音频/文件/系统交互）只有这条路径完整支持 |
-| Python JIT | `--no-native --jit` | 基本块动态编译为 Python 闭包，纯 Python 下最快的选择 |
-| 纯解释器 | `--no-native` | 逐指令执行，语义基准，调试与对照用 |
+::: details Go 原生引擎意味着什么？
+v5.9.0 起为 native-only：纯 Python 解释器与 JIT 已删除，全部程序由同一个 Go 原生引擎执行。
 
-三路径共用同一份字节码与内存模型，正常程序输出应完全一致；差异只在性能与宿主能力。
-详见 [执行路径](/guide/execution-paths)。
+- 宿主能力（绘图 / 音频 / 文件 / 网络 / FFI / 系统交互）直接由引擎的 SYS 调用实现；
+- 内存默认 **1 GiB**（4 KiB 稀疏分页，按需提交），大数组不再需要 `--mem-size`；
+- `--sandbox` 下仅放行内存与计时 SYS，其余宿主能力被拦截；
+- 程序文件名之后的裸参数直传给 CIN 程序（`arg_count()` / `arg(i)`）。
+
+详见 [Go 原生运行时](/runtime/native) 与 [宿主能力](/language/host-abilities)。
 :::
 
 ## 语言特性地图
@@ -80,7 +64,7 @@ Hello, Code CIN!
 | 数组 | 多维下标、行主序、数组传参衰减 | [数组](/language/arrays) |
 | 字符串 | NUL 结尾、拼接、字节下标、`\x`/`\u` 转义、字符串内建 | [字符串](/language/strings) |
 | 内建函数 | 数学、字符串、转换、数值工具、多参数 `print`/`println` | [内建函数](/language/builtins) |
-| 宿主能力 | 绘图、音频、文件与路径、网络、哈希、桌面集成、系统交互、Termux/Android API | [宿主能力](/language/host-abilities) |
+| 宿主能力 | 绘图、音频、文件与路径、网络、FFI、哈希、桌面集成、系统交互、Termux/Android API | [宿主能力](/language/host-abilities) |
 | 模块与标准库 | `import` 解析规则、`codecin/lib/` 函数清单 | [模块与标准库](/language/modules) |
 | 内嵌 CPU 指令语句 | `set` / `add` / `multiply` 等 7 条寄存器风格语句 | [内嵌 CPU 指令语句](/language/inline-cpu) |
 | 限制与常见错误 | 禁用特性、报错表、排错入口 | [限制与常见错误](/language/errors) |
@@ -189,8 +173,8 @@ function demo() -> int {
 1. **无指针/取地址运算**：`*` 是乘法、`&` 是位与；"引用"只通过数组 / struct 传参隐式实现。
 2. **`/` 恒为浮点除**：整数除法用 `idiv(a, b)`（向零截断）；`%` 仅整数。
 3. **位运算仅整数**：`& | ^ << >> ~` 拒绝 float / string；`>>` 为算术右移（符号位扩展）。
-4. **递归深度受限**：默认内存 64KB、栈区约 1024 槽，过深递归触发 `Stack overflow`，可用
-   `--mem-size` 扩容。
+4. **递归深度受限**：默认内存 1 GiB（4 KiB 稀疏分页），大数组开箱即用；栈与堆相向生长，
+   过深递归仍会触发 `Stack overflow: frame needs ...`，可用 `--mem-size` 扩容。
 5. **struct 字段不能是变长指针数组**（`T[]`），只允许标量、嵌套 struct 与固长数组。
 6. **字符串不可原位修改**：`strcpy` 返回新堆块，`s[i]` 不能作为赋值左值。
 7. **函数先定义后使用不强制**：同文件内函数可互相调用（两遍编译）；但**变量必须先声明后使用**。
@@ -199,7 +183,7 @@ function demo() -> int {
 10. **enum 成员是只读常量**：成员不能赋值，初值表达式只能引用先前已定义的成员。
 
 ::: warning 排错从这里开始
-完整报错表、错误面板格式与调试命令见 [限制与常见错误](/language/errors) 与 [交互式调试器](/tools/debugger)。
+完整报错表、错误面板格式与排错命令见 [限制与常见错误](/language/errors)。
 遇到 `Unknown function` / `Undefined variable` 这类报错，先检查拼写与声明顺序。
 :::
 

@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Code CIN
-  text: 简洁的类 C 语言与多路径运行时
-  tagline: CIN / PL / ASM 工具链 · UCPU 字节码 · 解释器 / JIT / Go 原生 VM 三路径一致执行 · 内置 2D 画布与联网音频
+  text: 简洁的类 C 语言与原生运行时
+  tagline: CIN / PL / ASM 工具链 · UCPU 字节码 · Go 原生引擎单路径整程序执行 · 内置 2D 画布与联网音频
   image:
     src: /logo.svg
     alt: Code CIN
@@ -30,26 +30,26 @@ features:
     title: 三语言一条工具链
     details: CIN 高级语言、PL 关键字风格汇编、ASM 汇编, 统一编译/汇编为 UCBC 字节码, 共享同一套 ISA 与 VM。
   - icon: ⚡
-    title: 三路径一致执行
-    details: Python 解释器 / JIT 基本块编译 / Go 原生 c-shared VM 任选其一, 结果一致, 由脚本与测试持续把关。
+    title: Go 原生引擎单路径执行
+    details: Python 前端编译装载后, 经 ABI v2 (codecin_run_v2) 一次调用把整程序交给 Go 原生引擎执行, 回传寄存器/向量/标志/脏内存段与输出; 默认 1 GiB 稀疏内存。
   - icon: 🛠️
     title: 112 条指令的 UCPU
-    details: Base 28 + ARM64 40 + RISC-V 27 + FP 10 + Vector 6 + SYS 1; 32 通用 + 32 向量寄存器; 可选 MMU 与缓存建模。
+    details: Base 28 + ARM64 40 + RISC-V 27 + FP 10 + Vector 6 + SYS 宿主调用 (含 FFI 与网络); 32 通用 + 32 向量寄存器。
   - icon: 📦
-    title: 20 个内置标准库
-    details: math / str / array / sort / conv / vec / rand / json / time / io / gui / termux 等随 pip 包分发, import 即用。
+    title: 36 个内置标准库
+    details: math / str / array / sort / conv / rand / json / time / io / gui / ffi / net / termux 等随 pip 包分发, import 即用。
   - icon: 🔍
-    title: 可调试、可分析
-    details: 交互式单步调试、TCP 远程调试协议、rich 超详细逐指令追踪、指令级性能统计与缓存建模。
+    title: 可分析、可核对
+    details: rich 超详细日志与彩色错误面板、--disasm 反汇编、指令级性能统计、--build-info 核对原生库与包版本。
   - icon: 🚀
     title: AOT 独立可执行文件
     details: --build-exe 把 CIN 程序编译成静态单文件, 产物不需要 Python、Go 工具链、libc 或任何动态库。
   - icon: 🎨
     title: 宿主能力开箱可用
-    details: 2D 画布导出 PNG、联网音频播放、文件/进程/环境变量访问、Termux API(Android)。
+    details: 2D 画布与 GUI 窗口、音频播放、FFI 动态库调用、HTTP/TCP/UDP 网络、文件/进程/环境变量访问、Termux API(Android)。
   - icon: 🧪
     title: 严格回归
-    details: 指令黄金值、三路径一致性、内存保护、断点回归、打包断言, 全线由 CI 把关。
+    details: 指令黄金值、内存保护、原生库版本核对、断点回归、打包断言, 全线由 CI 把关。
 ---
 
 ## 一条命令安装
@@ -60,8 +60,10 @@ codecin --version        # 打印当前版本
 codecin --help           # 完整命令行帮助
 ```
 
-> 安装时会尝试用**本机的 Go 工具链现场编译原生加速库**。机器上没有 Go 也能装上, 只是会回退纯
-> Python 解释执行 (功能完整、速度较慢); 想显式跳过本地编译可以设 `CODECIN_SKIP_NATIVE=1`。
+> Go 原生引擎库是**运行必需组件**: pip 安装时会用本机的 Go 工具链现场编译原生库;
+> 本机没有工具链时可从 Release 下载预编译库, 或在源码树 `codecin/native/` 下执行
+> `build.ps1` (Windows) / `build.sh` (Linux/Termux/macOS) 重建 (需 Go 1.26+)。
+> 原生库缺失时运行程序会直接抛 `CPUSimulatorError`, 没有解释器回退。
 > 详见 [安装 Code CIN](/guide/installation)。
 
 ## 同一段程序, 三种写法
@@ -104,29 +106,11 @@ msg: ASCIZ "Hello, Code CIN!"
 
 :::
 
-三种写法最终都会编译成 UCBC 字节码, 交给同一个 VM 执行:
-
-::: tabs
-
-== 解释执行 (纯 Python)
-
-```bash
-codecin hello.cin --no-native
-```
-
-== JIT 基本块编译
-
-```bash
-codecin hello.cin --jit --no-native
-```
-
-== Go 原生 VM (最快)
+三种写法最终都编译成 UCBC 字节码, 由 **Go 原生引擎**通过 ABI v2 一次调用执行整程序:
 
 ```bash
 codecin hello.cin
 ```
-
-:::
 
 ## 文档地图
 
@@ -136,9 +120,9 @@ codecin hello.cin
 | 指南 | 安装、快速开始、命令行、执行路径、架构、示例、FAQ | [安装](/guide/installation) · [快速开始](/guide/quickstart) |
 | CIN 语言 | 词法、类型、变量、运算符、控制流、函数、struct、数组、字符串、内建、宿主能力、模块 | [语言总览](/language/) |
 | 汇编 / ISA | 汇编语法 (ASM 与 PL 两种风格)、112 条指令语义、指令编码表 | [汇编总览](/asm/) |
-| 标准库 | 20 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
-| 运行时 | Go 原生运行时、JIT、`.bin`/`.crom` 格式、AOT 独立可执行文件 | [Go 原生运行时](/runtime/native) |
-| 工具 | 交互式调试器、远程调试协议、日志与错误、性能分析、内存与缓存 | [交互式调试器](/tools/debugger) |
+| 标准库 | 36 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
+| 运行时 | Go 原生运行时、执行路径、`.bin`/`.crom` 格式、AOT 独立可执行文件 | [Go 原生运行时](/runtime/native) |
+| 工具 | 日志与错误输出、性能分析、内存与运行时开关 | [日志与错误输出](/tools/logging) |
 | 参考 | 指令编码表、寄存器与内存模型、Python 嵌入 API、更新日志 | [寄存器与内存模型](/reference/registers-memory) |
 | 开发者 | 项目结构、编译原生库、测试与 CI、打包发布、扩展指令、贡献指南 | [项目结构](/dev/structure) |
 
