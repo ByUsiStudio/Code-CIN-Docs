@@ -66,7 +66,6 @@ python -m pytest
 ruff check codecin cpu.py script tests
 python script/gen_isa_docs.py --check
 python script/gen_native_isa.py --check
-python script/check_paths.py          # 三路径一致性
 cd docs && npm run docs:build         # 改过文档时
 ```
 
@@ -93,8 +92,8 @@ npm run docs:preview   # 预览构建产物
 | `language/` | CIN 语言 (词法/类型/运算符/控制流/函数/struct/数组/字符串/内建/宿主能力/模块) |
 | `asm/` | 汇编总览、语法参考、指令语义参考 |
 | `stdlib/` | 标准库总览与逐函数参考 |
-| `runtime/` | 原生运行时、JIT、二进制格式、AOT |
-| `tools/` | 调试器、远程调试协议、日志、性能分析、内存与缓存 |
+| `runtime/` | 原生运行时、二进制格式、AOT |
+| `tools/` | 日志、性能分析与计时、内存模型与运行时开关 |
 | `reference/` | 指令集编码表 (生成)、寄存器与内存模型、Python API、更新日志 |
 | `dev/` | 项目结构、构建、测试、打包、扩展、贡献 |
 

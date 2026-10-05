@@ -76,10 +76,10 @@ function main() -> int {
 （合计 16 字节）。
 
 内存提示：`BigInt` 占 66 槽 = 528 字节。按 CIN 值语义写 `BigInt r = bi_add(a, b)` 时，
-每个"返回新值"的调用会在堆上分配一块 struct 且不回收，默认 64 KiB 内存下整个程序大约
-可以承受 50 余次这样的调用。库内所有长循环都改用 `bi_xxx_into(a, b, out)` 复用调用方提供的
+每个"返回新值"的调用会在堆上分配一块 struct 且不回收（默认 1 GiB 内存下常规使用不会触顶）。
+库内所有长循环都改用 `bi_xxx_into(a, b, out)` 复用调用方提供的
 `out`（`bi_fact` / `bi_pow` 因此只占固定几块内存）；自己写长循环时请同样使用 `*_into`
-形式，或给 `cpu.py` 加大 `--mem-size`。
+形式，必要时用 `--mem-size` 加大内存。
 
 ```c
 import "bigint.cin"
@@ -377,7 +377,7 @@ function main() -> int {
 | `comb_primes[512]` | — | 素数列表 (升序, 供 `comb_prime_at` / `comb_next_prime` 使用) |
 | `comb_prime_n` | — | 最近一次 `comb_sieve` 找到的素数个数 |
 
-全局数据段合计 `512*8*2 + 8 = 8200` 字节 (约 8.0 KiB), 远低于默认 64 KiB 数据段;
+全局数据段合计 `512*8*2 + 8 = 8200` 字节 (约 8.0 KiB), 远低于 1 GiB 默认内存的数据段上限;
 `comb_sieve` 只写全局表, 函数内不声明固长数组。
 
 边界约定:
@@ -683,7 +683,7 @@ import "csv.cin"
 内部辅助函数（`csv_skip_ws` / `csv_quote_pos` / `csv_next_start` / `csv_val_at` / `csv_cell_trim` / `csv_is_int` / `csv_is_float` / `csv_parse_float`）不是公开 API，后续版本可能调整。
 
 ::: warning 堆与缓冲
-字符串拼接产生不回收的堆块，`csv_trim_cells` 会按字段逐段重建结果串。默认 64 KiB 内存下堆可用空间约 32 KiB：`csv_line_add` 最多累积 1024 字节，但反复 `csv_line_start` / 拼接仍会持续吃堆，长表请及时重用缓冲或加 `--mem-size`。
+字符串拼接产生不回收的堆块，`csv_trim_cells` 会按字段逐段重建结果串。默认 1 GiB 内存下常规使用不会触顶，但反复 `csv_line_start` / 拼接仍会持续吃堆（`csv_line_add` 单次最多累积 1024 字节），超长表请及时重用缓冲或加 `--mem-size`。
 :::
 
 ```c
@@ -862,7 +862,7 @@ import "fmt.cin"
 内部辅助函数（`fmt_rep` / `fmt_ascii_table`）不是公开 API，后续版本可能调整。
 
 ::: warning 堆与输出规模
-每次调用都新建堆块且不回收。默认 64 KiB 内存下堆可用空间约 32 KiB，本库的重复上限（1024）会在 `fmt_repeat("ab", 1024)` 这类调用里用掉约 6 KiB 增量堆；超大表格（`fmt_border` 的 `cols * (col_width + 1)`、超长 `fmt_cell` 内容）请自行分块或加 `--mem-size`，否则会 `Stack overflow (collides with heap)`。
+每次调用都新建堆块且不回收。默认 1 GiB 内存下常规使用不会触顶；但堆块不回收，超大表格（`fmt_border` 的 `cols * (col_width + 1)`、超长 `fmt_cell` 内容）请自行分块或加 `--mem-size`，否则会报 `Heap exhausted: need ...`。
 :::
 
 ```c
@@ -2016,7 +2016,7 @@ import "text.cin"
 内部辅助函数（`txt_case_range` / `txt_match_at` / `txt_is_alpha_byte` / `txt_is_alnum_byte` / `txt_is_space_byte` / `txt_lower_byte`）不是公开 API，后续版本可能调整。
 
 ::: warning 堆与输入规模
-字符串拼接与 `substr` 都新建堆块且不回收，`txt_reverse` / `txt_swap_case` / `txt_title` 逐段重建结果串，n 字节约需 O(n²) 字节堆。默认 64 KiB 内存下，**多段交替文本建议单次调用输入不超过 ~90 字节**（单一连续段可以更长），超长串请分块调用或加 `--mem-size`，否则会 `Stack overflow (collides with heap)`。
+字符串拼接与 `substr` 都新建堆块且不回收，`txt_reverse` / `txt_swap_case` / `txt_title` 逐段重建结果串，n 字节约需 O(n²) 字节堆。默认 1 GiB 内存下常规文本不会触顶；超长串请分块调用以避免 O(n²) 重组，或加 `--mem-size`，否则会报 `Heap exhausted: need ...`。
 :::
 
 ```c

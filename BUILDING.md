@@ -399,8 +399,8 @@ python -m build            # 需要 wheel 时手动构建 (默认会带上本机
   `codecin/native/build.ps1|build.sh` 编译, 并单独拷进安装目录 ——
   所以 **`pip install codecin`(从 sdist) 会在用户机器上现场编译出原生库**。
 - `build.sh` / `build.bat` **只发布 sdist**。若把 wheel 也发到 PyPI, pip 会优先装
-  wheel 而不执行上面那条构建, 用户就拿不到原生加速 —— 要发 wheel 就得自己确认
-  清楚它的目标平台。
+  wheel 而不执行上面那条构建, 用户拿到的包将缺原生库而无法运行 ——
+  要发 wheel 就得自己确认清楚它的目标平台。
 - `CODECIN_SKIP_NATIVE=1` 可跳过本地编译 (仅用于 CI/发布场景: 产物**无法运行**,
   因为原生库是唯一执行引擎; CI/Release 构建发布物时设这个变量, 是为了保证
   `dist/` 里没有任何平台二进制, 用户安装时再现场编译);
@@ -443,48 +443,36 @@ curl -L -O https://github.com/ByUsiStudio/Code-CIN/releases/latest/download/libc
 python -c "from codecin import native; print(native.get_engine())"   # 非 None 即生效
 ```
 
-`_lib_candidates` 的查找顺序是 **架构专属名 → 通用名**, 所以同目录下即使还有一个
-其它架构的通用名库, 也会优先选本机架构的那个。架构不符时 `get_engine` 会记一条
-warning 并回退纯 Python, 不会让整个运行失败。
+`_lib_candidates` 的查找顺序是 **架构专属名 → 通用名** (每个目录内), 所以同目录下
+即使还有一个其它架构的通用名库, 也会优先选本机架构的那个。所有候选都加载失败时
+`get_engine()` 返回 `None` (记 warning), 程序启动时报 `CPUSimulatorError` ——
+换上与本机架构一致的库即可。
 
 ---
 
-## 7. 日志系统 (rich) 与 debug 超详细输出
+## 7. 日志系统 (rich)
 
 ### 架构
 
 - `codecin/console.py`: rich 的适配层。所有模块禁止直接 `print`, 统一经 `Console.print` / `Panel` / `Table` / `Colors` 输出。
 - `codecin/logger.py`: 基于 `rich.logging.RichHandler` 的日志器, 级别 `DEBUG < INFO < WARNING < ERROR`, 支持 `--log-file` 重定向。
-- 错误统一 rich 面板化: 加载/汇编/编译/运行错误均输出红色 `Panel`; debug 模式下附带 `rich` 彩色完整 traceback (`Console.print_exception`)。
+- 错误统一 rich 面板化: 加载/汇编/编译/运行错误均输出红色 `Panel`, 附带 `rich` 彩色完整 traceback (`Console.print_exception`)。
 
 ### 日志级别行为
 
 | 级别 | 内容 |
 |------|------|
 | `ERROR` | 仅错误面板 |
-| `WARNING` | + 回退/降级告警 (如原生库缺失) |
+| `WARNING` | + 告警 (如原生库候选加载失败、AOT 临时目录清理失败) |
 | `INFO` (默认) | + 编译汇总 (指令数)、执行起止、统计表 |
-| `DEBUG` | **超详细**: 全部埋点 + 逐指令追踪 |
+| `DEBUG` | **超详细**: 全部埋点 (编译/汇编/装载/原生库调用参数等) |
 
-开启方式: `--debug` (隐含 DEBUG) 或 `--log-level DEBUG`。
-
-### DEBUG 超详细内容清单
-
-1. **CPU 初始化 dump**: 内存大小、缓存拓扑、SP 初值、堆基址、路径选择。
-2. **逐指令追踪** (每条指令前后各一行):
-   ```
-   PC=0x0004 #00000002 ADD X1=0x0(0) X2=0x1(1)  SP=0xfff8
-     => pc=0x0005 N=0 Z=0 C=0 V=0
-   ```
-   含 PC、全局指令序号、操作数当前值 (十六进制+十进制)、SP、执行后 PC 与 NZCV 标志。
-3. **内存读写追踪**: `MEM WR @0x000c w=1 value=0x0` / `MEM RD`, 覆盖 LOAD/STORE/PUSH/POP/STR/LDR 全家。
-4. **栈操作、缓存命中/缺失、SYS 系统调用** (功能号 + 参数)。
-5. **编译/汇编/JIT 埋点**: tokenize 数量、struct/global/function 统计、JIT 块源码 dump、原生库调用参数。
+开启方式: `--log-level DEBUG`。
 
 ### 文件日志
 
 ```bash
-python cpu.py basic.cin --debug --log-file codecin.log
+codecin basic.cin --log-level DEBUG --log-file codecin.log
 ```
 
 ---
@@ -495,40 +483,49 @@ python cpu.py basic.cin --debug --log-file codecin.log
 
 ```bash
 pip install -r requirements-dev.txt   # rich + pytest + ruff
-python -m pytest                      # 指令级黄金 / 三路径一致性 / 断点回归 / memory 保护 / CLI
-python script/gen_isa_docs.py --check     # docs/ISA.md 与 codecin/isa.py 同步
+python -m pytest                      # 编译/装载/执行端到端 + 各特性回归 + CLI
+python script/gen_isa_docs.py --check     # docs/ISA.md 操作码表与 codecin/isa.py 同步
 python script/gen_native_isa.py --check   # native/isa_gen.go 与 codecin/isa.py 同步
 ruff check codecin cpu.py script tests
 ```
 
-测试内容概要 (`tests/`):
+测试内容概要 (`tests/`, 与原生库强相关用例需先编译好原生库):
 
-- `test_isa_dispatch.py` — Opcode 总数/分组、dispatch 自动注册完整性 (每个 opcode 都有处理器)、文档生成一致性;
-- `test_cpu_interpreted.py` — 指令元组级黄金值、栈/内存往返、向量、异常路径;
-- `test_three_paths.py` — 解释 / JIT / Go 原生终态快照一致性;
-- `test_debugger.py` — 断点 continue 豁免重入 (建议 5)、`--step` 与断点共用命令集、graceful quit;
-- `test_memory_protection.py` — 保护检查统一 (浮点/块读写不可绕过);
-- `test_cli.py` / `test_cache.py` — 参数解析、退出码与缓存统计。
+- `test_isa_single_source.py` — ISA 单一事实来源: `isa.py` / Go 常量 / 文档一致;
+- `test_cli.py` — 参数解析、退出码与 `--help` 行为;
+- `test_native_hardening.py` / `test_native_lib_lookup.py` / `test_lib_path.py` —
+  原生库加载、搜索顺序、版本不匹配与缺失时的报错路径;
+- `test_sparse_memory.py` — 1 GiB 稀疏分页内存、按需提交与段式快照;
+- `test_ffi_net.py` — FFI (SYS 140-144) 与网络 (SYS 145-157) 内建;
+- `test_gui.py` / `test_keyboard.py` — GUI 窗口与键盘轮询宿主能力;
+- `test_aot.py` — AOT 构建与产物运行;
+- `test_cin_*.py` / `test_lib_*.py` — CIN 语法特性与标准库逐库回归。
 
-### 手动三路径
-
-三路径输出一致性是核心约束 (合法差异: 时间戳、`rand` 序列、浮点末位舍入):
+### 手动验证清单
 
 ```bash
-python cpu.py basic.cin --no-native            # 解释
-python cpu.py basic.cin --jit --no-native      # JIT
-python cpu.py basic.cin                        # Go 原生
-python cpu.py test_asm.asm --debug --no-native # debug 逐指令追踪
-python cpu.py basic.cin --compile-only && python cpu.py basic.bin  # 字节码路径
+python cpu.py basic.cin                        # 原生引擎执行, 输出正确
+python cpu.py test_asm.asm                     # 汇编路径
+python cpu.py basic.cin --compile-only -o basic.bin
+python cpu.py basic.bin                        # 字节码路径与直接运行输出一致
+python cpu.py basic.cin --save
+python cpu.py --crom basic.crom                # CROM 往返一致
+```
+
+AOT 产物独立运行:
+
+```bash
+python cpu.py basic.cin --build-exe basic   # AOT 编译为独立可执行文件
+./basic                                     # 独立运行 (Windows 产物为 basic.exe)
 ```
 
 验收标准:
 
-- [ ] 三路径 `basic.cin` 输出一致 (上述合法差异除外)
-- [ ] `test_asm.asm` 三路径一致
-- [ ] `--debug` 出现 `PC=0x... #...` 逐指令行与初始化 dump
+- [ ] `basic.cin` / `test_asm.asm` 输出正确
 - [ ] `.bin` 编译往返 (compile -> run) 与直接运行一致
-- [ ] 缺失原生库时回退 warning 且结果正确
+- [ ] `.crom` 保存/加载往返一致
+- [ ] 临时移走原生库后启动报 `CPUSimulatorError` (附重建指引), 而非静默变慢
+- [ ] AOT 产物在本机可独立运行
 
 ---
 
@@ -540,46 +537,49 @@ python cpu.py basic.cin --compile-only && python cpu.py basic.bin  # 字节码�
    - `Opcode` 枚举追加成员 (新编号);
    - `Constants.OPCODE_NAMES` / `OPCODE_NAME_TO_ENUM` 加显示名;
    - `Constants.ARG_COUNTS` 声明参数个数 (`-1` 为变长);
-   - 如是分支/浮点类, 加入 `BRANCH_OPS` / `FP_OPS` 集合 (统计用)。
-2. `codecin/cpu.py` — 解释路径实现: 定义 `def _op_XXX(self, args)`。dispatch 表按 `_op_`
-   前缀**自动注册** (见 `_init_dispatch`), 无需手工登记; 无事件模型的别名指令
-   (如 WFE/WFI/SEV) 在 `CPU._OP_ALIASES` 声明。
-3. `codecin/jit.py` — JIT 代码生成加分支 (否则该指令所在块会回退解释执行)。
-4. `codecin/native/engine/vm.go` — 原生 VM `switch` 加实现; 不实现时返回 `StatusUnsupported`,
-   Python 端自动回退。Go 侧常量来自生成的 `engine/isa_gen.go`, **不要手工改**。
-5. `codecin/assembler.py` — 若有特殊操作数语法, 在汇编器适配; 常规 `reg/imm/label/mem` 自动支持。
-6. `codecin/cin.py` + `codecin/native/compiler/` — 如需暴露给 CIN, 在 `Syscall` 加功能号,
-   并在 `cpu.py`/`engine/vm.go` 的 SYS handler 实现宿主调用。**宿主能力内建**采用表驱动:
-   在 `cin.py` 的 `HOST_BUILTINS` 与 `compiler/codegen.go` 的 `hostBuiltins` 各加一行
-   (名称 → SYS 号 / 参数个数 / 返回类型), Python 解释器会统一给出「需原生运行时」错误。
+   - 如是分支/浮点类, 加入 `BRANCH_OPS` / `FP_OPS` 集合。
+2. `codecin/native/engine/vm.go` — 原生 VM `switch` 加实现 (唯一执行引擎,
+   不实现即不可用)。Go 侧常量来自生成的 `engine/isa_gen.go`, **不要手工改**。
+3. `codecin/assembler.py` — 若有特殊操作数语法, 在汇编器适配; 常规 `reg/imm/label/mem` 自动支持。
 
 新增后同步 (防止文档/原生常量漂移):
 
 ```bash
-python script/gen_isa_docs.py      # 重写 docs/ISA.md
+python script/gen_isa_docs.py      # 重写 docs/ISA.md 操作码表
 python script/gen_native_isa.py    # 重写 codecin/native/engine/isa_gen.go 与 compiler/syscalls.go
-python script/gen_native_isa.py --check && python script/gen_isa_docs.py --check
+python script/gen_native_isa.py --check
 go build -buildmode=c-shared ...   # 重新编译原生库 (见第 4 节)
 python -m pytest
 ```
 
-新增系统调用 (SYS): `isa.py: Syscall` 编号 -> `cpu.py` SYS 分支 -> `vm.go` SYS 分支 -> `cin.py:_gen_call` 内建映射。四处编号必须一致。
+新增系统调用 (SYS): `isa.py: Syscall` 编号 -> `vm.go` SYS 分支 ->
+`cin.py: HOST_BUILTINS` 内建映射。编号必须一致, 且生成器 (`gen_native_isa.py`)
+会把编号同步到 Go 侧。
+
+**宿主能力内建**采用表驱动: 在 `cin.py` 的 `HOST_BUILTINS` 与
+`compiler/codegen.go` 的 `hostBuiltins` 各加一行
+(名称 → SYS 号 / 参数个数 / 返回类型), `engine/vm.go` 的 SYS handler 实现宿主调用。
+沙箱模式下新增宿主 SYS 默认被拒 (只放行 ALLOCFRAME/TIMEUS/TIMENS),
+如属核心 VM 机制需同步更新沙箱放行表。
 
 ---
 
 ## 10. 常见问题
 
-**Q: 提示原生库加载失败?**
-Go 库依赖系统 C 运行时; Windows 缺少 MinGW 运行库、Linux 未装 `gcc` 时 cgo 产物可能无法加载。检查日志 warning, 或 `--no-native` 回退纯 Python。
-
-**Q: `--debug` 下程序明显变慢?**
-正常。逐指令追踪 + 内存日志开销大; debug 与 JIT 互斥也是为了追踪完整性。生产性能测试用 `--jit` 或原生路径。
+**Q: 提示原生库加载失败 / `CPUSimulatorError`?**
+v5.9.0 起 native-only, 原生库缺失、依赖的 C 运行时缺失 (Windows 缺 MinGW 运行库、
+Linux 未装 `gcc`) 或版本不匹配 (缺少 `codecin_run_v2` 导出) 都会启动失败。
+按错误信息里的指引重建:
+`powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1` (Windows) 或
+`sh codecin/native/build.sh` (Linux / macOS / Termux)。
 
 **Q: rich 未安装会怎样?**
 建议始终安装 (`pip install rich`); 所有终端美化、表格、彩色 traceback 都依赖它。
 
 **Q: .bin 与 .crom 有什么区别?**
-`.bin` 是代码字节码 (UCBC), 由 VM 执行; `.crom` 是运行时内存快照 (CROM v3), 用于保存/恢复整机状态, 两者不通用。
+`.bin` 是程序字节码 (BIN v3, 段式), 由 VM 执行; `.crom` 是运行时内存快照
+(CROM v4, 只存已分配页), 用于保存/恢复整机状态, 两者不通用。
 
-**Q: 浮点结果与其他路径末位不一致?**
-允许的差异: 不同实现中三角/超越函数库 (Python math vs Go math) 的 libm 实现可能有 1 ulp 内的舍入差异。
+**Q: 大数组程序内存不够?**
+默认内存已是 1 GiB (稀疏分页按需提交, 未触碰的页不占真实内存),
+一般无需调整 `--mem-size`; 上限 1 TiB (`1 << 40`)。

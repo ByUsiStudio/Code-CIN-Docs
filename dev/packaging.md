@@ -100,8 +100,8 @@ build.bat                # Windows
 
 ::: warning wheel 会绕过安装期编译
 原生库**不打进 PyPI 包**: 它由 `setup.py` 在安装阶段用**用户机器的 Go 工具链**编译。
-如果同时发布 wheel, `pip` 会优先装 wheel 而不执行构建, 用户就拿不到原生加速 ——
-所以发布脚本刻意只上传 `.tar.gz`。
+v5.9.0 起程序执行**完全依赖原生库**（没有解释器回退）—— 如果同时发布 wheel, `pip` 会
+优先装 wheel 而不执行构建, 用户拿到的包根本跑不了程序, 所以发布脚本刻意只上传 `.tar.gz`。
 :::
 
 没有 Go 工具链的用户可以从 GitHub Release 下载预编译库放进包目录
@@ -136,7 +136,7 @@ BuildPyWithNative.run()
 
 | 位置 | 内容 | 由谁负责 |
 |------|------|----------|
-| `codecin/lib/*.cin` | 20 个内置标准库 (**必须进包**) | `package-data` + `MANIFEST.in` |
+| `codecin/lib/*.cin` | 41 个内置标准库 (**必须进包**) | `package-data` + `MANIFEST.in` |
 | `codecin/native/**` | Go 源码 / `go.mod` / 构建脚本 (安装时要编译) | `MANIFEST.in` |
 | `docs/**/*.md` | 文档 (仓库文档 + 文档站页面) | `MANIFEST.in` (`prune docs/node_modules`、`prune docs/.vitepress`) |
 | `examples/**`、`script/*.py`、`misc/**` | 示例、工具脚本、编辑器配置 | `MANIFEST.in` |

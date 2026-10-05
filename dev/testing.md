@@ -228,7 +228,6 @@ cd ../..
 # 4) 与 integration 作业等价 (真实原生路径 + 覆盖率门槛)
 cd codecin/native && go build -buildmode=c-shared -o ../libcodecin_native.so . && cd ../..
 python -c "from codecin import native; assert native.get_engine() is not None"
-python script/check_paths.py
 CODECIN_AOT_TESTS=1 python -m pytest -rs \
   --cov=codecin --cov-report=term-missing --cov-fail-under=70
 
@@ -260,5 +259,4 @@ python -c "from codecin import native; print(native.get_engine())"
 - [项目结构](/dev/structure) — tests/ 与 script/ 在仓库中的位置
 - [编译 Go 原生库](/dev/build-native) — 让 integration 作业前置条件成立的步骤
 - [打包与发布](/dev/packaging) — `dist` 作业与 Release 流程
-- [执行路径](/guide/execution-paths) — 三路径一致性的语义背景
 - [贡献指南](/dev/contributing) — 提交前应跑哪些检查

@@ -4,9 +4,10 @@ description: "编译 Code CIN 的 Go 原生库: Go 1.26+ 与 cgo 环境要求、
 
 # 编译 Go 原生库
 
-原生库是 Code CIN 的加速路径: 由 Go 编译成 **c-shared 共享库**, Python 侧用 ctypes
-加载 (`codecin/native.py`), 把整程序字节码一次交给原生 VM 执行。不做这一步也能用 ——
-缺库时会记一条 warning 并自动回退纯 Python 解释执行, 只是慢一些。
+原生库是 Code CIN 的**唯一执行引擎** (v5.9.0 起): 由 Go 编译成 **c-shared 共享库**,
+Python 侧用 ctypes 加载 (`codecin/native.py`), 把整程序字节码一次交给原生 VM 执行。
+没有它程序无法运行 —— 缺库时会抛 `CPUSimulatorError` (红色错误面板 + 退出码 1),
+错误信息自带本页的重建指引, **不再有解释器回退**。
 
 ## 环境要求
 
@@ -61,15 +62,17 @@ go version
 
 == Windows
 
+在仓库根目录执行 (不受执行策略影响, 推荐写法):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1
+```
+
+或进目录后直接运行脚本:
+
 ```powershell
 cd codecin\native
 .\build.ps1
-```
-
-若 PowerShell 执行策略拦住了脚本:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
 == Linux
@@ -202,16 +205,19 @@ Release 工作流对 Linux 资产使用 `-ldflags '-linkmode external -extldflag
 ## 平台相关代码的 `//go:build` 约定
 
 **凡是与操作系统绑定的实现, 必须用构建约束拆成多个文件**, 否则其它平台直接编不过。
-现有范例是音频后端:
+两个典型范例:
 
 | 文件 | 构建约束 | 实现 |
 |------|----------|------|
 | `codecin/native/engine/audio.go` | 无 (公共逻辑) | URL 下载、WAV 解析、播放编排 |
 | `codecin/native/engine/audio_windows.go` | `//go:build windows` | winmm `PlaySoundW` |
 | `codecin/native/engine/audio_other.go` | `//go:build !windows` | `afplay` / `aplay` / `paplay` / `ffplay` |
+| `codecin/native/engine/ffi_windows.go` | `//go:build windows && cgo` | `LoadLibrary` / `GetProcAddress` |
+| `codecin/native/engine/ffi_unix.go` | `//go:build !windows && cgo` | `dlopen` / `dlsym` |
+| `codecin/native/engine/ffi_nocgo.go` | `//go:build !cgo` | FFI 桩 (见下文 CGO 说明) |
 
-其余代码 (VM / 编译器 / CROM / 画布 / 系统交互 / Termux) 都是纯 Go 跨平台实现,
-不含构建约束。
+GUI / 键盘 / 终端 / stdin 等宿主能力同样按 `windows` / `linux` / `darwin` / `!windows`
+拆分文件; VM / 编译器 / CROM / 网络是纯 Go 跨平台实现。
 
 ```go
 //go:build windows
@@ -220,6 +226,16 @@ package engine
 
 // 仅 Windows 编译的实现
 ```
+
+::: info `CGO_ENABLED=0` 只出现在 AOT 静态构建
+常规 c-shared 构建始终需要 cgo (脚本会设 `CGO_ENABLED=1`)。只有
+[AOT 静态构建](/runtime/aot) 强制 `CGO_ENABLED=0`, 此时两个 FFI cgo 实现
+(`ffi_windows.go` / `ffi_unix.go`) 因 `cgo` 构建标签不满足而被排除, 由
+`ffi_nocgo.go` 桩顶上: FFI 系统调用在运行时返回
+`FFI unavailable: built without cgo (static AOT build); use the dynamic-library runtime for ffi_*`,
+而不是构建期链接失败。其余能力 (VM / 网络 / 音频 / 画布) 不受影响 ——
+需要 FFI 的程序请用动态库运行时运行。
+:::
 
 ::: tip 新增平台相关 API 的检查方法
 写完后跑一次交叉编译自检 (下一节)。若只在 `GOOS=windows` 下编过, 一定要再跑

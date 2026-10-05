@@ -14,7 +14,7 @@ description: "CIN 语言限制、常见编译/运行错误对照表与排错流�
    浮点取模报错。
 3. **位运算只接受整数**: `& | ^ << >> ~` 不接受 float/string; `>>` 是算术右移 (符号扩展),
    移位量按低 6 位取模。
-4. **递归深度受栈区限制**: 默认内存 1 GiB (4 KiB 稀疏分页, 按需提交), 大数组开箱即用;
+4. **递归深度受栈区限制**: 默认内存 1 GiB (OS 按需提交), 大数组开箱即用;
    但栈与堆相向生长, 过深递归报 `Stack overflow: frame needs ...`。需要时用 `--mem-size` 扩容。
 5. **struct 字段限制**: 字段可以是标量、嵌套 struct、固长数组, 但**不能是变长指针数组
    (`T[]`)**; 字符串字段是指针, 拼接/复制会产生新堆块。
@@ -74,7 +74,7 @@ Heap exhausted: need 1048576 bytes, free 4096 bytes (heap 0x...). Try --mem-size
 Address 0xffffffffffffe000 out of bounds (negative address: stack overflow or bad pointer?)
 ```
 
-- 默认内存 **1 GiB** (4 KiB 稀疏分页, 按需提交), 大数组不再需要预先扩容;
+- 默认内存 **1 GiB** (OS 按需提交), 大数组不再需要预先扩容;
 - `negative address` hint 表示地址按位模 2^64 后为负, 典型成因是栈溢出 (SP 被推到负地址) 或野指针;
 - 深递归 / 更大堆占用仍可用 `--mem-size` 扩容。
 
