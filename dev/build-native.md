@@ -297,18 +297,20 @@ go build -buildmode=c-shared -o ..\codecin_native.dll .
 ```
 
 ::: info 导出符号
-库对外只导出 5 个函数, 由 `codecin/native/main.go` 用 `//export` 声明:
+库对外只导出 7 个函数, 由 `codecin/native/main.go` 用 `//export` 声明:
 
 | 符号 | 作用 |
 |------|------|
-| `codecin_run` | 原生字节码 VM: 一次载入整程序, 返回完整状态快照缓冲 |
-| `codecin_free` | 释放 `codecin_run` 返回的缓冲 |
+| `codecin_run_v2` | 原生字节码 VM (**ABI v2, Python 侧当前使用**): 一次传入整程序字节码 + 初始内存段, 回传寄存器/向量/NZCV/脏内存段/输出 |
+| `codecin_run` | 旧版 ABI (v1) 快照接口, 为兼容保留 |
+| `codecin_free` | 释放 `codecin_run` / `codecin_run_v2` 返回的缓冲 |
+| `codecin_set_args` | 设置 `--` 之后的程序参数 (argv) |
 | `codecin_crom_pack` | CROM 打包 (含 zlib 压缩) |
 | `codecin_crom_unpack` | CROM 解包校验 |
 | `codecin_version` | 静态版本字符串, **不要在 Python 侧 free** (进程级常量) |
 
-`codecin_run` 内部有 `recover()`, 因为 Go 的未捕获 panic 会直接终止宿主进程 ——
-这里降级为"返回一个 status=3 的错误结果"。
+VM 入口内部有 `recover()`, 因为 Go 的未捕获 panic 会直接终止宿主进程 ——
+这里降级为"返回一个带错误信息的结果", 由 Python 侧转成异常。
 :::
 
 ## 验证构建结果
@@ -317,8 +319,9 @@ go build -buildmode=c-shared -o ..\codecin_native.dll .
 python -c "from codecin import native; print(native.get_engine())"
 ```
 
-- 输出 `None` → 没找到或加载失败, 会回退纯 Python;
-- 输出形如 `<codecin.native.NativeEngine object at 0x...>` → 加载成功。
+- 输出形如 `<codecin.native.NativeEngine object at 0x...>` → 加载成功;
+- 输出 `None` → 没找到或加载失败。此时直接运行程序会抛 `CPUSimulatorError`
+  (红色错误面板 + 退出码 1), **不会回退解释执行** —— 按本页命令重建原生库即可。
 
 想知道具体是哪个文件、哪个版本:
 
@@ -339,14 +342,16 @@ codecin --log-level DEBUG examples\control_flow.cin *>&1 |
   Select-String -Pattern 'native|原生'
 ```
 
-原生库不可用时会出现类似 `原生库不可用, 回退纯 Python 解释执行: <path> (<err>)` 的
-warning。用 `--no-native` 可以显式复现纯 Python 行为做对照。
+原生库缺失或加载失败时, 运行程序会得到红色错误面板与退出码 1, 错误文本就是
+`codecin/cpu.py` 的 `NATIVE_HINT` —— 指向 `codecin/native/build.ps1` (Windows) /
+`build.sh` (Linux/Termux/macOS) 的重建指引。
 
 ::: warning 架构不符是"能加载但跑不了"的典型
 同一个目录里同时放两种架构的库时, 必须优先选本机架构: `_lib_candidates()` 因此把
 架构专属名排在通用名**之前**。`get_engine()` 捕获 `OSError` (架构不符/依赖缺失/不是
-动态库) 与 `AttributeError` (能加载但缺导出符号或 ABI 不符), 都会继续尝试下一个候选
-并最终回退, 而不是让整个运行炸掉。`tests/test_native_lib_lookup.py` 覆盖了这个顺序。
+动态库) 与 `AttributeError` (能加载但缺导出符号或 ABI 不符), 都会继续尝试下一个候选;
+全部候选失败后返回 `None`, 运行程序时抛 `CPUSimulatorError` (附重建指引)。
+`tests/test_native_lib_lookup.py` 覆盖了这个顺序。
 :::
 
 ## 常量生成脚本
@@ -382,11 +387,11 @@ native version_gen.go up to date.
 - 生成后必须重新编译原生库, 否则二进制里还是旧常量。
 
 ::: tip 改了指令集之后的正确顺序
-1. 改 `codecin/isa.py` 与 `codecin/cpu.py` 等实现;
+1. 改 `codecin/isa.py` 与 Go 引擎 / 编译器等实现;
 2. `python script/gen_isa_docs.py` (重写指令表文档);
 3. `python script/gen_native_isa.py` (重写 Go 常量);
 4. 重新编译原生库 (本页上面的构建命令);
-5. `python -m pytest` 与 `python script/check_paths.py`。
+5. `python -m pytest`。
 
 完整清单见 [扩展指令 / 系统调用](/dev/extend)。
 :::
