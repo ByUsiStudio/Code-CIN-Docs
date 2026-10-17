@@ -347,7 +347,8 @@ codecin hello.cin --build-exe app --build-target linux/arm64   # 交叉编译
 ./hello                                          # 运行产物 (无需 Python/Go)
 ```
 
-详见 [AOT 独立可执行文件](/runtime/aot)。
+默认 `auto` 后端按指令数选 native/VM；可用 `--build-backend` 强制。CIN/ASM/PL
+也可 `--emit-object` + `--link` 独立编译链接。详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 仓库内其他示例
 

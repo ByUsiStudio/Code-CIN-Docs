@@ -1,5 +1,5 @@
 ---
-description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理，以及 36 个官方库清单。"
+description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理、独立编译/链接，以及 41 个官方库清单。"
 ---
 
 # 模块与标准库
@@ -56,7 +56,8 @@ repeat(ab,3)=ababab
 ## 包含规则
 
 - 同一文件在一次编译中**只包含一次** (自动去重, 不会重复定义);
-- 模块可以层层 `import` (构成 DAG); 主文件编译时**按需展开**, 没有独立的编译单元与符号表;
+- 模块可以层层 `import` (构成 DAG); 主文件编译时**按需展开**, 普通 `import` 仍是源码级展开, 没有自动的独立编译单元;
+- 需要独立编译/链接时, 用下面的 `extern` + `--emit-object` / `--link` 显式建立符号边界;
 - **循环引用会报错**;
 - 找不到文件时报 `Import file not found`, 并指出查了哪里;
 - 模块里的函数与全局变量对外可见, 因此命名建议加前缀避免冲突:
@@ -90,12 +91,69 @@ function main() -> int {
 }
 ```
 
+## 独立编译与链接
+
+普通 `import` 在编译期展开源码；如果希望把库**单独编译成对象**再链接，使用顶层
+`extern function` / `extern <type>` 声明跨对象符号：
+
+```c
+// lib.cin —— 不写 main, 作为函数库对象
+int counter = 5
+
+function bump() {
+    counter = counter + 1
+}
+
+function get() -> int {
+    return counter
+}
+```
+
+```c
+// main.cin
+extern int counter
+extern function bump()
+extern function get() -> int
+
+function main() -> int {
+    bump()
+    println(int_to_str(get()))   // 6
+    return 0
+}
+```
+
+```bash
+codecin --emit-object lib.cin  -o lib.co
+codecin --emit-object main.cin -o main.co
+codecin --link main.co --link lib.co -o app --optimize 3 --gc-sections
+
+# 也可以直接把源文件交给链接器
+codecin --link main.cin --link lib.cin -o app
+```
+
+规则与限制：
+
+- 无 `main` 的 `.cin` 文件自动作为函数库对象，入口桩会被去掉；
+- 支持 extern 函数、extern 全局（标量/数组）；
+- 字符串/标量全局/struct 指针槽的数据地址会随对象数据基址重定位；
+- 同名全局/函数在链接时是重复符号；库内辅助函数建议加前缀；
+- 复杂标签算术（多符号表达式）仍是对象内解析；跨对象只支持裸符号与 `NAME±N`；
+- 静态库归档：`codecin --emit-archive --link a.co --link b.co -o lib.colib`，
+  链接时只拉取能解决未定义符号的成员。
+
+详见 [AOT 独立可执行文件 · 对象、链接与静态库](/runtime/aot)。
+
 ## 官方标准库清单
 
-内置库位于 `codecin/lib/`, 共 36 个, 随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
+内置库位于 `codecin/lib/`, 共 41 个, 随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
 
 | 库 | 前缀 | 主要函数 |
 |----|------|----------|
+| `cstd.cin` | C 名称 | C 语言兼容层 (`ctype.h` / `string.h` / `stdlib.h` / `stdio.h` / `math.h` 常用函数) |
+| `cppstd.cin` | `std_` | C++ STL 兼容层 (`std::string` / `std::vector` / `std::stack` / `std::queue` 常用方法) |
+| `gostd.cin` | `go_` | Go 标准库兼容层 (`strings` / `strconv` / `math` / `slices` / `os` 常用函数) |
+| `ffi.cin` | `ffi_` | FFI 动态库调用 (`ffi_load` / `ffi_find` / `ffi_call*` / `ffi_free`), 需原生运行时 |
+| `net.cin` | `net_` `http_` | HTTP / TCP / UDP / DNS 便捷封装, 需原生运行时 |
 | `math.cin` | `f_` `i_` | `f_abs` `f_floor` `f_ceil` `f_round` `f_min` `f_max` `i_min` `i_max` `i_clamp` |
 | `str.cin` | `s_` | `s_upper` `s_lower` `s_contains` `s_starts_with` `s_ends_with` `s_count` `s_repeat` |
 | `array.cin` | `a_` | `a_sum` `a_max` `a_min` `a_avg` `a_find` `a_contains` `a_count` `a_reverse` `a_fill` `a_copy` `a_index_of_max` `a_index_of_min` `a_sum_range` `a_lower_bound` |
@@ -153,7 +211,7 @@ Go 原生引擎执行 (沙箱模式下会被拦截); 其余库为纯 CIN, 无宿
 
 ## 相关页面
 
-- [标准库概览](/stdlib/) — 36 个库的定位与依赖
+- [标准库概览](/stdlib/) — 41 个库的定位与依赖
 - [标准库参考](/stdlib/reference) — 全部函数签名
 - [宿主能力](/language/host-abilities) — `io` / `gui` / `termux` / `key` 的底层内建
 - [示例程序集](/guide/examples) — `modules_demo.cin`、`stdlib_demo.cin`

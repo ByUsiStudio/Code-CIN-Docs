@@ -341,21 +341,23 @@ print(res['status'], res['regs'][0])   # 正常结束, x0 = 42
 
 ## AOT: `codecin.aot`
 
-`codecin/aot.py` 把 CIN 程序编译成**独立静态可执行文件** (内嵌 UCBC 字节码与初始
-内存段文件, 由内置 Go VM 执行, 运行时不需要 Python / Go / 动态库)。它只负责编排,
-真正的入口 shell 是与 Go 侧共用的 `codecin/native/aot/stub_main.go.txt`。
+`codecin/aot.py` 把 CIN/ASM/PL/BIN/CO 程序编译成**独立静态可执行文件**。默认
+`auto` 后端: 指令数 ≤ 20000 时 native (直接生成 Go 代码 → 机器码), 否则 VM
+(内嵌 UCBC 字节码与初始内存段文件, 由内置 Go VM 执行)。运行时不需要
+Python / Go / 动态库。native 代码生成位于 `codecin/native_codegen.py`。
 构建强制 `CGO_ENABLED=0`, 因此 cgo 实现的 FFI 在 AOT 产物内调用会得到运行期错误
 (详见 [AOT 独立可执行文件](/runtime/aot))。
 
 | 接口 | 签名要点 |
 |------|----------|
-| `build_program(program_file, out=None, target=None, keep_temp=False, mem_size=None, logger=None) -> str` | 由 `.cin` 源文件一键构建, 返回产物绝对路径 |
-| `build(bytecode, seg_file, out, target=None, keep_temp=False, logger=None) -> str` | 底层入口, 直接吃字节码与段文件 (`pack_seg_file` 的产物) |
+| `build_program(program_file, out=None, target=None, keep_temp=False, mem_size=None, backend='auto', max_instructions=100_000_000, optimize=0, use_cache=True, debug=False, logger=None) -> str` | 由源文件/`.bin`/`.co` 一键构建, 返回产物绝对路径 |
+| `build(bytecode, seg_file, out, target=None, keep_temp=False, debug=False, logger=None) -> str` | VM 底层入口, 直接吃字节码与段文件 |
+| `build_native(go_source, out, target=None, keep_temp=False, debug=False, logger=None) -> str` | native 底层入口, 编译 `generate_go_source()` 的产物 |
+| `build_from_ir(instructions, labels, data_labels, segments, entry_pc, mem_size, sp, heap_base, out, target=None, backend='auto', max_instructions=..., optimize=0, program_name='linked', keep_temp=False, debug=False, use_cache=False, cache_key=None, logger=None) -> str` | 从链接后的 IR 构建 (对象/归档链接使用) |
+| `build_cache_key(...)` / `link_cache_key(...)` | AOT 源构建/对象链接缓存键 |
 | `pack_seg_file(mem_size, sp, heap_base, segs) -> bytes` | 打包初始内存段 + 布局参数为 `program.segs` 段文件 |
 | `program_dependencies(program_file) -> List[str]` | 依赖闭包 (含自身, 去重保序) |
-| `host_target() -> str` | 当前平台的 `os/arch` |
-| `parse_target(target) -> (goos, goarch)` | 解析/校验目标三元组 |
-| `supported_targets() -> List[str]` | 常用交叉编译目标列表 |
+| `host_target()` / `parse_target()` / `supported_targets()` | 目标平台工具 |
 | `sweep_stale_build_dirs(...)` | 清理过期临时构建目录 (默认 > 6 小时) |
 | `AotError` | 构建失败 (非 `CPUSimulatorError` 子类) |
 
@@ -373,6 +375,31 @@ print('产物:', exe)                        # 绝对路径; Windows 目标自�
 `build_program` 会先做依赖完整性检查 (缺失或循环 → `AotError`), 再把全部依赖在编译期
 展开嵌入产物, 所以产物运行时不读取任何 `.cin`。交叉编译需要本机 Go 工具链。
 详见 [AOT 独立可执行文件](/runtime/aot)。
+
+## 对象与链接: `codecin.object`
+
+| 接口 | 说明 |
+|------|------|
+| `compile_asm_object(path)` / `compile_cin_object(path)` | 生成可重定位 `.co` 对象 |
+| `read_object(path)` / `write_object(obj, path)` | 对象序列化 |
+| `link_objects(objects, gc_sections=False)` | 合并对象、解析符号/重定位、可选 GC |
+| `link_inputs(paths, gc_sections=False)` / `link_files(...)` | 链接对象、源文件与 `.colib` 归档 |
+| `create_archive` / `write_archive` / `read_archive` | `.colib` 静态库归档 |
+| `gc_instructions(instructions, labels, entry_pc)` | 保守链接期可达性 GC |
+
+```python
+from codecin import aot
+from codecin.object import compile_cin_object, link_objects
+
+linked = link_objects([
+    compile_cin_object('main.cin'),
+    compile_cin_object('lib.cin'),
+], gc_sections=True)
+exe = aot.build_from_ir(
+    linked['instructions'], linked['labels'], linked['data_labels'],
+    linked['segments'], linked['entry_pc'], linked['mem_size'],
+    linked['sp'], linked['heap_base'], 'app', optimize=2)
+```
 
 ## CROM 与 `.bin`: `codecin.crom`
 

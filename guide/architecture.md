@@ -78,7 +78,10 @@ prog.asm ─┘                                        │                      
 | `codecin/memory.py` / `registers.py` | 内存 (默认 1 GiB 稀疏分页) 与寄存器文件 |
 | `codecin/stats.py` | 指令/周期/分支统计与报告数据 |
 | `codecin/crom.py` | 段式 BIN v3 `.bin` 与 CROM v4 `.crom` 读写 (只保存实际使用的内存页, 与 Go 端二进制兼容) |
-| `codecin/aot.py` | AOT 构建器: 依赖闭包解析、stub 生成、`go build` 纯静态链接受理 (`CGO_ENABLED=0`) |
+| `codecin/aot.py` | AOT 构建器: 依赖闭包解析、native/VM 后端选择、缓存、`go build` 纯静态链接受理 (`CGO_ENABLED=0`) |
+| `codecin/native_codegen.py` | native 后端: 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 (基本块拆分) |
+| `codecin/optimizer.py` | IR 优化器: `-O0..3` 窥孔/常量折叠/不可达代码删除 |
+| `codecin/object.py` | `.co` 对象、`.colib` 归档、链接器、重定位与链接期 GC |
 | `codecin/console.py` / `logger.py` | rich 适配层与日志 (模块内禁止直接 `print`) |
 | `codecin/disasm.py` | `.bin` 反汇编为文本清单 |
 
@@ -105,7 +108,9 @@ prog.asm ─┘                                        │                      
 |------|------|------|------|
 | `.bin` | UCBC 字节码 (头部 `UCBC` + 指令流, 段式 BIN v3) | `--compile` / `--compile-only` | `codecin prog.bin` |
 | `.crom` | 段式 CROM v4 内存镜像 (只保存实际使用的内存页, 可 zlib 压缩, CRC32 校验) | `--save` | `--crom <file>` 恢复内存 |
-| 独立可执行文件 | 内嵌字节码与初始内存的静态单文件 (内置 Go 引擎) | `--build-exe` | 直接执行, 无需任何运行时 |
+| `.co` | 可重定位对象 (未解析代码/数据标签、内存段、入口信息) | `--emit-object` | `--link` 合并 |
+| `.colib` | 静态库归档 (多个 `.co` 成员) | `--emit-archive` | `--link` 按未定义符号拉取 |
+| 独立可执行文件 | native 机器码或内嵌字节码的静态单文件 | `--build-exe` (auto/native/vm) | 直接执行, 无需任何运行时 |
 
 旧 BIN v2 / CROM v3 产物仍可读取。细节见 [二进制格式](/runtime/formats) 与
 [AOT 独立可执行文件](/runtime/aot)。

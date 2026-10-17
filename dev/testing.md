@@ -147,7 +147,9 @@ python -m pytest ../tests/test_no_go_cli.py
 |------|--------|
 | `conftest.py` | 会话级工作目录夹具 (`workdir` → 仓库内 `.pytest_tmp/`, 会话结束清理) |
 | `helpers.py` | 测试辅助: `reg`/`imm`/`mem` 操作数构造、`new_cpu`、`run_program`、`run_cin_source`、`run_cin_file`、`asm_program`、`snapshot` |
-| `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux ELF 无 `PT_INTERP` (静态)、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
+| `test_aot.py` | AOT 产物可独立运行、native/VM 后端、交叉编译 x86-64/ARM64、Linux ELF 无 `PT_INTERP` (静态)、`--build-debug`、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
+| `test_native_codegen.py` | native 指令降低、基本块模式、native/VM 输出一致性、优化器 `-O0..3` |
+| `test_object_link.py` | `.co` 对象、CIN/ASM 跨对象链接、`NAME±N`/`DW/DD/DQ` 重定位、extern 函数/全局、struct 指针槽、`.colib` 归档选择、`--gc-sections` |
 | `test_assembler_ext.py` | 汇编器 `.equ` 常量、立即数/偏移表达式、符号算术、数据段表达式 |
 | `test_cin_host.py` | CIN 宿主能力 (GUI 画布 / 联网音频 / 桌面集成) |
 | `test_cin_new_features.py` | 位运算符、`idiv`、字符串单字符访问、`min/max`、`floor/ceil/round`、`atoi`、`trim/ltrim/rtrim` |

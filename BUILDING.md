@@ -40,13 +40,17 @@ Code CIN/
 │   ├── stats.py            # 统计: 指令计数 / 执行耗时
 │   ├── crom.py             # CROM v4 段式内存镜像 存/取 + .bin (BIN v3) 字节码
 │   ├── native.py           # Go 原生库 ctypes 桥接 (ABI v2: codecin_run_v2)
-│   ├── aot.py              # AOT 构建器: 生成临时包并调用 go build 产出独立可执行文件
+│   ├── aot.py              # AOT 构建器: native/VM 后端 + 临时包 + go build
+│   ├── native_codegen.py   # native 后端: 指令流 -> 直接调用 NativeRuntime 的 Go 源码
+│   ├── optimizer.py        # IR 优化器: -O0..3 (窥孔/常量折叠/不可达代码删除)
+│   ├── object.py           # 可重定位对象/.colib 归档/链接器/GC
 │   ├── disasm.py           # 字节码反汇编 (--disasm)
 │   ├── errors.py           # 异常层次: CPUSimulatorError 及子类
 │   └── native/             # Go 原生库源码 (唯一执行引擎)
 │       ├── go.mod          # Go 模块定义 (module codecin-native)
-│       ├── engine/         # 字节码 VM + CROM + UCBC 编码 (可复用包)
+│       ├── engine/         # 字节码 VM + NativeRuntime + CROM + UCBC 编码
 │       │   ├── vm.go       # 原生字节码 VM (engine.Run, 含全部宿主 SYS)
+│       │   ├── native.go   # NativeRuntime: native 后端直接调用的指令原语
 │       │   ├── crom.go     # CROM 压缩/解压 (Go 端)
 │       │   ├── encode.go   # IR → UCBC 字节码编码
 │       │   └── isa_gen.go  # 生成常量 (操作码/SYS/操作数种类)
@@ -82,6 +86,10 @@ NZCV 标志、脏内存段与程序输出。纯 Python 解释器与 JIT 已**整
 原生库缺失或版本不匹配 (缺少 `codecin_run_v2` 导出) 时抛 `CPUSimulatorError`,
 并附重建指引 (见 §4)。内存默认 1 GiB (1073741824 字节, 4 KiB 稀疏分页按需提交),
 堆基址 = `mem_size//2`, 栈顶 = `(mem_size-8) & ~0x7`。
+
+AOT 产物在这条路径之外还有两种构建形态: **native 后端**把指令流直接生成
+`engine.NativeRuntime` 调用 (由 Go 编译器产出机器码), **VM 后端**内嵌 UCBC 交给
+内置 VM; 两者共享同一套寄存器/内存/宿主能力语义, 见 §6.1。
 
 ---
 
@@ -139,7 +147,7 @@ codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 
 | `--mem-size <bytes>` | 内存大小 (默认 1073741824, 即 1 GiB) |
 | `--max-instructions <n>` | 指令数上限 (默认 100000000, 防死循环) |
 | `--compile` / `--compile-only` | 编译为 .bin 字节码 (后者编译后退出) |
-| `-o, --output <file>` | 指定 .crom / .bin / --build-exe 输出路径 |
+| `-o, --output <file>` | 指定 `.crom` / `.bin` 输出路径 (`--build-exe` 用自己的 `OUT` 参数) |
 | `--crom <file>` | 加载 .crom 内存镜像 |
 | `--save` / `--no-compress` | 保存 .crom / 关闭 zlib 压缩 |
 | `--optimize <0-3>` | 优化级别 |
@@ -149,7 +157,14 @@ codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 
 | `--disasm` | 反汇编字节码 |
 | `--build-exe [name]` | AOT 编译为独立可执行文件 (见 §6.1) |
 | `--build-target OS/ARCH` | AOT 交叉编译目标 (如 `linux/arm64`) |
+| `--build-backend auto\|native\|vm` | AOT 后端选择 (默认 auto) |
+| `--no-build-cache` | 禁用 AOT 增量缓存 |
+| `--build-debug` | 保留符号表/DWARF |
 | `--build-keep-temp` | 保留 AOT 临时构建目录 |
+| `--emit-object` | 编译为可重定位 `.co` 对象 |
+| `--link INPUT` | 链接 `.cin/.asm/.pl/.co/.colib` |
+| `--emit-archive` | 打包 `.colib` 静态库 |
+| `--gc-sections` | 链接期删除不可达代码 |
 | `--log-level <lvl>` | DEBUG / INFO / WARNING / ERROR |
 | `--log-file <file>` | 日志重定向到文件 |
 
@@ -345,26 +360,50 @@ python cpu.py --crom basic.crom                 # 加载镜像运行
 
 ### 6.1 AOT 编译 (推荐: 真正的静态单文件)
 
-把 CIN 程序直接编译成**静态链接的独立可执行文件** (Windows / Linux / macOS),
-产物内嵌 UCBC 字节码与初始内存镜像, 由内置 Go VM 执行:
+把 CIN/ASM/PL/BIN/CO 程序编译成**静态链接的独立可执行文件** (Windows / Linux / macOS)。
+默认 `auto` 后端: 指令数 ≤ 20000 时 native (直接生成 Go 代码 → 机器码), 否则 VM
+(内嵌 UCBC 字节码由 Go VM 执行)。CIN 程序仍支持 import 闭包在编译期展开内嵌。
 
 ```bash
 python cpu.py basic.cin --build-exe basic            # 本机平台
 python cpu.py basic.cin --build-exe app --build-target linux/arm64   # 交叉编译
-codecin build basic.cin -o basic --target windows/amd64              # 全 Go 链路
+python cpu.py basic.cin --build-exe app --build-backend native --optimize 3
+python cpu.py basic.cin --build-exe app --build-debug
 ```
 
 实现要点:
 
 | 环节 | 说明 |
 |------|------|
-| 入口 shell | `codecin/native/aot/stub_main.go.txt` (Go 与 Python 侧共用同一份模板) |
-| 运行时 | `codecin/native/aot/aot.go` 的 `aot.Main(bytecode, memImage)` |
+| 前端 | CIN `CINCompiler` / ASM-PL 汇编器 / `.bin` `crom.load_bin` / `.co` 对象读取 |
+| IR 优化 | `codecin/optimizer.py`, `--optimize 0..3` |
+| native 代码生成 | `codecin/native_codegen.py` → 直接调用 `engine.NativeRuntime` 的 Go 源码; 超过 800 条指令自动基本块拆分 |
+| VM 产物 | `codecin/native/aot/stub_main.go.txt` + `aot.Main(bytecode, segFile)` |
 | 构建器 | Python: `codecin/aot.py` (唯一实现; 生成临时包后调用 `go build`) |
 | 临时包 | 模块内 `.aotbuild-<rand>/`; Go 忽略以 `.` 开头的目录, 故不影响 `go build ./...`。每次构建前会清扫超过 6 小时的 `.aotbuild-*` / `.aotprobe-*` 残留 (`codecin.aot.sweep_stale_build_dirs`), 清理失败会记 warning 并给出绝对路径与手动删除命令 |
 | 静态链接 | `CGO_ENABLED=0` (+ `-tags netgo,osusergo`), Linux 产物无 `PT_INTERP`, 不依赖 glibc |
-| 体积 | `-trimpath -ldflags "-s -w"`, 空程序约 6 MB (含 Go 运行时与 VM) |
+| 体积 | 默认 `-trimpath -ldflags "-s -w"`; `--build-debug` 保留符号/DWARF |
+| 缓存 | 源文件/依赖/目标/后端/O/工具链指纹; 对象/归档链接单独按内容缓存 |
 | 前置条件 | 仅需 Go 工具链 (1.26+); 产物本身不需要任何运行时 |
+
+对象与链接:
+
+```bash
+codecin --emit-object main.cin -o main.co
+codecin --emit-object lib.cin  -o lib.co
+codecin --link main.co --link lib.co -o app --gc-sections
+
+# 直接链接源文件
+codecin --link main.cin --link lib.cin -o app
+
+# 静态库归档
+codecin --emit-archive --link lib.co --link lib2.co -o lib.colib
+codecin --link main.co --link lib.colib -o app
+```
+
+CIN 库文件不写 `main`, 用 `extern function` / `extern int` 声明跨对象符号;
+链接器处理代码/数据基址、`NAME±N`、`DW/DD/DQ label` 与 CIN 字符串/全局/struct
+指针槽重定位, 支持链接期优化与 `--gc-sections`。
 
 产物行为: 标准输入只在被重定向时读取 (交互终端下不阻塞); 正常结束退出码 0,
 运行期错误打印 stderr 并以 1 退出。

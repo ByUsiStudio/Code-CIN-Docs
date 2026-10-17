@@ -179,8 +179,9 @@ codecin hello.cin --build-exe app-linux --build-target linux/amd64
 codecin hello.cin --build-exe app-mac   --build-target darwin/arm64
 ```
 
-产物内嵌字节码与初始内存镜像, 由内置 Go VM 执行, **运行时不需要 Python、Go 工具链或任何动态库**。
-详见 [AOT 独立可执行文件](/runtime/aot)。
+默认 `auto` 后端: 小程序编译成 native 机器码, 大程序内嵌字节码由 Go VM 执行;
+产物**运行时不需要 Python、Go 工具链或任何动态库**。CIN/ASM/PL 也可
+`--emit-object` + `--link` 独立编译链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 6. 看看内置示例
 

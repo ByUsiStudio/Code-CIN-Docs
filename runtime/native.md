@@ -16,16 +16,33 @@ Python 侧用 `ctypes` 载入。v5.9.0 起项目是 **native-only 单引擎架�
 | --- | --- | --- |
 | CLI 外壳 | `codecin/cli.py`、`cpu.py` | 参数解析、日志、退出码、编排 |
 | 前端（Python） | `codecin/cin.py`、`codecin/assembler.py` | CIN / PL / ASM 源码 → UCBC 字节码 |
+| IR 优化 | `codecin/optimizer.py` | `-O0..3` 窥孔/常量折叠/不可达代码删除 |
+| native 代码生成 | `codecin/native_codegen.py` | 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 |
+| 对象/链接 | `codecin/object.py` | `.co` 对象、重定位、`.colib` 归档、GC |
 | 语言实现核心（Go） | `codecin/native/compiler/`、`codecin/native/engine/` | CIN 编译器、字节码 VM、CROM 编解码、宿主能力 |
-| AOT 运行时（Go） | `codecin/native/aot/` | 独立可执行文件内嵌的 VM 入口 |
+| AOT 运行时（Go） | `codecin/native/aot/`、`codecin/native/engine/native.go` | 独立可执行文件内嵌的 VM 入口 / native 指令原语 |
 | ABI 桥 | `codecin/native.py` | `ctypes` 载入共享库、请求编解码、结果解析 |
 
 **Go 侧不提供任何 CLI**。`codecin/native/` 下唯一允许的 `package main` 是 cgo 的
 c-shared 库入口 `codecin/native/main.go`，它只导出 C ABI 符号并提供一个空的
 `main()`；`tests/test_no_go_cli.py` 与 CI 都会断言"Go 源码树里没有第二个
 `package main`"。唯一的命令行入口是 Python 侧的 `codecin`（pip 安装后的 console
-script）。AOT（`--build-exe`）产出的是**用户程序的产物**，它自带 Go VM，但不是
-工具链 CLI。
+script）。AOT（`--build-exe`）产出的是**用户程序的产物**，它自带 Go VM 或 native
+运行时，但不是工具链 CLI。
+
+### Native AOT 代码生成
+
+AOT 默认 `auto` 后端：指令数 **≤ 20000** 走 native，否则走 VM。native 路径：
+
+1. `codecin/native_codegen.py` 把 IR 转成 Go 源码，每条核心指令直接调用
+   `engine.NativeRuntime` 的方法（`rt.Mov` / `rt.Add` / `rt.Load` / `rt.B` …）；
+2. Go 编译器把生成的源码编译成目标平台的 x86-64 / ARM64 机器码；
+3. 超过 **800 条指令**自动切换基本块模式，把大函数拆成多个 Go 代码块；
+4. 复杂/动态指令（动态 CALL/JMP、无法静态求值的内存操作数等）通过
+   `rt.Exec` 复用 VM 语义，因此不需要为每条指令手写机器码。
+
+`engine/native.go` 的 `NativeRuntime` 与字节码 VM 共享寄存器、内存、栈、SYS 与
+宿主能力实现；两种后端在同一程序上的输出保持一致（回归测试覆盖）。
 
 ### 一次原生执行的数据流
 
@@ -222,8 +239,8 @@ codecin --build-info
 就是答案：
 
 ```text
-  native           : 可用: codecin-native 5.9.0 (Go)
-  native version   : codecin-native 5.9.0 (Go)
+  native           : 可用: codecin-native 6.0.0 (Go)
+  native version   : codecin-native 6.0.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
 ```

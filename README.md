@@ -11,7 +11,7 @@
 | origin (Gitee) | `git@gitee.com:byusistudio/codecin-docs.git` |
 | github | `git@github.com:ByUsiStudio/Code-CIN-Docs.git` |
 
-## 关于 Code CIN (v5.9.0)
+## 关于 Code CIN
 
 [Code CIN](https://github.com/ByUsiStudio/Code-CIN) (`pip install codecin`) 是一门
 语法近似 C/Go 的高级语言 (CIN) 及其工具链。v5.9.0 起 **native-only**: 全部程序由
@@ -27,7 +27,10 @@ Go 原生引擎统一执行, 纯 Python 解释器与 JIT 已整体删除, 无解
 - **持久化**: 段式 CROM v4 / BIN v3 (只存已分配页), 旧版可读不可写;
 - **GUI / 音频 / 键盘**: 窗口 (Win32/X11)、2D 画布、WAV 播放、非阻塞键盘轮询等
   宿主能力, 全部由原生引擎实现;
-- **AOT**: `--build-exe` 产出静态单文件可执行程序 (`CGO_ENABLED=0`)。
+- **AOT / 对象链接**: `--build-exe` 产出静态单文件 (`CGO_ENABLED=0`), 支持
+  native/VM 后端、`-O0..3`、交叉编译、构建缓存与 `--build-debug`;
+  `--emit-object` / `--link` / `--emit-archive` 支持 CIN/ASM/PL 独立编译、
+  `.colib` 静态库与链接期 GC。
 
 快速开始 (源码检出):
 

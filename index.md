@@ -36,14 +36,17 @@ features:
     title: 112 条指令的 UCPU
     details: Base 28 + ARM64 40 + RISC-V 27 + FP 10 + Vector 6 + SYS 宿主调用 (含 FFI 与网络); 32 通用 + 32 向量寄存器。
   - icon: 📦
-    title: 36 个内置标准库
+    title: 41 个内置标准库
     details: math / str / array / sort / conv / rand / json / time / io / gui / ffi / net / termux 等随 pip 包分发, import 即用。
   - icon: 🔍
     title: 可分析、可核对
     details: rich 超详细日志与彩色错误面板、--disasm 反汇编、指令级性能统计、--build-info 核对原生库与包版本。
   - icon: 🚀
     title: AOT 独立可执行文件
-    details: --build-exe 把 CIN 程序编译成静态单文件, 产物不需要 Python、Go 工具链、libc 或任何动态库。
+    details: --build-exe 把 CIN/ASM/PL/BIN/CO 编译成静态单文件, 产物不需要 Python、Go 工具链、libc 或动态库; auto/native/VM 后端、交叉编译、-O0..3、构建缓存与调试构建。
+  - icon: 🧱
+    title: 独立编译与链接
+    details: --emit-object 生成可重定位对象, --link 合并 CIN/ASM/PL 对象与 .colib 静态库, 支持 extern 函数/全局、数据重定位、链接期优化与 --gc-sections。
   - icon: 🎨
     title: 宿主能力开箱可用
     details: 2D 画布与 GUI 窗口、音频播放、FFI 动态库调用、HTTP/TCP/UDP 网络、文件/进程/环境变量访问、Termux API(Android)。
@@ -120,7 +123,7 @@ codecin hello.cin
 | 指南 | 安装、快速开始、命令行、执行路径、架构、示例、FAQ | [安装](/guide/installation) · [快速开始](/guide/quickstart) |
 | CIN 语言 | 词法、类型、变量、运算符、控制流、函数、struct、数组、字符串、内建、宿主能力、模块 | [语言总览](/language/) |
 | 汇编 / ISA | 汇编语法 (ASM 与 PL 两种风格)、112 条指令语义、指令编码表 | [汇编总览](/asm/) |
-| 标准库 | 36 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
+| 标准库 | 41 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
 | 运行时 | Go 原生运行时、执行路径、`.bin`/`.crom` 格式、AOT 独立可执行文件 | [Go 原生运行时](/runtime/native) |
 | 工具 | 日志与错误输出、性能分析、内存与运行时开关 | [日志与错误输出](/tools/logging) |
 | 参考 | 指令编码表、寄存器与内存模型、Python 嵌入 API、更新日志 | [寄存器与内存模型](/reference/registers-memory) |

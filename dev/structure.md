@@ -55,7 +55,10 @@ UCPU/
 | `stats.py` | 统计载体: `Statistics` / `PerformanceCounters` / `InstructionProfiler` / `BranchPredictor` (单路径下主要承载引擎回传的步数) |
 | `crom.py` | 段式 CROM v4 镜像与 BIN v3 容器读写 (只存已分配页; 兼容读旧 CROM v3 / BIN v2) |
 | `native.py` | Go 原生库 ctypes 桥接: 库查找、ABI v2 `codecin_run_v2` 调用与结果解码 |
-| `aot.py` | AOT 编排: 依赖检查 → 编译 → 生成 `main.go` → `go build` 静态产物 |
+| `aot.py` | AOT 编排: 依赖检查 → 编译/优化 → native 代码生成或 UCBC 编码 → `go build` 静态产物; 缓存/调试构建 |
+| `native_codegen.py` | native 后端: 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 (基本块拆分) |
+| `optimizer.py` | IR 优化器: `-O0..3` (窥孔/常量折叠/不可达代码删除) |
+| `object.py` | 可重定位 `.co` 对象、`.colib` 归档、链接器、重定位与链接期 GC |
 | `disasm.py` | 反汇编 `.bin` 字节码为文本清单 (支持 BIN v3 与旧 BIN v2 头) |
 | `environment.py` | 宿主工具链检测与安装提示 (`find_tool`/`install_hint`/`native_runtime_hint`), 供 AOT、pip 安装与 `--build-info` 环境自检共用 |
 | `stdlib.py` | 内置标准库清单与分类 (`library_report`, 按"纯 CIN / 兼容层 / 需原生运行时"三分类), 驱动 `--libs` |
@@ -87,6 +90,7 @@ codecin/native/
 ├── ir/                       # 中间表示: ir.go (Program / Instr / Operand / DataWrite)
 ├── engine/                   # 字节码 VM 与运行时
 │   ├── vm.go                 # 原生字节码 VM (engine.Run, ABI v2 整程序执行)
+│   ├── native.go             # NativeRuntime: native 后端的指令原语 (直接调用)
 │   ├── ops_ext.go            # 扩展指令实现
 │   ├── crom.go               # CROM 打包/解包
 │   ├── encode.go             # IR → UCBC 编码
@@ -110,7 +114,8 @@ codecin/native/
 │   ├── syscalls.go           # 生成物: SYS 功能号常量 (勿手改)
 │   └── compile_test.go
 └── aot/                      # AOT 产物运行时
-    └── aot.go                # aot.Main(bytecode, memImage) -> int
+    ├── aot.go                # aot.Main(bytecode, memImage) -> int (VM 后端)
+    └── stub_main.go.txt      # VM 产物入口模板
 ```
 
 **Go 侧不提供 CLI**: `codecin/native/` 下唯一的 `package main` 就是 c-shared 库入口

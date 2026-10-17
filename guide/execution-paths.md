@@ -30,6 +30,13 @@ Python 侧没有任何逐条解释开销。内存按 **段式** 回传——Go �
 执行期间被写过的 4 KiB 页，只回传这些页，Python 侧写回 4 KiB 稀疏分页内存。
 详见 [Go 原生运行时](/runtime/native)。
 
+::: tip AOT 的两种执行形态
+上面的 `codecin_run_v2` 数据流是 CLI / 动态库路径。AOT 产物默认对小程序使用
+**native 后端**：不经过 UCBC 解码，直接执行生成的 `engine.NativeRuntime` 调用；
+大程序使用 **VM 后端**，把字节码嵌在产物里由同一套 `engine.Run` 执行。
+两种形态共享寄存器/内存/宿主能力语义，见 [AOT](/runtime/aot#后端选择)。
+:::
+
 ## 源码格式与装载
 
 `codecin/cpu.py: CPU.load_program()` 按扩展名分派：

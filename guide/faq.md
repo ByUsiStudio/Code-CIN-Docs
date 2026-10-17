@@ -206,8 +206,9 @@ codecin prog.cin --build-exe prog                       # 本机平台
 codecin prog.cin --build-exe prog --build-target linux/amd64
 ```
 
-产物是静态链接的单文件, 内嵌字节码与初始内存, 不依赖 Python、Go、libc 或任何动态库。
-需要 Go 工具链与源码树 (不适用于已安装的 wheel)。见 [AOT](/runtime/aot)。
+产物是静态链接的单文件 (默认 auto: 小程序 native 机器码, 大程序内嵌字节码由 Go VM
+执行), 不依赖 Python、Go、libc 或任何动态库。需要 Go 工具链与源码树 (不适用于已安装的
+wheel)。CIN/ASM/PL 也可用 `--emit-object` + `--link` 独立编译链接。见 [AOT](/runtime/aot)。
 
 ### 环境变量有哪些?
 

@@ -266,6 +266,6 @@ codecin basic.bin --disasm
 
 - [执行路径](/guide/execution-paths)——native-only 架构下的单一路径与产物形态
 - [Go 原生运行时](/runtime/native)——原生引擎如何接收段表并回传脏内存段
-- [AOT 独立可执行文件](/runtime/aot)——把字节码与内存段内嵌进静态单文件
+- [AOT 独立可执行文件](/runtime/aot)——native 机器码或内嵌字节码/内存段的静态单文件
 - [寄存器与内存模型](/reference/registers-memory)——1 GiB 稀疏分页与内存布局
 - [命令行参考](/guide/cli)——`--compile` / `--save` / `--crom` / `--disasm` 全表

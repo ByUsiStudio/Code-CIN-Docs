@@ -1,5 +1,5 @@
 ---
-description: Code CIN 命令行完整参考：位置参数与程序参数直传、版本与构建信息、日志、性能资源、编译与 CROM、AOT 构建、退出码与环境变量。
+description: Code CIN 命令行完整参考：位置参数与程序参数直传、版本与构建信息、日志、性能资源、编译与 CROM、对象/链接/静态库、AOT 构建、退出码与环境变量。
 ---
 
 # 命令行参考
@@ -18,6 +18,10 @@ Supported formats:
   .pl    Code CIN 汇编语言 (PL 关键字风格)
   .asm   Code CIN 汇编
   .bin   UCBC 字节码 (由 --compile 生成)
+
+AOT/link inputs:
+  .co     可重定位对象 (--emit-object)
+  .colib  静态库归档 (--emit-archive)
 ```
 
 ```bash
@@ -44,15 +48,15 @@ v5.9.0 起为 **native-only 单引擎**：程序统一由 Go 原生库执行，�
 先看这里, 不必再手工比对 `codecin --version` 与原生库自报串:
 
 ```text
-Code CIN 构建信息 (build info) - 5.9.0
-  version          : 5.9.0
-  version_info     : (5, 9, 0)
+Code CIN 构建信息 (build info) - 6.0.0
+  version          : 6.0.0
+  version_info     : (6, 0, 0)
   python           : 3.14.6 (CPython)
   platform         : win32/AMD64
   system           : Windows
   machine          : AMD64
-  native           : 可用: codecin-native 5.9.0 (Go)
-  native version   : codecin-native 5.9.0 (Go)
+  native           : 可用: codecin-native 6.0.0 (Go)
+  native version   : codecin-native 6.0.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
   package path     : D:\...\codecin
@@ -158,15 +162,42 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 | `--bounds-check` | 关闭 | CIN 数组越界检查 (编译期注入字节码, 与原生路径兼容) |
 | `--disasm` | 关闭 | 反汇编 `.bin` 为文本清单后退出 (支持 BIN v3 / 旧 v2 头) |
 
+## 对象、链接与静态库
+
+| 选项 | 说明 |
+|------|------|
+| `--emit-object` | 把 CIN/ASM/PL 编译为可重定位 `.co` 对象后退出 |
+| `--link INPUT` | 链接 `.cin` / `.asm` / `.pl` / `.co` / `.colib`（可重复）为可执行文件 |
+| `--emit-archive` | 把 `--link` 输入打包为 `.colib` 静态库归档 |
+| `--gc-sections` | 链接时删除从入口不可达的函数/代码段（默认关闭） |
+
+```bash
+codecin --emit-object main.cin -o main.co
+codecin --emit-object lib.cin  -o lib.co
+codecin --link main.co --link lib.co -o app --optimize 3 --gc-sections
+
+# 源文件直接链接
+codecin --link main.cin --link lib.cin -o app
+
+# 静态库：只拉取能解决未定义符号的成员
+codecin --emit-archive --link lib.co --link lib2.co -o lib.colib
+codecin --link main.co --link lib.colib -o app
+```
+
+CIN 库文件用 `extern function` / `extern int` 声明跨对象符号；无 `main` 的文件作为函数库对象。详见 [模块与标准库](/language/modules#独立编译与链接)。
+
 ## AOT 构建
 
 | 选项 | 说明 |
 |------|------|
-| `--build-exe [OUT]` | 编译成独立静态可执行文件后退出; 省略路径时输出到 `<程序名>[.exe]` |
+| `--build-exe [OUT]` | 把 CIN/ASM/PL/BIN/CO 编译成独立静态可执行文件后退出; 省略路径时输出到 `<程序名>[.exe]` |
 | `--build-target <OS/ARCH>` | 交叉编译目标: `windows/amd64`、`windows/arm64`、`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64` |
+| `--build-backend auto\|native\|vm` | `auto` 按指令数选择 (≤20000 native, 否则 VM)；`native` 强制直接生成机器码；`vm` 强制内嵌字节码 |
+| `--no-build-cache` | 禁用 AOT 增量构建缓存 (含对象/归档链接缓存) |
+| `--build-debug` | 保留符号表/DWARF，不传 `-s -w` |
 | `--build-keep-temp` | 保留 `go build` 临时目录, 便于排查构建失败 |
 
-AOT 构建强制 `CGO_ENABLED=0` 纯静态链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
+AOT 构建强制 `CGO_ENABLED=0` 纯静态链接，产物独立运行；输入支持 `.cin/.asm/.pl/.bin/.co`。详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 常用组合
 
@@ -195,6 +226,7 @@ codecin prog.cin --compile-only -o prog.bin # 只编译
 codecin prog.cin --compile                  # 编译并执行
 codecin prog.cin --save --no-compress       # 未压缩内存镜像
 codecin prog.cin --build-exe prog           # AOT 单文件
+codecin --link main.cin --link lib.cin -o app  # 源文件直接独立编译链接
 ```
 
 == 受控运行
