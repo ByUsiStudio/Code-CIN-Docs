@@ -44,7 +44,7 @@ Python 侧没有任何逐条解释开销。内存按 **段式** 回传——Go �
 | 扩展名 | 处理 | 说明 |
 |--------|------|------|
 | `.cin` | `CINCompiler.compile()` | CIN 高级语言源码，`pc 0` 为 bootstrap（`CALL main; HALT`） |
-| `.bin` | `crom.load_bin()` | UCBC 字节码（BIN v3 段式，兼容读 v2） |
+| `.bin` | `crom.load_bin()` | UCBC 字节码（BIN v3 段式，兼容读 v2；v2 需用 `--mem-size` 匹配文件头布局） |
 | `.pl` / `.asm` | `Assembler.assemble_file()` | 汇编源码；同目录有同名 `.crom` 时先载入镜像 |
 | `.crom` | CLI `--crom` 显式指定 | 内存镜像（CROM v4 段式，兼容读 v3） |
 

@@ -321,7 +321,9 @@ cgo 的 c-shared 库入口 `main.go`。唯一 CLI 是 Python 侧
 
 操作数 kind: `0=reg 1=imm 2=vec 3=veclane 4=mem 5=cond 6=float(bits) 7=str`。
 
-旧版 BIN v2 (整块内存镜像) 仍可读入, 但写出始终是 v3。
+旧版 BIN v2 (整块内存镜像) 仍可读入, 但写出始终是 v3。v2 头部没有 `heap_base`,
+因此当前 `--mem-size` 必须与文件头部的 `mem_size` 完全一致; 否则加载阶段直接报
+`Load Error` 并提示重新编译或使用 `--mem-size <文件头 mem_size>`。
 
 生成与执行:
 

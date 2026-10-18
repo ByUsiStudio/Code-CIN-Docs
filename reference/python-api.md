@@ -408,7 +408,7 @@ exe = aot.build_from_ir(
 | `save_crom(memory, path, compress=True, logger=None)` | 把 `FastMemory` 写成 **CROM v4** 段式镜像 (只存已分配页; 有原生库时走 Go 打包, 否则 zlib) |
 | `load_crom(memory, path, logger=None)` | 读回镜像, 自动识别 CROM v4 (段式) 与 v3 (旧全量, 只读兼容) |
 | `save_bin(cpu, path, logger=None)` | 把 CPU 的指令 + 内存镜像写成 **BIN v3** 容器 |
-| `load_bin(cpu, path)` | 读回 `.bin` (v3, 亦可读 v2), 重建 `instructions` / `pc` / `sp` |
+| `load_bin(cpu, path)` | 读回 `.bin` (v3, 亦可读 v2), 重建 `instructions` / `pc` / `sp`; v2 要求 `cpu.memory` 大小与文件头 `mem_size` 一致, 否则抛 `CPUSimulatorError` 并提示重新编译或匹配旧布局 |
 
 ```python
 from codecin import CPU, Config, crom

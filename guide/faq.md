@@ -197,7 +197,9 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 | 通用性 | 只有 VM 能执行 | 不能当可执行文件用; `--crom` 仅在 `.pl` / `.asm` 路径生效 |
 
 v5.9.0 起为段式 **BIN v3 / CROM v4**, 只保存实际使用的内存页; 旧 BIN v2 / CROM v3
-产物仍可读取。细节见 [二进制格式](/runtime/formats)。
+产物仍可读取。注意 BIN v2 的格式可读不等于内存布局兼容: v2 没有 `heap_base`,
+当前 `--mem-size` 必须与文件头 `mem_size` 一致, 否则加载阶段会报错并提示
+`--mem-size <文件头 mem_size>` 或重新编译。细节见 [二进制格式](/runtime/formats)。
 
 ### 怎么把程序交付给没装 Python 的人?
 

@@ -22,7 +22,7 @@ v5.9.0 起默认内存是 **1073741824 字节（1 GiB）**，物理占用按需�
 | 版本 | 布局 | 状态 |
 | --- | --- | --- |
 | CROM **v4** / BIN **v3** | 头部 + 段表（每段 `addr + len + data`）+ 字节码（仅 `.bin`） | **当前写出格式** |
-| CROM v3 / BIN v2 | 头部 + 整块内存镜像 + 字节码（仅 `.bin`） | **仍可读取，不再写出** |
+| CROM v3 / BIN v2 | 头部 + 整块内存镜像 + 字节码（仅 `.bin`） | **格式仍可读取，不再写出**；BIN v2 还要求 `--mem-size` 与文件头一致 |
 
 ## `.bin`：CPUSA 容器 (v3)
 
@@ -47,10 +47,11 @@ v5.9.0 起默认内存是 **1073741824 字节（1 GiB）**，物理占用按需�
 载入时 `load_bin()` 的行为是：
 
 1. 校验 magic 与 `BIN_VERSION`，不符分别报 `Invalid binary file (bad magic)` 与 `Unsupported binary version: <x>`；
-2. 解析段表（段表不完整 / 段数据越界报 `段表不完整 (文件损坏?)` / `段数据不完整 (文件损坏?)`）；
-3. 若头部 `Memory Size` 大于当前内存，**扩容内存**并把 `config.mem_size` 同步为该值；
-4. 把各段写回稀疏内存（未覆盖的地址保持 0）；
-5. 解码 UCBC 段，设置 `pc = Entry`、`sp = SP`、`heap_base = heap_ptr = Heap Base`。
+2. 校验头部 `mem_size` / `SP` / `Heap Base` 是否自洽（SP 在内存范围内、不低于 `Heap Base`、且不越过 4 KiB 栈堆隔离区）；不合法时**在加载阶段**报错，不会等到执行首条指令才报一个容易被误解的栈溢出；
+3. 解析段表（段表不完整 / 段数据越界报 `段表不完整 (文件损坏?)` / `段数据不完整 (文件损坏?)`）；
+4. 若头部 `Memory Size` 大于当前内存，**扩容内存**并把 `config.mem_size` 同步为该值；
+5. 把各段写回稀疏内存（未覆盖的地址保持 0）；
+6. 解码 UCBC 段，设置 `pc = Entry`、`sp = SP`、`heap_base = heap_ptr = Heap Base`。
 
 ### UCBC 字节码段的编码
 
@@ -91,9 +92,34 @@ magic[4] = 'UCBC' | version u8 (0x01) | entry u32 | instr_count u32
 - `float` 用 `struct.pack('<d', ...)` 取位模式，`decode_operand()` 按同样方式还原。
 - `cond` 解码时用 `Cond.NAMES[value & 15]` 还原为 `EQ`/`NE`/… 名字。
 
-### BIN v2 遗留格式（只读）
+### BIN v2 遗留格式（只读，内存布局必须匹配）
 
-v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + bc_len u32 + 保留 8B`，之后是**整块内存镜像**与字节码。`load_bin()` 仍按该布局读取：镜像大于当前内存时同样扩容；镜像从地址 0 整块写回。旧 `.bin` 无需转换即可继续运行，但新保存的 `.bin` 一律是 v3 段式。
+v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + bc_len u32 + 保留 8B`，之后是**整块内存镜像**与字节码。与 v3 不同，**v2 没有 `heap_base` 字段**；旧运行时固定按 `heap_base = mem_size // 2` 计算堆基址，因此栈/堆边界完全由文件里的 `mem_size` 决定。
+
+`load_bin()` 仍能解析 v2，但**格式可读 ≠ 语义兼容**。加载时会校验头部字段，并要求当前 `--mem-size` 与文件头部的 `mem_size` **完全一致**；不一致时直接抛 `CPUSimulatorError`（CLI 显示为 `Load Error`），不会执行任何指令。
+
+典型报错（v5.9.0 之前的默认 64 KiB 布局遇到 v6.0.0 默认 1 GiB 布局）：
+
+```text
+无法加载旧版 BIN v2 字节码 'basic.bin': 其初始 SP 约定与当前内存布局不兼容。
+  文件头布局: mem_size=65536 bytes (0x10000), sp=0xfff8, 期望 heap_base=0x8000
+  当前运行布局: mem_size=1073741824 bytes (0x40000000), heap_base=0x20000000
+  BIN v2 只记录 SP、不记录 heap_base；旧运行时固定按 heap_base = mem_size // 2 计算堆基址。
+  按当前布局执行时 SP 低于 heap_base + 4096 的栈保护线, 首条 PUSH/ALLOCFRAME 会被误报为
+  "Stack overflow (collides with heap)" (并非真实栈写满)。
+  该字节码可能由 v5.9.0 之前的旧版本 (默认 64 KB 内存) 编译; 格式可读不等于内存布局兼容。
+请任选其一:
+  1) 用当前版本重新编译源码: codecin <源码>.cin --compile -o <新文件>.bin
+  2) 用与字节码一致的内存布局运行: codecin basic.bin --mem-size 65536
+```
+
+**为什么不能自动套用新布局**：v5.9.0 之前默认 64 KiB，栈顶 SP≈`0xfff0`；v5.9.0 起默认 1 GiB，`heap_base=0x20000000`。若直接按新布局执行，SP 远低于堆基址，首条 `PUSH` / `SYS ALLOCFRAME` 就会触发 `Stack overflow (collides with heap)`——这不是真实栈写满，而是加载时布局不兼容。
+
+处理方式：
+
+- **有源码**：用当前版本重新编译（推荐）：`codecin basic.cin --compile -o basic_new.bin`；
+- **没有源码**：用旧 BIN 头部声明的内存大小运行：`codecin basic.bin --mem-size 65536`。不确定时先用 `codecin basic.bin --disasm` 看首行的 `mem=` 字段；
+- 旧 `.bin` 不再写出：新保存的 `.bin` 一律是 v3 段式格式。
 
 ## `.crom`：段式内存镜像 (v4)
 
@@ -251,7 +277,8 @@ codecin basic.bin --disasm
 ## 限制与版本策略
 
 - **版本号是硬门槛，没有迁移逻辑**：`BIN_VERSION = 3`、`BC_VERSION = 1`、`CROM_VERSION = 4`。载入时版本不符分别报 `Unsupported binary version: <x>`、`Unsupported bytecode version: <x>`、`Unsupported .crom version: <x>`。旧版本（BIN v2 / CROM v3）保留**只读**兼容，不会写出。
-- **`.bin` 的 `mem_size` 会改变内存布局**：`load_bin()` 在头部声明值大于当前 `--mem-size` 时扩容内存，并同步 `config.mem_size`。
+- **BIN v2 的 `mem_size` 是布局契约**：v2 没有 `heap_base` 字段，当前 `--mem-size` 必须与头部 `mem_size` 完全一致；不一致时在加载阶段报错并提示用 `--mem-size <文件头 mem_size>` 或重新编译。v5.9.0 之前默认 64 KiB，v5.9.0 起默认 1 GiB，因此旧 BIN 不能直接套用新默认布局。
+- **BIN v3 的 `mem_size` 会扩容内存**：`load_bin()` 在头部声明值大于当前 `--mem-size` 时扩容内存，并同步 `config.mem_size`；`SP` / `heap_base` 直接采用头部记录值，加载时会校验两者自洽。
 - **段表是自描述的**：段数、每段长度都在文件里，解析器逐段校验完整性（`段表不完整` / `段数据不完整`），损坏文件被明确拒绝而不是载入半页数据。
 - **`.bin` 尾部多余字节被忽略**：按 `instr_count` 精确读取字节码，读满即停，不做尾部校验。
 - **操作数个数由指令决定**：手改 `.bin` 很容易让 `argc` 与指令语义不匹配，Python 解码会读错偏移、Go 引擎会直接拒绝。

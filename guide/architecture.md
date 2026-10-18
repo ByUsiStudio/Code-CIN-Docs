@@ -112,8 +112,9 @@ prog.asm ─┘                                        │                      
 | `.colib` | 静态库归档 (多个 `.co` 成员) | `--emit-archive` | `--link` 按未定义符号拉取 |
 | 独立可执行文件 | native 机器码或内嵌字节码的静态单文件 | `--build-exe` (auto/native/vm) | 直接执行, 无需任何运行时 |
 
-旧 BIN v2 / CROM v3 产物仍可读取。细节见 [二进制格式](/runtime/formats) 与
-[AOT 独立可执行文件](/runtime/aot)。
+旧 BIN v2 / CROM v3 产物仍可读取; BIN v2 的 `--mem-size` 必须与文件头一致,
+否则加载阶段会报错并提示重新编译或匹配旧布局。细节见
+[二进制格式](/runtime/formats) 与 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 设计原则
 
