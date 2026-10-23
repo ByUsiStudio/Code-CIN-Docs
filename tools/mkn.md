@@ -81,7 +81,11 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 2. `[dependencies.<name>].path` → 本地路径安装；
 3. `[dependencies.<name>].git` → Git 仓库安装；
 4. 本地 mkn 仓库 `$MKN_HOME/repository/<name>/<version>`；
-5. 否则按 `name@version` 走 `pic` 注册表。
+5. 否则按 `name@version` 走 `pic` 中央注册/分发服务器
+   (`package.codecin.org.cn`)。
+
+按名称解析依赖需要先 `pic login`（Cdifit 登录）；离线开发可设置
+`PIC_OFFLINE=1`，改用本地 `registry.json` / `path` / `git` 依赖。
 
 安装完成后写入 `pic.lock`，记录实际版本与来源。
 
