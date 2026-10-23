@@ -378,7 +378,10 @@ export default defineConfig({
           items: [
             { text: '日志与错误输出', link: '/tools/logging' },
             { text: '性能分析', link: '/tools/profiling' },
-            { text: '内存与运行时开关', link: '/tools/memory-cache' }
+            { text: '内存与运行时开关', link: '/tools/memory-cache' },
+            { text: 'mkn 项目构建', link: '/tools/mkn' },
+            { text: 'pic 包管理', link: '/tools/pic' },
+            { text: 'cvm 虚拟机', link: '/tools/cvm' }
           ]
         }
       ],
