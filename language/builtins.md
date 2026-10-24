@@ -292,7 +292,7 @@ Termux 等) 一律报 `Host capability disabled in sandbox mode`; 完整签名�
 | 分类 | 函数 |
 |------|------|
 | 2D 画布 | `canvas` `set_color` `fill_rect` `fill_circle` `draw_line` `draw_text` `save_png` `show_canvas` |
-| GUI 窗口与鼠标 | `gui_new` `gui_update` `gui_close` `gui_closed` `gui_active` `mouse_x` `mouse_y` `mouse_button` |
+| GUI 窗口与鼠标 | `gui_new` `gui_update` `gui_close` `gui_closed` `gui_active` `mouse_x` `mouse_y` `mouse_button` `vkb_show` `vkb_hide` |
 | 本地音频 | `audio_play` `beep` `audio_stop` `audio_wait` `audio_volume` `audio_level` `audio_pos` `audio_duration` `audio_playing` `audio_pause` `audio_resume` |
 | 命令行参数与行输入 | `arg_count` (129) `arg` (130) `input_str` (131) |
 | 文件系统 | `file_read` `file_write` `file_append` `file_exists` `file_delete` `file_size` `mkdir` `dir_list` |
