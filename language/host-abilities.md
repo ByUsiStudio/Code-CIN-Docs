@@ -160,7 +160,7 @@ function main() -> int {
 |------|------|------|
 | `arg_count()` | `int` | 传给 CIN 程序的参数个数 (不含程序文件名本身) |
 | `arg(i)` | `string` | 第 `i` 个参数; 越界为空串 |
-| `input_str()` | `string` | 读入一行 UTF-8 文本 (不含行尾); EOF 为空串; **自带回显** |
+| `input_str()` | `string` | 读入一行 UTF-8 文本 (不含行尾); EOF 为空串; **自带回显与行编辑** |
 
 ```c
 function main() -> int {
@@ -183,7 +183,12 @@ echo Alice | codecin demo.cin       # 管道输入同样走 input_str
 - 命令行参数: CLI 用 `--` 分隔; AOT 产物直接取 `os.Args[1:]` (标准库 `gostd.cin`
   的 `go_os_args_len` / `go_os_args_get` 即其包装);
 - `input_str` 与行内建 `input` (读整数) 不同: 返回**一整行文本**, 交互运行时逐行
-  等待键盘输入, 管道运行时由 CLI 预读全部标准输入再逐行分发。
+  等待键盘输入, 管道运行时由 CLI 预读全部标准输入再逐行分发;
+- 交互运行时 (`input` / `input_str`) 与 [键盘轮询](#键盘输入监听-非阻塞轮询)
+  共用同一条按键事件通道: 终端进入 raw 模式, 由引擎完成回显与行编辑
+  (退格 / Delete / 左右 / Home / End / Ctrl+A/E/U/K/W / Ctrl+左右 /
+  `Ctrl+D` EOF / `Ctrl+C` 中断), Windows 控制台与 Linux/macOS 终端行为一致;
+  GUI 窗口打开时窗口按键与虚拟键盘输入也直接作为查询输入来源。
 
 ## 文件系统
 
