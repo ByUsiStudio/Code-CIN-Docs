@@ -173,7 +173,7 @@ pic install dist/hello-1.0.0.cinpkg
 | GET | `/api/v1/packages/{name}/{version}/artifact` | 否 | 下载 `.cinpkg` |
 | POST | `/api/v1/packages/{name}/{version}/yank` | Bearer | 撤回版本 |
 
-服务端使用 Cdifit `POST /api/v4/session/oauth/userinfo` 校验 Bearer Token，
+服务端使用 Cdifit `GET /api/v4/session/oauth/userinfo` 校验 Bearer Token，
 不存储 Cdifit 文件。
 
 ## 配置
