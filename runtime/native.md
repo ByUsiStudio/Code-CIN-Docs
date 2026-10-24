@@ -280,7 +280,7 @@ codecin --build-info --json
 | 116–118 | 键盘轮询：`key_hit` / `get_key` / `key_flush`（Unicode 码点、F1..F12、Ctrl/Shift 组合） | `engine/keyboard*.go` |
 | 119–125, 128 | GUI 窗口与鼠标：`gui_new`/`gui_update`/`gui_close`/`gui_closed`/`gui_active`、`mouse_x/y/button` | `engine/gui_windows.go`（Win32）/ `engine/gui_x11.go`（X11）/ `engine/gui_stub.go`（无显示环境优雅失败） |
 | 126–127 | 本地音频扩展：`audio_pos`（播放进度）、`beep`（20..20000 Hz 正弦合成） | `engine/audio*.go` |
-| 129–131 | 命令行参数 / 行输入：`arg_count` / `arg` / `input_str`（CLI `--` 之后转交） | `engine/args.go` + `engine/stdin*.go` |
+| 129–131 | 命令行参数 / 行输入：`arg_count` / `arg` / `input_str`（CLI `--` 之后转交；交互终端走引擎 raw 行编辑器，与键盘轮询同一事件通道） | `engine/args.go` + `engine/stdin*.go` + `engine/lineedit.go` |
 | 132–136 | 音频控制增强：`audio_duration` / `audio_playing` / `audio_pause` / `audio_resume` / `audio_level` | `engine/audio*.go`（暂停 = waveOutPause / SIGSTOP） |
 | 137–139 | 核心 VM 机制：`ALLOCFRAME` 栈帧分配（带栈余量防护）、`time_us` / `time_ns` 单调高精度计时 | `engine/vm.go` |
 | 140–144 | FFI 动态库调用：`dlopen` / `dlsym` / `ffi_call` / `ffi_callf` / `lib_close`（浮点参数走 Windows x64 XMM0-3 / SysV XMM0-7） | `engine/ffi_windows.go` / `engine/ffi_unix.go` / `engine/ffi_nocgo.go`（AOT 无 cgo 桩） |
@@ -288,6 +288,7 @@ codecin --build-info --json
 | 147–152 | TCP：`tcp_dial` / `tcp_send` / `tcp_recv` / `tcp_close` / `tcp_listen` / `tcp_accept`（10 s 连接超时） | `engine/netsock.go` |
 | 153–156 | UDP：`udp_open` / `udp_sendto` / `udp_recvfrom`（源地址回填 "ip:port"）/ `udp_close` | `engine/netsock.go` |
 | 157 | DNS：`dns_lookup`（偏好 IPv4——Windows 下 `localhost` 常先返回 ::1） | `engine/netsock.go` |
+| 158–159 | 虚拟键盘：`vkb_show` / `vkb_hide`（Windows WinRT InputPane；Linux onboard / matchbox-keyboard / xvkbd；macOS 辅助功能键盘；其他平台返回 -1） | `engine/gui_windows.go` + `engine/vkb_linux.go` + `engine/vkb_darwin.go` + `engine/vkb_stub.go` |
 
 网络与 FFI 的语言侧用法（含标准库 `lib/net.cin` / `lib/ffi.cin` 封装）见
 [宿主能力](/language/host-abilities)与[标准库](/stdlib/)。
