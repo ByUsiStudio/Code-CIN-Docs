@@ -78,7 +78,7 @@ function draw() -> int {
 | `gui_close()` | `int` | 销毁窗口 (画布保留, 仍可 `save_png`) |
 | `mouse_x()` / `mouse_y()` | `int` | 光标在窗口内的坐标 / 无窗口 `-1` |
 | `mouse_button()` | `int` | 位掩码: `bit0` 左键 / `bit1` 右键 / `bit2` 中键按住 |
-| `vkb_show()` | `int` | 弹出 Windows 屏幕/触摸键盘 (TabTip, 绑定当前窗口), `0` / `-1` 不可用 |
+| `vkb_show()` | `int` | 弹出屏幕/触摸键盘 (Windows: TabTip/输入体验, 绑定当前窗口; Linux: onboard / matchbox-keyboard / xvkbd; macOS: 辅助功能键盘), `0` / `-1` 不可用 |
 | `vkb_hide()` | `int` | 收起屏幕/触摸键盘, `0` / `-1` 不可用 |
 
 ```c
@@ -104,11 +104,12 @@ function main() -> int {
   在窗口打开期间直接画进后备缓冲;
 - 窗口内的键盘事件与 [非阻塞键盘轮询](#键盘输入监听-非阻塞轮询) 共用同一套键码
   (含 F11/F12、Ctrl/Shift + 方向键);
-- 屏幕/触摸键盘 (OSK / TabTip) 的输入同样进入该队列: 窗口过程会处理
+- 屏幕/触摸键盘 (OSK / TabTip / 屏幕键盘) 的输入同样进入该队列: 窗口过程会处理
   `WM_KEYDOWN`(VK_PACKET) / `WM_CHAR` / `WM_IME_CHAR` / `WM_UNICHAR`
   (含代理对与 emoji), 程序无需区分按键来源; `vkb_show()` / `vkb_hide()`
-  可在触屏设备上主动弹出/收起触摸键盘 (终端模式绑定可见控制台窗口,
-  ConPTY 下退回前台窗口)。
+  可在触屏设备上主动弹出/收起虚拟键盘 (Windows 绑定当前窗口, 终端模式绑定
+  可见控制台窗口、ConPTY 下退回前台窗口; Linux 使用 onboard /
+  matchbox-keyboard / xvkbd; macOS 打开系统辅助功能键盘)。
 
 ## 本地音频 (beep 合成 / 进度 / 暂停恢复 / 音量)
 
