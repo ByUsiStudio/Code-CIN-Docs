@@ -57,6 +57,80 @@ export default defineConfig({
     lineNumbers: false,
     theme: { light: 'github-light', dark: 'github-dark' },
     languages: [{ ...cinGrammar, name: 'cin' }],
+  },
+
+  themeConfig: {
+    logo: '/logo.svg',
+    siteTitle: 'Code CIN',
+
+    nav: [
+      { text: '初学者教程', link: '/beginner/', activeMatch: '^/beginner/' },
+      { text: '指南', link: '/guide/installation', activeMatch: '^/guide/' },
+      { text: 'CIN 语言', link: '/language/', activeMatch: '^/language/' },
+      {
+        text: '汇编 / ISA',
+        activeMatch: '^/(asm|reference/isa)',
+        items: [
+          { text: '汇编总览', link: '/asm/' },
+          { text: '汇编语法', link: '/asm/syntax' },
+          { text: '指令语义', link: '/asm/instructions' },
+          { text: '指令编码表', link: '/reference/isa' }
+        ]
+      },
+      { text: '标准库', link: '/stdlib/', activeMatch: '^/stdlib/' },
+      { text: '官方生态', link: '/ecosystem/', activeMatch: '^/ecosystem/' },
+      {
+        text: '发布',
+        activeMatch: '^/reference/changelog',
+        items: [
+          { text: '更新日志 (动态)', link: '/reference/changelog' },
+          { text: '下载发布文件', link: '/guide/installation' },
+          {
+            text: '全部 Releases (GitHub)',
+            link: 'https://github.com/ByUsiStudio/Code-CIN/releases'
+          }
+        ]
+      },
+      {
+        text: '运行时',
+        activeMatch: '^/runtime/',
+        items: [
+          { text: '执行路径', link: '/guide/execution-paths' },
+          { text: 'Go 原生运行时', link: '/runtime/native' },
+          { text: '二进制格式', link: '/runtime/formats' },
+          { text: 'AOT 独立可执行文件', link: '/runtime/aot' }
+        ]
+      },
+      {
+        text: '工具',
+        activeMatch: '^/tools/',
+        items: [
+          { text: '日志与错误输出', link: '/tools/logging' },
+          { text: '性能分析', link: '/tools/profiling' },
+          { text: '内存与运行时开关', link: '/tools/memory-cache' }
+        ]
+      },
+      {
+        text: '参考',
+        activeMatch: '^/reference/',
+        items: [
+          { text: '指令集编码表', link: '/reference/isa' },
+          { text: '寄存器与内存模型', link: '/reference/registers-memory' },
+          { text: 'Python 嵌入 API', link: '/reference/python-api' },
+          { text: '更新日志', link: '/reference/changelog' }
+        ]
+      },
+      { text: '开发', link: '/dev/structure', activeMatch: '^/dev/' },
+      {
+        text: '仓库',
+        items: [
+          { text: '主仓库 (GitHub)', link: 'https://github.com/ByUsiStudio/Code-CIN' },
+          { text: '文档仓库 (GitHub)', link: 'https://github.com/ByUsiStudio/Code-CIN-Docs' },
+          { text: '主仓库 (Gitee)', link: 'https://gitee.com/byusistudio/codecin' },
+          { text: '文档仓库 (Gitee)', link: 'https://gitee.com/byusistudio/codecin-docs' }
+        ]
+      }
+    ],
 
     sidebar: {
       '/beginner/': [
