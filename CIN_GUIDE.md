@@ -919,12 +919,14 @@ while (1) {
 
 > Windows 用 msvcrt `_kbhit`/`_getch`, Linux / macOS / Termux 用 termios 原始输入
 > (只关行缓冲 / 回显 / Ctrl+C 信号, 输出处理保留, `println` 不受影响);
-> 激活监听时会**清空终端输入残留** (Windows `FlushConsoleInputBuffer` /
-> Unix 非阻塞排空), Windows 下还先用 `GetConsoleMode` 校验 stdin 为真实控制台。
+> 激活监听时把终端里已键入、尚未被程序读取的字符读入键码队列 (type-ahead
+> 缓存), 不再丢弃; `key_flush()` 会清空队列与终端残留输入。
+> Windows 下还先用 `GetConsoleMode` 校验 stdin 为真实控制台。
 >
-> **输出顺序**: 真实终端下原生路径先打印激活前已缓冲的输出, 之后逐条直写
-> stdout 实时显示 —— "提示 → 等按键 → 反馈"顺序正确, 不会等程序结束一股脑输出;
-> 管道 / 重定向 / 测试捕获环境保持缓冲回传, 行为不变。
+> **输出顺序**: 真实终端下原生路径边执行边直写 stdout (同时保留完整输出
+> 缓存供 API/测试读取), 不再等程序结束一股脑输出; 键盘监听激活时先打印
+> 激活前已缓冲的内容, "提示 → 等按键 → 反馈"顺序正确。管道 / 重定向 /
+> 测试捕获环境保持缓冲回传, 行为不变。
 
 ### 宿主能力: Android / Termux 扩展
 

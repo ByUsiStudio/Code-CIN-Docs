@@ -60,6 +60,10 @@ program.cin ──codecin/cin.py──► UCBC 字节码 + 初始内存段 (稀�
    Python 侧写回 4 KiB 稀疏内存 → 输出文本 → （出错则抛 ExecutionError）
 ```
 
+真实终端下 `flags` bit1 会让 Go 侧**边执行边写 stdout**（输出仍完整缓存，
+`streamed` 字节告知宿主"已经显示过、不要重复打印"）；管道 / 重定向 / 测试
+捕获环境保持"结束一次性回传"。
+
 Go 侧用 `make([]byte, memSize)` 分配执行内存（OS 懒提交，1 GiB 不会真占 1 GiB
 物理内存），并用**脏页位图**记录执行期间被写过的 4 KiB 页；执行结束只把这些页
 按段回传，Python 侧写回 `FastMemory` 的 4 KiB 稀疏分页内存。持久化同样是段式
@@ -72,7 +76,7 @@ Go 侧用 `make([]byte, memSize)` 分配执行内存（OS 懒提交，1 GiB 不�
 
 | 符号 | 参数 | 返回值 / 作用 |
 | --- | --- | --- |
-| `codecin_run_v2` | 请求缓冲 `ptr,len`、`entry i64`、`sp i64`、`heap_base i64`、`mem_size i64`、`max_steps i64`、`seed i64`、`flags i32` | 执行整程序，返回**结果缓冲指针**（`NULL` 表示分配失败）。`flags` bit0 = 沙箱模式 |
+| `codecin_run_v2` | 请求缓冲 `ptr,len`、`entry i64`、`sp i64`、`heap_base i64`、`mem_size i64`、`max_steps i64`、`seed i64`、`flags i32` | 执行整程序，返回**结果缓冲指针**（`NULL` 表示分配失败）。`flags` bit0 = 沙箱模式，bit1 = 实时输出（真实终端下边执行边写 stdout，同时保留输出缓存） |
 | `codecin_set_args` | `char** argv, int argc` | 注入 CIN 程序的命令行参数（`arg_count()` / `arg(i)` 的数据源），每次运行前都会调用（空列表即清空） |
 | `codecin_crom_pack` | `data ptr,len`、`compress int`、`out_len *int` | 打包为 CROM 字节流，返回缓冲指针，长度写回 `out_len` |
 | `codecin_crom_unpack` | `data ptr,len`、`mem_len *int`、`flags *int` | 校验收包，返回载荷指针与长度/标志；失败返回 `NULL` |
@@ -96,7 +100,7 @@ in_len  u32 | stdin 预填数据 ...
 按同一偏移解析：
 
 ```text
-offset 0    status      u8   (+flags u8 +2B padding; flags bit0..3 = N/Z/C/V)
+offset 0    status      u8   (+flags u8 +streamed u8 +1B padding; flags bit0..3 = N/Z/C/V)
 offset 4    pc          u64
 offset 12   sp          u64
 offset 20   heap_ptr    u64
