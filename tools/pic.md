@@ -14,6 +14,8 @@ description: pic 包管理器：package.codecin.org.cn 中央注册/分发服务
 Cdifit **只负责登录/身份**，不再存储包记录或包文件。包内容/制品由
 `package.codecin.org.cn` 注册分发，源码原始仓库仍是用户自己的 Git 仓库。
 
+官方发布的 pic 库（如 `rich`）与官方组织说明见 [官方生态](/ecosystem/)。
+
 ## 首次登录
 
 ```bash
