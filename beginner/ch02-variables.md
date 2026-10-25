@@ -13,7 +13,7 @@ description: "第 2 章：CIN 的变量、基础类型、类型转换、字符�
 
 **变量**是一个带名字的盒子, 里面放着数据。使用前必须先**声明类型**:
 
-```c
+```cin
 int age = 18            // 声明一个整数变量 age, 初值 18
 println("age = " + age)
 
@@ -32,7 +32,7 @@ age = 19
 - 语句以**换行**结尾; 分号可写可不写, 一行写两条语句时必须用 `;` 分隔;
 - 变量名区分大小写, 只能由字母、数字、下划线组成, 且不能以数字开头。
 
-```c
+```cin
 int score1 = 90         // 合法
 int _tmp = 1            // 合法
 // int 1score = 90      // 非法: 不能以数字开头
@@ -50,7 +50,7 @@ int _tmp = 1            // 合法
 还有几个“同义类型名”: `char` / `short` / `long` / `unsigned int` 等, 在 CIN 里
 **和 `int` 一样是 64 位整数**, 只是写法习惯不同:
 
-```c
+```cin
 char letter = 'A'               // 字符字面量其实是整数编码
 long big = 4000000000
 unsigned int mask = 0xFFFF
@@ -71,7 +71,7 @@ CIN 里字符就是整数: `'A'` 等于 65。想打印字符本身, 得用字符
 
 `int` / `float` / `bool` 未初始化时会得到确定的默认值; **`string` 例外, 一定要自己写 `""`**:
 
-```c
+```cin
 function main() -> int {
     int i
     float f
@@ -96,7 +96,7 @@ string = []
 实测: 只写 `string s` 而不赋初值, 它里面是**未清零的指针**, 可能指向相邻的字符串
 字面量, 打印出来是别的文本或乱码:
 
-```c
+```cin
 function main() -> int {
     println("prefix line")
     string s                 // 没有初始化
@@ -112,7 +112,7 @@ function main() -> int {
 
 CIN 打印浮点时使用**最短往返表示**: 能精确表达就短, 不能精确就长。
 
-```c
+```cin
 function main() -> int {
     float a = 7
     float b = 7.5
@@ -138,7 +138,7 @@ c = 0.3333333333333333
 ::: warning 浮点数不要用 `==` 比较
 `0.1 + 0.2` 在计算机里不等于 `0.3`。比较浮点时判断差值:
 
-```c
+```cin
 float x = 0.1 + 0.2
 if (abs(x - 0.3) < 0.000001) {
     println("基本相等")
@@ -154,7 +154,7 @@ CIN 的转换规则很少, 记住三条:
 2. **浮点 → 整数**: 赋给 `int` 变量时**截断** (直接丢掉小数部分, 不是四舍五入);
 3. **字符串 ↔ 数字**: 用内建函数显式转换。
 
-```c
+```cin
 function main() -> int {
     int i = 3.9
     println("i = " + i)                  // 截断, 不是 4
@@ -186,7 +186,7 @@ n = 42, s = 1234, t = 2.5, u = true
 
 `+` 只要有一边是字符串, 就会把另一边变成文本再拼起来:
 
-```c
+```cin
 function main() -> int {
     string name = "CIN"
     int year = 2026
@@ -215,7 +215,7 @@ function main() -> int {
 
 `bool` 只有 `true` / `false`, 比较运算的结果就是 bool:
 
-```c
+```cin
 function main() -> int {
     bool adult = 18 >= 18
     bool empty = ""
@@ -241,7 +241,7 @@ empty = false
 CIN 目前没有 `const` 关键字。惯例是**全大写命名**并集中写在文件顶部,
 让读代码的人知道“这个值不应该被改”:
 
-```c
+```cin
 float PI = 3.14159265
 int MAX_SCORE = 100
 int DAYS_PER_WEEK = 7
@@ -252,7 +252,7 @@ int DAYS_PER_WEEK = 7
 ::: tip `input()` 读一行整数
 `input()` 从标准输入读取一行并转成 int:
 
-```c
+```cin
 function main() -> int {
     int n = input()
     println("读到的数字: " + n + ", 两倍: " + (n * 2))
@@ -291,7 +291,7 @@ echo 42 | codecin read_int.cin --log-level ERROR
 
 公式: `F = C × 9 / 5 + 32`
 
-```c
+```cin
 function main() -> int {
     float c = 37.5                     // 摄氏温度
     float f = c * 9 / 5 + 32           // 华氏温度
@@ -306,7 +306,7 @@ function main() -> int {
 
 ### 例 2: 圆的面积
 
-```c
+```cin
 function main() -> int {
     float PI = 3.14159265
     float r = 2.5
@@ -322,7 +322,7 @@ function main() -> int {
 
 ### 例 3: 秒数转“时分秒”
 
-```c
+```cin
 function main() -> int {
     int total = 3725                   // 一共 3725 秒
     int h = idiv(total, 3600)          // 小时 (整数除法)

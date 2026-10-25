@@ -139,7 +139,7 @@ codecin --log-level ERROR hello.cin
 
 最小验证程序 `hello.cin`:
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     return 0

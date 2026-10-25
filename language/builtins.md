@@ -19,7 +19,7 @@ description: "CIN 内建函数完整参考：I/O、数学、随机与时间、�
 ::: tip `exit(code)`: 立刻结束整个程序
 `exit(code)` 不再执行后续任何语句, 也不返回调用它的函数:
 
-```c
+```cin
 function main() -> int {
     println("before")
     exit(3)                 // 程序在这里结束
@@ -38,7 +38,7 @@ function main() -> int {
 
 多参数输出:
 
-```c
+```cin
 int a = 3
 string b = "cin"
 println("a=", a, " b=", b)      // a=3 b=cin (无分隔符, 分隔符要自己写)
@@ -49,7 +49,7 @@ println()                       // 空行
 ::: tip `input()` 从标准输入读一行整数
 `input()` 编译为 `IN` 指令, 从标准输入逐行读取并转成 int:
 
-```c
+```cin
 int n = input()
 println("你输入的是 " + n)
 ```
@@ -86,7 +86,7 @@ echo 42 | codecin prog.cin --log-level ERROR
 | `min(a, b)` / `max(a, b)` | int/float | 最小 / 最大值 (混用按 float 提升) |
 | `idiv(a, b)` | int | 整数除法 (向零截断) |
 
-```c
+```cin
 function math_demo() -> void {
     float angle = 3.14159265 / 4
     println("sin(45°) = " + sin(angle))
@@ -103,7 +103,7 @@ function math_demo() -> void {
 ::: warning 取整函数返回 float
 `floor` / `ceil` / `round` 返回的是 `float`, 赋给 `int` 时会截断转换:
 
-```c
+```cin
 int n = floor(3.7)      // 3
 float f = floor(3.7)    // 3.0
 ```
@@ -119,7 +119,7 @@ float f = floor(3.7)    // 3.0
 | `time_us()` | int | 单调微秒计时 (SYS 138), 高精度基准测试 |
 | `time_ns()` | int | 单调纳秒计时 (SYS 139), `time_us` 的高分辨率版本 |
 
-```c
+```cin
 function roll() -> int {
     srand(42)                    // 固定种子 -> 序列可复现
     return rand() % 6 + 1
@@ -170,7 +170,7 @@ function bench() -> int {
 | `to_int(x)` | int | int/float/bool 间显式转换; 语义与隐式提升一致 (float → int 向零截断); 非数值参数编译期报错 |
 | `to_float(x)` | float | int/float/bool 间显式转换; 语义与隐式提升一致; 非数值参数编译期报错 |
 
-```c
+```cin
 println(int_to_str(-7))          // -7
 println(float_to_str(3.5))       // 3.5
 println(bool_to_str(1 > 2))      // false
@@ -310,7 +310,7 @@ Termux 等) 一律报 `Host capability disabled in sandbox mode`; 完整签名�
 
 ## 内建速查示例
 
-```c
+```cin
 function builtins_demo() -> int {
     println("len = " + int_to_str(strlen("hello")))          // 5
     println("cmp = " + int_to_str(strcmp("a", "b")))         // -1

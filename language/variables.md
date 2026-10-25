@@ -15,7 +15,7 @@ CIN 的变量只有两类: **文件顶层的全局变量**与**函数/块内的�
 写在文件顶层 (任何 `function` / `struct` 之外) 的声明即全局变量, 它们位于数据区,
 在程序开始执行前按**声明顺序**初始化:
 
-```c
+```cin
 // 全局变量 (文件顶层)
 int counter = 0
 float pi = 3.14159265
@@ -44,7 +44,7 @@ function demo() -> void {
 
 == 全局数组字面量
 
-```c
+```cin
 int matrix[2][3] = { {1, 2, 3}, {4, 5, 6} }
 
 function main() -> int {
@@ -55,7 +55,7 @@ function main() -> int {
 
 == 局部数组
 
-```c
+```cin
 function main() -> int {
     int v[4] = {10, 20, 30, 40}
     println(int_to_str(v[3]))            // 40
@@ -72,7 +72,7 @@ function main() -> int {
 - 局部变量可以在声明时初始化, 也可以先声明后赋值;
 - 声明必须出现在使用之前 —— CIN 不做变量提升。
 
-```c
+```cin
 function scope_demo() -> void {
     int x = 1
     if (true) {
@@ -87,7 +87,7 @@ function scope_demo() -> void {
 `for` / `while` / `do-while` 的花括号体是块, 块内声明的变量每次迭代都重新分配;
 `for` 的 init 段里声明的循环变量作用域覆盖整个循环 (含条件与 update 段):
 
-```c
+```cin
 for (int i = 0; i < 3; i = i + 1) {
     int tmp = i * 2        // 每次迭代都是新的 tmp
     println(int_to_str(tmp))
@@ -97,7 +97,7 @@ for (int i = 0; i < 3; i = i + 1) {
 
 ## 一行多声明
 
-```c
+```cin
 int a = 1, b = 2, c
 float x = 1.5, y = 2.5
 string s = "a", t = "b"
@@ -110,7 +110,7 @@ string s = "a", t = "b"
 `const` 声明一个**编译期常量**：它不占数据段、不产生任何指令，凡是用到它的地方都会在
 编译期直接替换成值。因此它可以出现在普通变量不能出现的位置——最典型的是**数组维度**：
 
-```c
+```cin
 const int N = 5
 int matrix[N][N]        // 数组维度必须是常量, 这里用 N
 
@@ -162,7 +162,7 @@ function main() -> int {
 这一点和 C 一致、和"全局一定清零"不同。实测：先调用一个把 `int a[4]` 填成
 `111/222/333/444` 的函数，再在另一个函数里读未初始化的 `int b[4]`，会读到 `1110` 而不是 `0`：
 
-```c
+```cin
 function dirty() -> void { int a[4]; a[0] = 111; a[1] = 222; a[2] = 333; a[3] = 444 }
 function main() -> int {
     dirty()
@@ -179,7 +179,7 @@ function main() -> int {
 
 ## 赋值与复合赋值
 
-```c
+```cin
 int x = 10
 x = x + 5           // 15
 x += 5              // 20

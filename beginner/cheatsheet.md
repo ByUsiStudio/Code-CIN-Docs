@@ -8,7 +8,7 @@ description: "CIN 语法速查表：程序骨架、类型与 enum、运算符、
 
 ## 程序骨架
 
-```c
+```cin
 // 1) import 必须在文件最上面 (可选; 注意: import 行不能写行尾注释)
 import "math.cin"
 
@@ -50,7 +50,7 @@ function main() -> int {         // 5) 入口
 
 enum 成员是**编译期整数常量** (只读, 可用于表达式与 `case`):
 
-```c
+```cin
 enum Color { RED, GREEN = 5, BLUE }     // 0, 5, 6 (未赋值自动 +1)
 Color c = BLUE
 println(int_to_str(c))                  // 6
@@ -75,7 +75,7 @@ println(int_to_str(c))                  // 6
 
 ## 控制流
 
-```c
+```cin
 if (cond) { ... } else if (cond) { ... } else { ... }
 
 while (cond) { ... }
@@ -104,7 +104,7 @@ int m = cond ? a : b;                   // 三目
 
 ## 函数
 
-```c
+```cin
 function name(int a, string b) -> int {
     return a;
 }
@@ -126,7 +126,7 @@ function no_return(int a) -> void {     // -> void 可省略
 
 ## 数组
 
-```c
+```cin
 int a[5]                    // 声明, 全 0
 int b[4] = {1, 2, 3, 4}     // 一维字面量初始化 (有效)
 
@@ -146,7 +146,7 @@ function sum(int[] arr, int n) -> int { ... }   // 传参要带长度
 
 ## 字符串
 
-```c
+```cin
 string s = "hello"
 string t = s + " " + "world"        // 拼接会产生新字符串
 println(strlen(t))                  // 长度
@@ -163,14 +163,14 @@ println("a=", a, " b=", b)          // 多参数: 依次输出, 无分隔符
 转义: `\n \t \r \0 \" \\` + `\a \b \f \v`, 以及 `\xH`/`\xHH`(**原始字节**)、
 `\uHHHH`/`\UHHHHHHHH`(**Unicode 码点**, 按 UTF-8 写入):
 
-```c
+```cin
 string a = "\xE4\xB8\xAD"           // 中 的 UTF-8 三字节
 string b = "\u4E2D"                 // 同样是 中
 ```
 
 ## struct
 
-```c
+```cin
 struct Student {
     string name
     int score
@@ -207,7 +207,7 @@ println(s.score)
 
 ## 模块与标准库
 
-```c
+```cin
 // 裸名字 = 内置标准库 codecin/lib/; "./x.cin" = 相对当前文件的路径
 // 注意: import 行不能写行尾注释
 import "math.cin"
@@ -234,7 +234,7 @@ import "./helpers.cin"
 
 ## 宿主能力 (Go 引擎内建)
 
-```c
+```cin
 file_read(p) file_write(p, s) file_append(p, s) file_exists(p) file_size(p) mkdir(p) dir_list(p)
 file_copy(a, b) file_move(a, b) dir_remove(p) is_dir(p) file_mtime(p) chdir(p)
 path_join(d, n) path_basename(p) path_dirname(p) path_abs(p) temp_dir()

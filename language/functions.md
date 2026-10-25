@@ -23,7 +23,7 @@ function 函数名(参数表) -> 返回类型 {
 
 == CIN
 
-```c
+```cin
 function add(int a, int b) -> int {
     return a + b
 }
@@ -79,7 +79,7 @@ main:
 
 `int` / `float` / `bool` 参数按值传递：函数内修改形参不影响调用方的实参。
 
-```c
+```cin
 function double_it(int x) -> int {
     x = x * 2          // 只改副本
     return x
@@ -97,7 +97,7 @@ function main() -> int {
 
 数组参数（`T[]`）与 struct 参数传递的是同一块存储，**函数内修改对调用方可见**。
 
-```c
+```cin
 struct Point { int x }
 
 function bump(int[] arr) {
@@ -129,7 +129,7 @@ struct **传参/取地址式使用**是引用可见的，但 struct **整体赋�
 
 固长数组作参数时，维度写在**参数名之后**：`int a[3]`、`int m[2][3]`。传入后统一衰减为指针形式（等价于 `int[]` / `int[][]`），因此数组大小不会随参数传递。
 
-```c
+```cin
 function fill3(int a[3], int v) {
     for (int i = 0; i < 3; i = i + 1) {
         a[i] = v
@@ -163,7 +163,7 @@ function main() -> int {
 
 == 按值（副本）
 
-```c
+```cin
 function f(int x) -> int { x = 1
     return x }
 
@@ -177,7 +177,7 @@ function main() -> int {
 
 == 引用可见（数组）
 
-```c
+```cin
 function f(int[] a) { a[0] = 1 }
 
 function main() -> int {
@@ -191,7 +191,7 @@ function main() -> int {
 
 == 引用可见（struct）
 
-```c
+```cin
 struct S { int v }
 
 function f(S s) { s.v = 1 }
@@ -222,7 +222,7 @@ function main() -> int {
 
 == CIN
 
-```c
+```cin
 function add(int a, int b) -> int {
     return a + b      // 结果写入 x0
 }
@@ -258,7 +258,7 @@ add:
 
 CIN 支持递归。每次调用消耗栈帧（局部变量槽 + 参数槽 + 返回地址），调用栈由 VM 栈承载。
 
-```c
+```cin
 function fact(int n) -> int {
     if (n <= 1) { return 1 }
     return n * fact(n - 1)
@@ -311,7 +311,7 @@ codecin deep.cin --mem-size 1048576
 - 函数可以调用写在它后面的函数；
 - 但**变量必须先声明后使用**（见下节）。
 
-```c
+```cin
 function main() -> int {
     return helper(3)        // helper 定义在后面，仍然合法
 }
@@ -325,7 +325,7 @@ function helper(int x) -> int {
 
 与函数不同，变量没有隐式声明。赋值一个从未声明过的名字会直接编译失败：
 
-```c
+```cin
 function main() -> int {
     zzz = 1                 // Compiler error: Undefined variable: zzz
     return 0
@@ -340,7 +340,7 @@ function main() -> int {
 
 正确写法：
 
-```c
+```cin
 function main() -> int {
     int zzz = 1
     return zzz
@@ -354,7 +354,7 @@ function main() -> int {
 
 下面这个程序把值传递、引用可见、固长数组衰减、递归、返回值串联起来，可直接运行：
 
-```c
+```cin
 // stats.cin —— 运行: codecin stats.cin
 
 struct Range {

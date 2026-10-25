@@ -9,7 +9,7 @@ description: Code CIN 示例程序集：高级语言、struct/数组/标准库�
 
 ## 1. Hello World
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     println("2 + 3 = " + (2 + 3))
@@ -24,7 +24,7 @@ Hello, Code CIN!
 
 ## 2. 函数与递归
 
-```c
+```cin
 function fib(int n) -> int {
     if (n < 2) {
         return n
@@ -48,7 +48,7 @@ fib(10) = 55
 
 ## 3. 数组、struct 与标准库
 
-```c
+```cin
 import "sort.cin"
 import "array.cin"
 
@@ -88,7 +88,7 @@ struct 实例默认全零、成员用 `.` 访问。参考 [模块与标准库](/
 
 ## 4. 控制流
 
-```c
+```cin
 function main() -> int {
     int sum = 0
     for (int i = 1; i <= 10; i++) {
@@ -126,7 +126,7 @@ sum=20 d=4 pass
 
 ## 5. 位运算、整数除法与字符串
 
-```c
+```cin
 function main() -> int {
     int a = 0b1100 & 0b1010        // 8
     int b = 0b1100 | 0b0010        // 14
@@ -171,7 +171,7 @@ s[0]=67
 
 ## 6. 模块与内置标准库
 
-```c
+```cin
 import "math.cin"
 import "str.cin"
 
@@ -205,7 +205,7 @@ repeat(ab,3)=ababab
 
 ## 7. 宿主能力 (需要原生运行时)
 
-```c
+```cin
 function main() -> int {
     string f = "cin_io.txt"
     file_write(f, "hello")

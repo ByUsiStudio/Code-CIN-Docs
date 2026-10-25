@@ -43,7 +43,7 @@ CIN 内置一个跨平台的 2D 画布 (Go 标准库实现, 可导出 PNG)。同
 | `save_png(path)` | int | 导出 PNG, `0` 成功 / `-1` 失败 |
 | `show_canvas()` | int | 存到临时 PNG 并用系统查看器打开 (跨平台“窗口”) |
 
-```c
+```cin
 function draw() -> int {
     canvas(200, 100)
     set_color(0xFF0000)            // 红
@@ -81,7 +81,7 @@ function draw() -> int {
 | `vkb_show()` | `int` | 弹出屏幕/触摸键盘 (Windows: TabTip/输入体验, 绑定当前窗口; Linux: onboard / matchbox-keyboard / xvkbd; macOS: 辅助功能键盘), `0` / `-1` 不可用 |
 | `vkb_hide()` | `int` | 收起屏幕/触摸键盘, `0` / `-1` 不可用 |
 
-```c
+```cin
 import "key.cin"
 
 function main() -> int {
@@ -130,7 +130,7 @@ function main() -> int {
 | `audio_pause()` | `int` | 暂停播放, `0` 成功; 无播放 / 已暂停 / 平台不支持 `-1` |
 | `audio_resume()` | `int` | 恢复播放 (进度无缝续走, 结束时刻相应后移), `0` / 无暂停可恢复 `-1` |
 
-```c
+```cin
 function main() -> int {
     audio_volume(80)
     beep(440, 300)                    // A4 蜂鸣 (阻塞式)
@@ -162,7 +162,7 @@ function main() -> int {
 | `arg(i)` | `string` | 第 `i` 个参数; 越界为空串 |
 | `input_str()` | `string` | 读入一行 UTF-8 文本 (不含行尾); EOF 为空串; **自带回显与行编辑** |
 
-```c
+```cin
 function main() -> int {
     int n = arg_count()
     for (int i = 0; i < n; i = i + 1) {
@@ -216,7 +216,7 @@ echo Alice | codecin demo.cin       # 管道输入同样走 input_str
 
 实测示例 (Windows, 原生路径):
 
-```c
+```cin
 function main() -> int {
     string f = "cin_io.txt"
     file_write(f, "hello")
@@ -236,7 +236,7 @@ exists = 1
 
 路径与文件管理:
 
-```c
+```cin
 string dir = temp_dir()
 string f = path_join(dir, "cin_io.txt")
 file_write(f, "hello")
@@ -270,7 +270,7 @@ chdir(dir)                             // 之后的相对路径基于 dir
 | `mem_info()` | string | JSON `{"total_kb":N,"free_kb":M}`; 未知平台为 `{"total_kb":0,"free_kb":0}` |
 | `is_android()` | int | `1` Android (含 Termux) / `0` |
 
-```c
+```cin
 println("os = " + os_name())            // os = windows
 println("cwd = " + cwd())               // cwd = D:\ByUsi\Projects\UCPU
 setenv("MY_VAR", "42")
@@ -404,7 +404,7 @@ function main() -> int {
 | `base64_encode(s)` | string | 标准 Base64 (带 `=` 填充) |
 | `base64_decode(s)` | string | Base64 解码; **非法输入返回空串** |
 
-```c
+```cin
 println(sha256("hello"))            // 2cf24dba5fb0a30e26e83b2ac5b9e29e...
 string enc = base64_encode("hello")
 println(enc)                        // aGVsbG8=
@@ -430,7 +430,7 @@ println(int_to_str(strlen(base64_decode("!!"))))   // 0 (非法输入 -> 空串)
 | macOS | `pbpaste` | `pbcopy` | `osascript` | `open` |
 | Android / Termux | `termux-clipboard-get` | `termux-clipboard-set` | `termux-notification` | `termux-open-url` |
 
-```c
+```cin
 clipboard_set("来自 CIN 的文本")
 println(clipboard_get())                                  // 来自 CIN 的文本
 println("notify = " + int_to_str(notify("Code CIN", "完成")))
@@ -457,7 +457,7 @@ println("open = " + int_to_str(open_url("https://example.com")))
 | `termux_dialog(title)` | string | 弹出输入对话框 (JSON) |
 | `termux_sms_send(number, text)` | int | 发送短信 |
 
-```c
+```cin
 if (termux_available() == 1) {
     termux_notify("Code CIN", "任务完成")
     termux_toast("hello from CIN")
@@ -488,7 +488,7 @@ if (termux_available() == 1) {
 | `termux_fingerprint()` | string | 指纹认证结果 (JSON; 失败空串) |
 | `termux_sensor(type)` | string | 传感器单次读数 (JSON, `termux-sensor -s <type> -n 1`; 失败空串) |
 
-```c
+```cin
 if (is_android() == 1) {
     android_intent("android.intent.action.VIEW", "https://example.com")
     termux_share("photo.jpg")
@@ -543,7 +543,7 @@ if (is_android() == 1) {
 `k_is_special` (扩展键码判定)、`key_wait` (10ms 轮询阻塞等一键)。
 :::
 
-```c
+```cin
 import "key.cin"
 
 function main() -> int {

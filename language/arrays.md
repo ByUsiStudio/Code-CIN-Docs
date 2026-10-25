@@ -15,7 +15,7 @@ CIN 的数组分两种写法, 语义不同, 必须分清:
 
 ## 声明与默认值
 
-```c
+```cin
 int a[5]                        // 一维, 全部为 0
 float m[3][4]                   // 二维 (3 行 4 列, 行主序)
 int init[4] = {1, 2, 3, 4}      // 字面量初始化
@@ -29,7 +29,7 @@ string names[3]                 // 字符串数组 (三个空串指针)
 
 ## 下标访问
 
-```c
+```cin
 int a[5] = {10, 20, 30, 40, 50}
 println(int_to_str(a[0]))          // 10
 a[4] = 99
@@ -45,7 +45,7 @@ println(int_to_str(m[1][2]))       // 6   (第 2 行第 3 列)
 
 定长数组可以直接用**范围 for** 遍历 (不用自己维护下标):
 
-```c
+```cin
 int a[5] = {10, 20, 30, 40, 50}
 int total = 0
 for (int v : a) {
@@ -71,7 +71,7 @@ codecin prog.cin --bounds-check
 
 参数与返回值用 `T[]` 表示“不知道长度的数组”:
 
-```c
+```cin
 function sum(int[] arr, int n) -> int {
     int s = 0
     for (int i = 0; i < n; i = i + 1) {
@@ -95,7 +95,7 @@ function main() -> int {
 `int[]` 作为函数返回类型在语法上存在, 但指向的堆块没有生命周期保证, 极易踩到脏数据。
 需要返回多个值时, 更稳妥的做法是把结果写入调用方传入的数组:
 
-```c
+```cin
 function divmod(int a, int b, int[] out2) -> void {
     out2[0] = idiv(a, b)
     out2[1] = a - idiv(a, b) * b
@@ -114,7 +114,7 @@ function main() -> int {
 
 内置库对数组的接口都是“数组 + 长度”的形式:
 
-```c
+```cin
 import "array.cin"
 import "sort.cin"
 
@@ -140,7 +140,7 @@ max = 9
 
 `string` 不是数组, 但可以用 `s[i]` **只读**访问单个字节 (返回 `0..255` 的整数编码):
 
-```c
+```cin
 string s = "Code CIN"
 int c = s[0]              // 67 ('C')
 ```

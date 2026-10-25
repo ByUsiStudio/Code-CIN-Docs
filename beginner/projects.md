@@ -13,7 +13,7 @@ description: "第 13 章：CIN 综合实战——计算器、猜数字、成绩�
 
 用 `switch` 做四则运算, 并处理“除数为 0”的错误。
 
-```c
+```cin
 function main() -> int {
     float a = 12.5
     float b = 4
@@ -56,7 +56,7 @@ function main() -> int {
 
 用“二分法”自动猜, 顺便体会 `while` 与 `idiv`:
 
-```c
+```cin
 import "rand.cin"
 
 function main() -> int {
@@ -104,7 +104,7 @@ function main() -> int {
 用**并行数组**存表格数据 (为什么不用 struct 数组, 见
 [第 9 章的限制说明](/beginner/ch09-structs#_9-4-一张表-用并行数组)), 输出一张小报表:
 
-```c
+```cin
 function main() -> int {
     string names[5]
     int scores[5]
@@ -161,7 +161,7 @@ function main() -> int {
 
 ## 项目 4: 排序 + 二分查找
 
-```c
+```cin
 import "sort.cin"
 
 function main() -> int {
@@ -191,7 +191,7 @@ function main() -> int {
 
 统计一段文字的单词数、最长单词与元音个数:
 
-```c
+```cin
 function main() -> int {
     string text = "the quick brown fox jumps over the lazy dog"
     int n = strlen(text)
@@ -236,7 +236,7 @@ function main() -> int {
 矩阵用二维数组表示, **用循环填充** (局部二维数组的 `{ {...} }` 字面量初始化当前无效,
 原因见 [第 7 章](/beginner/ch07-arrays#_7-8-二维数组)):
 
-```c
+```cin
 function main() -> int {
     int A[2][3]
     int B[3][2]

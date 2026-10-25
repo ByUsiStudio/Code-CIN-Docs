@@ -13,7 +13,7 @@ description: "第 9 章：CIN struct——定义、成员访问、嵌套、struc
 
 假设要保存一个学生的“姓名 + 分数”。用两个互不相干的变量很别扭:
 
-```c
+```cin
 string name = "小明"
 int score = 92
 // 数据一多, 就分不清谁是谁
@@ -21,7 +21,7 @@ int score = 92
 
 struct 把两者绑成一个类型, 语义清晰:
 
-```c
+```cin
 struct Student {
     string name
     int score
@@ -34,7 +34,7 @@ struct Student {
 
 ## 9.2 使用: 声明、赋值、读取
 
-```c
+```cin
 struct Student {
     string name
     int score
@@ -61,7 +61,7 @@ function main() -> int {
 `Student s` 之后 `s.score` 是 `0`, 但 `s.name` **不保证是 `""`** —— 实测它会指向相邻的
 字符串字面量:
 
-```c
+```cin
 struct Student {
     string name
     int score
@@ -81,7 +81,7 @@ function main() -> int {
 
 需要“两个点”时, 声明**两个独立的 struct 变量**, 让函数分别接收:
 
-```c
+```cin
 struct Point {
     int x
     int y
@@ -122,7 +122,7 @@ p2 = (5, 6)
 ::: danger 嵌套 struct 的字段访问 (`r.a.x`) 当前不可靠
 实测: 结构里套结构时, 多层字段访问会互相覆盖:
 
-```c
+```cin
 struct Point { int x
                int y }
 struct Rect {
@@ -143,7 +143,7 @@ function main() -> int {
 
 **规避办法**: 用扁平字段, 或直接声明多个 struct 变量 (上面的例子)。
 
-```c
+```cin
 struct Rect {           // 扁平写法: 每个坐标一个字段
     int x1
     int y1
@@ -163,7 +163,7 @@ function width(Rect r) -> int {
 
 要保存“多个人的姓名 + 分数”时, 用两个下标对齐的数组 (**并行数组**):
 
-```c
+```cin
 function main() -> int {
     string names[3]
     int scores[3]
@@ -201,7 +201,7 @@ function main() -> int {
 实测: 给 `cls[i].字段` 赋值时, 所有元素会写到**同一个位置**, 读出来全是最后一次
 写入的值 (局部数组与全局数组都一样):
 
-```c
+```cin
 Student cls[3]
 cls[0].name = "小明"; cls[0].score = 92
 cls[1].name = "小红"; cls[1].score = 85
@@ -217,7 +217,7 @@ cls[2].name = "小刚"; cls[2].score = 78
 
 struct 按**值**传递: 函数里改的是副本, 外面的原值不变。需要“就地修改”时传数组。
 
-```c
+```cin
 struct Point {
     int x
     int y
@@ -260,7 +260,7 @@ function main() -> int {
 
 ## 9.6 综合例子: 成绩单分析
 
-```c
+```cin
 function print_report(string[] names, int[] scores, int n) -> void {
     int total = 0
     int pass = 0

@@ -37,7 +37,7 @@ Code CIN 的错误面板一定包含**位置**和**原因**:
 
 在关键位置打印变量, 看它和你以为的是否一致:
 
-```c
+```cin
 function average(int[] a, int n) -> float {
     int sum = 0
     for (int i = 0; i < n; i++) {
@@ -131,7 +131,7 @@ sh codecin/native/build.sh                                          # Linux / ma
 
 `assert(条件 [, 消息])` 在条件不成立时立即中止程序, 并精确报告 `文件:行号`:
 
-```c
+```cin
 function average(int[] a, int n) -> float {
     assert(n > 0, "average: n 必须为正")
     int sum = 0
@@ -153,7 +153,7 @@ function average(int[] a, int n) -> float {
 
 下面这段代码想求 5 个分数的总分:
 
-```c
+```cin
 function main() -> int {
     int scores[5] = {80, 90, 70, 60, 100}
     int sum = 0
@@ -194,7 +194,7 @@ codecin prog.cin --bounds-check
 ::: warning `--bounds-check` 也有看不到的地方
 当数组以 `int[] a` **指针形式**传给函数时, 运行时不知道它的长度, 越界检查无法生效:
 
-```c
+```cin
 function average(int[] a, int n) -> float {   // a 只带地址, 不带长度
     int sum = 0
     for (int i = 0; i <= n; i++) {            // 这里越界, --bounds-check 抓不到
@@ -255,7 +255,7 @@ function average(int[] a, int n) -> float {   // a 只带地址, 不带长度
 
 1. 下面这段代码为什么死循环? 用 `--max-instructions` 验证, 然后修好:
 
-   ```c
+   ```cin
    function main() -> int {
        int i = 0
        while (i < 5) {

@@ -15,7 +15,7 @@ CIN 的编译前端是**手写词法分析器**（`codecin/cin.py` 中的 `token
 | 行注释 | `// 说明文字` | 到行尾结束；可用于语句尾部 |
 | 块注释 | `/* 说明文字 */` | 可跨多行；块注释内不嵌套 |
 
-```c
+```cin
 // 整行注释
 int x = 1        // 行尾注释
 /* 块注释
@@ -37,7 +37,7 @@ int y = 2
 | 内嵌指令名 | `set` `add` `subtract` `multiply` `divide` `increment` `decrement`（语句首出现时按内嵌语句解析） |
 | 内建函数名 | `println` `print` `strlen` `sqrt` … 见 [内建函数](/language/builtins) |
 
-```c
+```cin
 int Counter = 1      // 与 counter 是两个不同的变量
 int _tmp = 2
 int a1_b2 = 3
@@ -53,7 +53,7 @@ CIN 的关键字识别发生在**语法层**而不是词法层：`function`、`i
 
 ### 整数字面量
 
-```c
+```cin
 int dec = 42
 int neg = -7              // 负号是一元运算符, 不是字面量的一部分
 int hex = 0xFF            // 16 进制 (0x / 0X)
@@ -74,7 +74,7 @@ unsigned int big = 4000000000
 | 十六进制上限 | 不能超过 `0xFFFFFFFFFFFFFFFF`（无符号 64 位最大值） |
 | 非法写法 | 只有前缀没有数字（`0x`）、纯下划线（`0x_`）会报 `Malformed numeric literal` |
 
-```c
+```cin
 int a = 0xFFu             // 255
 int b = 0b1010U           // 10
 int c = 0o17L             // 15
@@ -90,7 +90,7 @@ float f = 100f            // 100.0
 
 ### 浮点字面量
 
-```c
+```cin
 float pi = 3.14
 float tiny = 1e-5             // 科学计数法 (e / E, 指数可带 +/-)
 float big = 2.5E+10
@@ -109,7 +109,7 @@ float under = 1_000.5         // 下划线同样可读
 
 字符字面量是**整数字符编码**（没有任何独立的 char 值语义），可用转义：
 
-```c
+```cin
 char letter = 'A'             // 65
 char newline = '\n'           // 10
 char tab = '\t'               // 9
@@ -130,7 +130,7 @@ char dquote = '\"'            // 34
 
 字符串用双引号，支持单字符转义与字节/码点转义；**不支持** `'` 包裹的字符串：
 
-```c
+```cin
 string s = "hello"
 string path = "C:\\temp\\file.txt"      // 反斜杠要转义
 string multi = "line1\nline2"
@@ -145,7 +145,7 @@ string empty = ""
 | `\uHHHH` | Unicode 码点，**必须正好 4 位**十六进制，按 UTF-8 编码写入 | `"\u4E2D"` 与 `"中"` 等价 |
 | `\UHHHHHHHH` | Unicode 码点，**必须正好 8 位**十六进制，按 UTF-8 编码写入 | `"\U0001F600"` |
 
-```c
+```cin
 string a = "\xE4\xB8\xAD"       // 原始字节: 中
 string b = "\u4E2D"             // 码点: 同样是 中
 println(int_to_str(strlen(a)) + " " + int_to_str(strlen(b)))   // 3 3
@@ -165,7 +165,7 @@ println("\u4F60\u597D")         // 你好
 
 ### 布尔字面量
 
-```c
+```cin
 bool ok = true
 bool no = false
 println("ok = " + ok)          // ok = true
@@ -195,7 +195,7 @@ CIN 以**换行作为语句终止符**（`;` 可作显式分隔符）。词法�
 ,  .  ..  ->              逗号 / 成员 / case 范围 / 箭头
 ```
 
-```c
+```cin
 // 可行: 行尾运算符续行
 int long_result = value1 + value2 +
                   value3
@@ -212,7 +212,7 @@ int m = idiv(1000 +
              7)
 ```
 
-```c
+```cin
 // 错误: 花括号内不能把语句折行
 function bad() -> int {
     int x = 1 +
@@ -235,7 +235,7 @@ Expected RBRACE ... at line N
 
 == 换行结尾（推荐）
 
-```c
+```cin
 int a = 1
 int b = 2
 println("sum = " + (a + b))
@@ -243,14 +243,14 @@ println("sum = " + (a + b))
 
 == 分号结尾
 
-```c
+```cin
 int a = 1; int b = 2;
 println("sum = " + (a + b));
 ```
 
 == 分号 + 同行多语句
 
-```c
+```cin
 case 1: s = 10; break
 case 2: s = 20; break
 ```
@@ -298,7 +298,7 @@ head -c 3 hello.cin | xxd
 ::: details 一个完整的词法探针
 下面这段程序用到了本页的全部字面量形式，可直接运行验证：
 
-```c
+```cin
 function main() -> int {
     int hex = 0xFFu
     int bin = 0b1010U

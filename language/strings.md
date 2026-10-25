@@ -9,7 +9,7 @@ description: "CIN 字符串：NUL 结尾字节序列、指针语义、+ 拼接�
 
 ## 字面量与拼接
 
-```c
+```cin
 string s = "hello"
 string t = s + " " + "world"    // 拼接产生新堆块
 println(t)                      // hello world
@@ -18,7 +18,7 @@ println(strlen(t))              // 11
 
 `+` 任意一侧为 `string` 时, 另一侧自动字符串化:
 
-```c
+```cin
 println("n = " + 42)            // n = 42
 println("pi = " + 3.14)         // pi = 3.14
 println("ok = " + true)         // ok = true
@@ -32,7 +32,7 @@ println("c = " + 'A')           // c = 65  (字符字面量是整数编码)
 
 `print` / `println` 可以一次给多个参数, 依次输出且**不加分隔符**:
 
-```c
+```cin
 int a = 3
 string b = "cin"
 println("a=", a, " b=", b)      // a=3 b=cin
@@ -49,7 +49,7 @@ println()                       // 空行
 | `\uHHHH` | Unicode 码点 (正好 4 位十六进制), 按 UTF-8 编码写入: `"\u4E2D"` 与 `"中"` 等价 |
 | `\UHHHHHHHH` | Unicode 码点 (正好 8 位十六进制) |
 
-```c
+```cin
 string raw = "\xE4\xB8\xAD"     // 3 个字节
 string cp  = "\u4E2D"           // 也是 3 个字节
 println(int_to_str(strlen(raw)) + " " + int_to_str(strlen(cp)))   // 3 3
@@ -59,7 +59,7 @@ println(int_to_str(strlen(raw)) + " " + int_to_str(strlen(cp)))   // 3 3
 
 ## 比较与复制
 
-```c
+```cin
 string a = "abc"
 string b = "abc"
 
@@ -73,7 +73,7 @@ string copy = strcpy(a)         // 复制为新堆块
 ::: danger 不要用 `==` 比较字符串内容
 `==` 比较的是 64 位指针值而不是字符串内容。实测结果:
 
-```c
+```cin
 string a = "ab" + "c"           // 堆块
 string b = "abc"                // 数据区字面量
 if (a == b) { println("true") } else { println("false") }   // false
@@ -85,7 +85,7 @@ if (strcmp(a, b) == 0) { println("strcmp equal") }          // strcmp equal
 
 ## 单字节访问
 
-```c
+```cin
 string s = "Code CIN"
 int h = s[0]                    // 67  ('C')
 int i = s[5]                    // 67  ('C')
@@ -99,7 +99,7 @@ int i = s[5]                    // 67  ('C')
 `string` 是 **NUL 结尾**的, 所以**字节 0 无法表示**——字面量里的 `\x00` 会被当成
 字符串结束, 后面的一切**静默丢弃**:
 
-```c
+```cin
 println(int_to_str(strlen("\x00\x01\x02")))   // 0  (整串变成空串!)
 println(int_to_str(strlen("A\x00B")))         // 1  (在 NUL 处截断)
 println(int_to_str(strlen("\xFF")))           // 1  (非 0 字节没问题)
@@ -135,7 +135,7 @@ println(int_to_str(strlen("\xFF")))           // 1  (非 0 字节没问题)
 
 ## 完整示例
 
-```c
+```cin
 import "str.cin"
 
 function main() -> int {

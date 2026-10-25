@@ -10,7 +10,7 @@ description: "第 7 章：CIN 数组——声明、初始化、遍历、求和�
 
 ## 7.1 声明与初始化
 
-```c
+```cin
 int scores[5]                       // 5 个整数, 默认全是 0
 float prices[3]                     // 3 个浮点数, 默认 0.0
 string names[2]                     // 2 个字符串
@@ -24,7 +24,7 @@ int z[4] = {1, 2}                   // 只给前两个, 其余为 0
 
 ## 7.2 访问与遍历
 
-```c
+```cin
 function main() -> int {
     int scores[5] = {90, 85, 77, 60, 95}
     int n = 5
@@ -55,7 +55,7 @@ function main() -> int {
 
 ## 7.3 求和、平均值、最大值
 
-```c
+```cin
 function main() -> int {
     int a[6] = {12, 7, 19, 4, 26, 10}
     int n = 6
@@ -90,7 +90,7 @@ max = 26, min = 4
 
 ## 7.4 查找: 有没有、在哪里
 
-```c
+```cin
 function main() -> int {
     int a[6] = {12, 7, 19, 4, 26, 10}
     int n = 6
@@ -121,7 +121,7 @@ function main() -> int {
 
 ## 7.5 反转数组
 
-```c
+```cin
 function main() -> int {
     int a[5] = {1, 2, 3, 4, 5}
     int n = 5
@@ -149,7 +149,7 @@ function main() -> int {
 
 思路: 反复比较相邻两个元素, 如果前面比后面大就交换; 一轮结束最大的“冒”到最后。
 
-```c
+```cin
 function bubble_sort(int[] a, int n) -> void {
     for (int i = 0; i < n - 1; i++) {              // 一共 n-1 轮
         for (int j = 0; j < n - 1 - i; j++) {      // 每轮比较到未排好的边界
@@ -180,7 +180,7 @@ function main() -> int {
 ::: tip 实际项目里直接用标准库
 上面的代码是给你理解算法用的。真正写程序时用内置库更快更省事:
 
-```c
+```cin
 import "sort.cin"
 
 function main() -> int {
@@ -197,7 +197,7 @@ function main() -> int {
 
 ## 7.7 数组当参数: 要一起传长度
 
-```c
+```cin
 function sum_of(int[] a, int n) -> int {
     int s = 0
     for (int i = 0; i < n; i++) {
@@ -223,7 +223,7 @@ sum = 60
 
 `int[] a` 是**指针形式**的数组参数 (不写长度); 数组按引用传递, 函数内修改元素外面能看到:
 
-```c
+```cin
 function double_all(int[] a, int n) -> void {
     for (int i = 0; i < n; i++) {
         a[i] = a[i] * 2
@@ -233,7 +233,7 @@ function double_all(int[] a, int n) -> void {
 
 ## 7.8 二维数组
 
-```c
+```cin
 function main() -> int {
     int m[2][3]                        // 2 行 3 列
     for (int i = 0; i < 2; i++) {
@@ -264,7 +264,7 @@ m[1][2] = 6
 ::: danger 局部二维数组的 `{ {...}, {...} }` 字面量初始化当前无效
 实测: 在**函数内部**写
 
-```c
+```cin
 int m[2][3] = { {1, 2, 3}, {4, 5, 6} }    // 局部: 元素不会被写入 (读到 0/垃圾)
 ```
 
@@ -274,7 +274,7 @@ int m[2][3] = { {1, 2, 3}, {4, 5, 6} }    // 局部: 元素不会被写入 (读�
 2. **放到全局** (文件顶层) 再用字面量初始化 —— 全局的二维字面量是有效的;
 3. **压成一维数组**自己算下标: `flat[i * cols + j]` —— 标准库 `matrix.cin` 就是这么做的。
 
-```c
+```cin
 // 写法 2: 全局二维数组字面量 (有效)
 int GRID[2][3] = { {1, 2, 3}, {4, 5, 6} }
 
@@ -285,7 +285,7 @@ function main() -> int {
 }
 ```
 
-```c
+```cin
 // 写法 3: 一维数组模拟矩阵 (行主序)
 function main() -> int {
     int flat[6]
@@ -306,7 +306,7 @@ function main() -> int {
 
 CIN 默认**不检查**数组越界 (和 C 一样), 越界写会踩到相邻数据, 且不报错:
 
-```c
+```cin
 function main() -> int {
     int a[3] = {1, 2, 3}
     a[5] = 99                    // 越界! 但不会报错

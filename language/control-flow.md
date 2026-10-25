@@ -9,7 +9,7 @@ CIN 的控制流与 C 基本一致: 条件必须写在圆括号里, 代码块用
 
 ## if / else
 
-```c
+```cin
 if (x > 0) {
     println("positive")
 } else if (x == 0) {
@@ -21,7 +21,7 @@ if (x > 0) {
 
 单语句体可以省略花括号 (但建议始终加上):
 
-```c
+```cin
 if (done) return
 if (!ready) println("not ready")
 ```
@@ -30,7 +30,7 @@ if (!ready) println("not ready")
 
 ## while
 
-```c
+```cin
 int n = 10
 int sum = 0
 while (n > 0) {
@@ -44,7 +44,7 @@ println("sum = " + sum)      // sum = 55
 
 ## for
 
-```c
+```cin
 for (int i = 0; i < 10; i = i + 1) {
     println("i = " + i)
 }
@@ -60,7 +60,7 @@ for (int i = 0; i < 10; i = i + 1) {
 
 `for (T v : arr)` 逐个把元素拷进 `v`:
 
-```c
+```cin
 int data[5] = {10, 20, 30, 40, 50}
 
 int total = 0
@@ -91,7 +91,7 @@ cid
 
 ## do-while
 
-```c
+```cin
 int n = 0
 do {
     n++
@@ -103,7 +103,7 @@ println("n = " + n)          // n = 3
 
 ## break / continue
 
-```c
+```cin
 int sum = 0
 for (int i = 1; i <= 10; i++) {
     if (i % 2 == 1) continue     // 跳过奇数
@@ -119,7 +119,7 @@ println("sum = " + sum)          // sum = 20
 
 ## switch / case / default
 
-```c
+```cin
 int grade = 75
 int tier = grade / 25            // '/' 是浮点除, 赋给 int 时截断
 switch (tier) {
@@ -149,7 +149,7 @@ level: top
 
 多值与范围写法:
 
-```c
+```cin
 switch (n) {
     case 1, 2, 7..9:  println("small or 7-9"); break
     case -3..-1:      println("negative");     break
@@ -168,7 +168,7 @@ switch (n) {
 
 ## 三目表达式
 
-```c
+```cin
 string status = (score >= 60) ? "pass" : "fail"
 int sign = (x < 0) ? -1 : 1
 int abs_x = (x < 0) ? -x : x
@@ -182,7 +182,7 @@ int abs_x = (x < 0) ? -x : x
 
 `examples/control_flow.cin` (仓库自带, 实测输出如下):
 
-```c
+```cin
 function main() -> int {
     int sum = 0
     for (int i = 1; i <= 10; i++) {

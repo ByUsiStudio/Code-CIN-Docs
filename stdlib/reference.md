@@ -25,7 +25,7 @@ description: Code CIN 41 个官方标准库（含 C / C++ / Go 兼容层）的�
 整数数组工具库。CIN 数组不带长度，所有接口都要显式传元素个数 `n`。就地修改的接口返回值
 是 `void`，调用后直接读原数组即可。
 
-```c
+```cin
 import "array.cin"
 ```
 
@@ -46,7 +46,7 @@ import "array.cin"
 | `a_sum_range` | `a_sum_range(int[] a, int lo, int hi)` | `int` | 左闭右开区间 `[lo, hi)` 的和 |
 | `a_lower_bound` | `a_lower_bound(int[] a, int n, int v)` | `int` | 首个 `>= v` 的下标（数组需有序）；无则 `-1`。实现是线性扫描，不是二分 |
 
-```c
+```cin
 import "array.cin"
 
 function main() -> int {
@@ -81,7 +81,7 @@ function main() -> int {
 `out`（`bi_fact` / `bi_pow` 因此只占固定几块内存）；自己写长循环时请同样使用 `*_into`
 形式，必要时用 `--mem-size` 加大内存。
 
-```c
+```cin
 import "bigint.cin"
 ```
 
@@ -122,7 +122,7 @@ import "bigint.cin"
 | `bi_pow` | `bi_pow(BigInt a, int e)` | `BigInt` | `a` 的 `e` 次幂（快速幂）；**`e < 0` 视为 0**，即返回 `1`；中途一旦饱和立即返回饱和值 |
 | `bi_fact` | `bi_fact(int n)` | `BigInt` | `n` 的阶乘（`n < 0` 视为 `0! = 1`）；超过容量时饱和并置溢出标志，并立即停止迭代 |
 
-```c
+```cin
 import "bigint.cin"
 
 function main() -> int {
@@ -147,7 +147,7 @@ function main() -> int {
 64 位位运算库。内建 `>>` 是**算术右移**（负数补 1），因此本库所有涉及负数的位移都先做
 符号位/掩码处理，保证结果与 64 位无符号语义一致。位下标合法范围是 `0..63`。
 
-```c
+```cin
 import "bits.cin"
 ```
 
@@ -171,7 +171,7 @@ import "bits.cin"
 | `bits_insert` | `bits_insert(int x, int lo, int hi, int v)` | `int` | 用 `v` 的低位替换 `x` 的 `[lo, hi]`；区间非法原样返回 `x` |
 | `bits_bswap` | `bits_bswap(int x)` | `int` | 字节序翻转（bswap64）；`bits_bswap(0x0102)` 为 `0x0201000000000000` |
 
-```c
+```cin
 import "bits.cin"
 
 function main() -> int {
@@ -221,7 +221,7 @@ function main() -> int {
 - `bs_not()` 严格按 `BS_BITS = 512` 位取反（逐字与 64 位全 1 掩码异或，不用 `~` 直接取反
   64 位字），因此空集取反得到 512 位全 1 的满集。
 
-```c
+```cin
 import "bitset.cin"
 ```
 
@@ -263,7 +263,7 @@ import "bitset.cin"
 | `bs_ctz_word` | `bs_ctz_word(int x)` | `int` | 内部辅助：非零 64 位字的最低置位下标（`0..63`），非稳定接口 |
 | `bs_high_bit` | `bs_high_bit(int x)` | `int` | 内部辅助：非零 64 位字的最高置位下标（`0..63`），`x == 0` 返回 `-1`，非稳定接口 |
 
-```c
+```cin
 import "bitset.cin"
 
 function main() -> int {
@@ -319,7 +319,7 @@ function main() -> int {
 **2. RLE 的计数是固定 3 位十进制**（见下表 `codec_rle_encode`）。
 :::
 
-```c
+```cin
 import "codec.cin"
 ```
 
@@ -346,7 +346,7 @@ import "codec.cin"
 > `codec_is_digit` / `codec_is_url_safe` / `codec_b64_ok` / `codec_morse_of` 等），
 > 属于**非稳定接口**，不保证跨版本兼容。
 
-```c
+```cin
 import "codec.cin"
 
 function main() -> int {
@@ -391,7 +391,7 @@ function main() -> int {
 - `comb_is_prime` 用试除法 (试除到 `sqrt(n)`, 用 `d <= idiv(n, d)` 判上界以避免乘法回绕),
   与筛表容量无关, 可用于任意大的 `n`。
 
-```c
+```cin
 import "combin.cin"
 ```
 
@@ -425,7 +425,7 @@ import "combin.cin"
 
 `comb_int_pow(base, exp)` 是本库内部使用的整数幂辅助函数 (`exp < 0` 返回 `0`), 未列在上表中。
 
-```c
+```cin
 import "combin.cin"
 
 function main() -> int {
@@ -470,7 +470,7 @@ function main() -> int {
 
 进制转换与字符串格式化库。整数一律按 **64 位无符号**处理，负数的十六进制输出是 16 位补码形式。
 
-```c
+```cin
 import "conv.cin"
 ```
 
@@ -489,7 +489,7 @@ import "conv.cin"
 | `c_to_int` | `c_to_int(string s)` | `int` | 十进制字符串 → 整数，是内建 `atoi` 的别名 |
 | `c_parse_float` | `c_parse_float(string s)` | `float` | 字符串 → 浮点；支持可选负号与小数部分，遇非法字符停止，不解析指数形式 |
 
-```c
+```cin
 import "conv.cin"
 
 function main() -> int {
@@ -513,7 +513,7 @@ C++ 标准库 (STL) 兼容层，以 `std::` 命名习惯提供 `std::string` / `
 push/pop 返回**新的长度**，调用方把它存回自己的游标变量；push 前需自行保证数组容量。
 查找类的 `npos` 统一以 `-1` 表示。
 
-```c
+```cin
 import "cppstd.cin"
 ```
 
@@ -560,7 +560,7 @@ import "cppstd.cin"
 | `stl_find` / `stl_count` | `(int[] v, int len, int x)` | `int` | `<algorithm>` 馎查找 / 计数 |
 | `stl_clamp` | `(int x, int lo, int hi)` | `int` | 钳制到 `[lo, hi]` |
 
-```c
+```cin
 import "cppstd.cin"
 
 function main() -> int {
@@ -586,7 +586,7 @@ C `char*` → `string`、C `float/double` → `float`、C `bool` → `int(0/1)`�
 C `EOF` → `-1`。差异：CIN 无裸指针，「写入 dst」类 API 返回新串、
 `strchr` 返回**下标**（C 返回指针）；数组以引用传递并显式带长度。
 
-```c
+```cin
 import "cstd.cin"
 ```
 
@@ -619,7 +619,7 @@ import "cstd.cin"
 | `libc_print` | `(string s)` | `int` | 输出不换行 |
 | `libc_putchar` | `(int ch)` | `int` | 输出单个字符，返回字符码 |
 
-```c
+```cin
 import "cstd.cin"
 
 function main() -> int {
@@ -658,7 +658,7 @@ function main() -> int {
 
 **全局状态**（全局数据段，由运行时清零）：行缓冲 `string csv_buf = ""` 与字段计数 `int csv_buf_n = 0`，合计 2 槽 = 16 字节；缓冲内容在堆上，上限 `CSV_BUF_MAX = 1024` 字节。库内只有一份全局实例。
 
-```c
+```cin
 import "csv.cin"
 ```
 
@@ -686,7 +686,7 @@ import "csv.cin"
 字符串拼接产生不回收的堆块，`csv_trim_cells` 会按字段逐段重建结果串。默认 1 GiB 内存下常规使用不会触顶，但反复 `csv_line_start` / 拼接仍会持续吃堆（`csv_line_add` 单次最多累积 1024 字节），超长表请及时重用缓冲或加 `--mem-size`。
 :::
 
-```c
+```cin
 import "csv.cin"
 
 function main() -> int {
@@ -725,7 +725,7 @@ function main() -> int {
   也不要在本库的函数之间嵌套调用。
 * 库内只有一份全局实例，同一程序内共享。
 
-```c
+```cin
 import "dp.cin"
 ```
 
@@ -745,7 +745,7 @@ import "dp.cin"
 | `dp_max_subarray` | `dp_max_subarray(int[] a, int n)` | `int` | 最大子段和（Kadane，O(n)）；**`n <= 0` 返回 `0`**；至少取一个元素，全负数时返回其中最大的那个 |
 | `dp_min_path` | `dp_min_path(int[] grid, int rows, int cols)` | `int` | 网格最小路径和（只能向右/向下），网格按**行主序一维**给出：`grid[r * cols + c]`；起点与终点都计入和；**`rows <= 0` 或 `cols <= 0` 返回 `0`**；**`cols > 256` 返回 `-1`**（列数参与行主序下标，定长滚动数组放不下，明确失败） |
 
-```c
+```cin
 import "dp.cin"
 
 function main() -> int {
@@ -787,7 +787,7 @@ FFI 动态库调用便捷封装。封装内建 `dlopen` / `dlsym` / `ffi_call` /
 位模式），浮点参数走 `ffi_callf*` 封装（float 数组槽即 IEEE754 位模式，经 Windows x64
 `XMM0-3` / SysV `XMM0-7` 寄存器正确传参）；两种参数混用暂无封装。
 
-```c
+```cin
 import "ffi.cin"
 ```
 
@@ -833,7 +833,7 @@ function main() -> int {
 - `width <= 0` 一律返回 `""`（`fmt_cell` / `fmt_sep` / `fmt_bar` / `fmt_border`），或者原样返回内容（`fmt_int_width` / `fmt_int_zero` / `fmt_align`）；
 - `fmt_float_dec` 的 `|v| >= 1e9` 时退化为 `float_to_str(v)`（定点整数部分会溢出 64 位整数槽），该退化不做补零。
 
-```c
+```cin
 import "fmt.cin"
 ```
 
@@ -865,7 +865,7 @@ import "fmt.cin"
 每次调用都新建堆块且不回收。默认 1 GiB 内存下常规使用不会触顶；但堆块不回收，超大表格（`fmt_border` 的 `cols * (col_width + 1)`、超长 `fmt_cell` 内容）请自行分块或加 `--mem-size`，否则会报 `Heap exhausted: need ...`。
 :::
 
-```c
+```cin
 import "fmt.cin"
 
 function main() -> int {
@@ -902,7 +902,7 @@ function main() -> int {
 的分母 `10^20` 超出 `int` 范围）；本库不做大数处理，需要任意精度时请配合 `bigint.cin`。
 约分只使用 `idiv` 与 `%`，`gcd` 由 `fr_gcd` 自行实现，不依赖其它库。
 
-```c
+```cin
 import "frac.cin"
 ```
 
@@ -928,7 +928,7 @@ import "frac.cin"
 | `fr_to_str` | `fr_to_str(Frac a)` | `string` | 整数输出 `"2"`，否则输出 `"3/4"`；输出前先规范化 |
 | `fr_to_float` | `fr_to_float(Frac a)` | `float` | 浮点近似 `num / den`；分母为 0 时置错误标志并返回 `0.0` |
 
-```c
+```cin
 import "frac.cin"
 
 function main() -> int {
@@ -957,7 +957,7 @@ Go 标准库兼容层，以 `pkg.Func` 命名习惯提供 Go `strings` / `strcon
 命名里的包段与 Go 文档一一对应，便于从 Go 移植或查阅语义。纯 CIN 实现；
 唯一例外是 `go_os_args_*`（依赖命令行参数内建）。
 
-```c
+```cin
 import "gostd.cin"
 ```
 
@@ -993,7 +993,7 @@ import "gostd.cin"
 | `go_os_args_len` | `()` | `int` | `len(os.Args)`：CLI `--` 之后传给 CIN 程序的参数个数；依赖命令行参数内建 |
 | `go_os_args_get` | `(int i)` | `string` | `os.Args[i]`（越界空串；下标从 `0` 计 CIN 参数）；依赖命令行参数内建 |
 
-```c
+```cin
 import "gostd.cin"
 
 function main() -> int {
@@ -1029,7 +1029,7 @@ function main() -> int {
 * 全局数据段占用约 `579` 槽（`4632` 字节），只有一份全局实例，
   需要多张图请用 `struct` 自行封装。
 
-```c
+```cin
 import "graph.cin"
 ```
 
@@ -1056,7 +1056,7 @@ import "graph.cin"
 | `graph_aux_node` | `graph_aux_node(int u)` | `int` | 内部辅助：节点编号是否合法，非稳定接口 |
 | `graph_aux_arc` | `graph_aux_arc(int u, int v)` | `int` | 内部辅助：无向视角下 `u`、`v` 之间是否有边，非稳定接口 |
 
-```c
+```cin
 import "graph.cin"
 
 function main() -> int {
@@ -1103,7 +1103,7 @@ function main() -> int {
 画布绘图助手库。内部调用 `canvas` / `set_color` / `fill_rect` / `fill_circle` / `draw_line` /
 `draw_text` / `save_png` / `show_canvas` 等宿主能力内建，因此**必须运行在 Go 原生引擎上**。
 
-```c
+```cin
 import "gui.cin"
 ```
 
@@ -1119,7 +1119,7 @@ import "gui.cin"
 | `g_save` | `g_save(string path)` | `int` | 导出 PNG，`0` 成功 / `-1` 失败，转调内建 `save_png` |
 | `g_show` | `g_show()` | `int` | 调系统查看器弹出窗口，转调内建 `show_canvas` |
 
-```c
+```cin
 import "gui.cin"
 
 function main() -> int {
@@ -1138,7 +1138,7 @@ function main() -> int {
 哈希函数库。全部为 64 位整数运算（自然溢出即取模 2^64），适合与 `rand.cin` 配合做简易哈希表
 或布隆过滤器的散列函数。
 
-```c
+```cin
 import "hash.cin"
 ```
 
@@ -1152,7 +1152,7 @@ import "hash.cin"
 | `hash_bucket` | `hash_bucket(int h, int buckets)` | `int` | 映射到 `[0, buckets)`；`buckets <= 0` 返回 0，负数取模结果也归一到非负 |
 | `hash_string_bucket` | `hash_string_bucket(string s, int buckets)` | `int` | 字符串 → 桶下标，即 `hash_bucket(hash_fnv1a(s), buckets)` |
 
-```c
+```cin
 import "hash.cin"
 
 function main() -> int {
@@ -1176,7 +1176,7 @@ function main() -> int {
 空堆时 `heap_pop` / `heap_peek` / `heap_replace` 返回 `0`（无法区分“空”与“堆顶就是 0”，
 需要区分时先查 `heap_is_empty`）。
 
-```c
+```cin
 import "heap.cin"
 ```
 
@@ -1197,7 +1197,7 @@ import "heap.cin"
 | `heap_sift_down` | `heap_sift_down(int i)` | `void` | 内部辅助：把全局堆下标 `i` 下沉，非稳定接口 |
 | `heap_sift_max` | `heap_sift_max(int[] a, int m, int i)` | `void` | 内部辅助：在 `a[0..m-1]` 内按最大堆下沉，供 `heap_sort` 使用，非稳定接口 |
 
-```c
+```cin
 import "heap.cin"
 
 function main() -> int {
@@ -1240,7 +1240,7 @@ function main() -> int {
 `file_size` / `file_delete` / `mkdir` / `dir_list` 等**宿主能力内建**，必须运行在 Go 原生引擎上；
 文本处理部分（`io_line_count` / `io_get_line` / `io_split_get` / `io_split_count`）是纯 CIN 逻辑。
 
-```c
+```cin
 import "io.cin"
 ```
 
@@ -1262,7 +1262,7 @@ import "io.cin"
 | `io_split_get` | `io_split_get(string text, string sep, int idx)` | `string` | 按分隔串切分，取第 `idx` 段；`sep` 为空串时 `idx == 0` 返回原文，否则空串；越界返回空串 |
 | `io_split_count` | `io_split_count(string text, string sep)` | `int` | 按分隔串切分的段数；`sep` 为空串时返回 1 |
 
-```c
+```cin
 import "io.cin"
 
 function main() -> int {
@@ -1283,7 +1283,7 @@ function main() -> int {
 极简 JSON 取值库。面向**扁平对象**（典型场景是 Termux API 返回的 JSON），不做完整语法解析，
 只支持 `"key": value` 形式的字符串/数字/布尔/空值提取；嵌套对象内层字段不会被正确解析。
 
-```c
+```cin
 import "json.cin"
 ```
 
@@ -1296,7 +1296,7 @@ import "json.cin"
 | `j_has` | `j_has(string json, string key)` | `int` | 是否包含 `"key"` 字面量，`1`/`0`；只看引号包裹的键名，不做语法校验 |
 | `j_bool` | `j_bool(string json, string key)` | `int` | 取布尔字段：值为 `true` 或 `1` 时返回 1，其余（含 `false`、缺失）返回 0 |
 
-```c
+```cin
 import "json.cin"
 
 function main() -> int {
@@ -1317,7 +1317,7 @@ function main() -> int {
 首次调用会把终端切到原始输入（不回显、无行缓冲），程序退出自动恢复；监听期间 Ctrl+C
 不再终止程序，表现为键码 `k_ctrl(67)` 即 `3`。
 
-```c
+```cin
 import "key.cin"
 ```
 
@@ -1337,7 +1337,7 @@ import "key.cin"
 | `k_is_special` | `k_is_special(int code)` | `int` | 扩展键码判定：`1001..1030` 返回 `1`，其余（含 `0..255` 原始字节）返回 `0` |
 | `key_wait` | `key_wait()` | `int` | 阻塞等待一个按键：内部以 10ms 轮询 `get_key()`，取到键码即返回 |
 
-```c
+```cin
 import "key.cin"
 
 function main() -> int {
@@ -1360,7 +1360,7 @@ function main() -> int {
 数学扩展库。注意 CIN 的 `/` 恒为浮点除法，本库提供的是显式的取整/最值/夹取辅助函数。
 同一文件同时给出 `f_`（浮点）与 `i_`（整数）两组函数。
 
-```c
+```cin
 import "math.cin"
 ```
 
@@ -1381,7 +1381,7 @@ import "math.cin"
 
 == 调用标准库
 
-```c
+```cin
 import "math.cin"
 
 function main() -> int {
@@ -1394,7 +1394,7 @@ function main() -> int {
 
 == 等价内建
 
-```c
+```cin
 function main() -> int {
     println(float_to_str(round(2.5)))      // 3
     println(float_to_str(floor(-2.5)))     // -3
@@ -1411,7 +1411,7 @@ function main() -> int {
 CIN 的 `int[]` 与固定数组，无需动态内存。所有 `_to` 形式把结果写入调用方提供的输出数组
 `out`（`out` 与输入数组共用时结果不确定，`mat_mul` 明确要求 `out` 不得与 `a`/`b` 为同一数组）。
 
-```c
+```cin
 import "matrix.cin"
 ```
 
@@ -1433,7 +1433,7 @@ import "matrix.cin"
 | `mat_det` | `mat_det(int[] a, int n)` | `int` | 行列式，拉普拉斯递归展开；**适合 `n <= 6`**（内部 `minor[36]` 只够 `(n-1)^2 <= 36` 的余子式）。`n <= 0` 返回 0，`n == 1` 返回 `a[0]`，`n == 2` 走闭式公式 |
 | `mat_print` | `mat_print(int[] a, int n)` | `void` | 调试打印，每行一个方括号，元素以空格分隔 |
 
-```c
+```cin
 import "matrix.cin"
 
 function main() -> int {
@@ -1462,7 +1462,7 @@ function main() -> int {
 原样写入缓冲内存），按小端逐字节重组字符串；调用前无需清零。逐字节重组是 O(n²)
 堆拷贝，建议单次接收 `<= 4096` 字节；二进制 / 大流量场景直接用底层内建处理原始字节。
 
-```c
+```cin
 import "net.cin"
 ```
 
@@ -1536,7 +1536,7 @@ function main() -> int {
 - `path_normalize` 的 `..` 只做**字符串层面**折叠, **不访问文件系统**, 不解析符号链接, 也不受真实目录结构约束;
 - 路径分段比较一律**大小写敏感** ("A/b" 与 "a/b" 没有公共前缀)。
 
-```c
+```cin
 import "path.cin"
 ```
 
@@ -1564,7 +1564,7 @@ import "path.cin"
 `path_parts_buf` 并返回段数), 上表未列出; 常规使用请用 `path_split_count` /
 `path_split_get`。
 
-```c
+```cin
 import "path.cin"
 
 function main() -> int {
@@ -1611,7 +1611,7 @@ function main() -> int {
 因此**同一程序内各只有一份实例**；需要多实例时请用 `struct` 自行封装。
 容量上限 `QUEUE_CAP` / `STACK_CAP` 均为 **64**。
 
-```c
+```cin
 import "queue.cin"
 ```
 
@@ -1634,7 +1634,7 @@ import "queue.cin"
 | `stack_pop` | `stack_pop()` | `int` | 出栈并返回；空时返回 0 |
 | `stack_peek` | `stack_peek()` | `int` | 查看栈顶（不出栈）；空时返回 0 |
 
-```c
+```cin
 import "queue.cin"
 
 function main() -> int {
@@ -1661,7 +1661,7 @@ function main() -> int {
 
 随机工具库。基于内建 `rand()`；需要可复现序列时先调用内建 `srand(种子)`（只种一次，别在循环里种）。
 
-```c
+```cin
 import "rand.cin"
 ```
 
@@ -1675,7 +1675,7 @@ import "rand.cin"
 | `r_choice` | `r_choice(int[] a, int n)` | `int` | 随机取一个元素；`n <= 0` 返回 0，不做错误上报 |
 | `r_chance` | `r_chance(int p)` | `int` | 以 `p`（0..100 的百分比）概率返回 1；`p <= 0` 恒 0，`p >= 100` 恒 1 |
 
-```c
+```cin
 import "rand.cin"
 
 function main() -> int {
@@ -1716,7 +1716,7 @@ function main() -> int {
 - 集合运算允许 `dst` 与 `a` / `b` 是同一个槽（原地运算）。
 - `set_clear(which)` 与 `set_reset(which)` 完全等价。
 
-```c
+```cin
 import "set.cin"
 ```
 
@@ -1749,7 +1749,7 @@ import "set.cin"
 | `set_popcount64` | `set_popcount64(int x)` | `int` | 内部辅助：单个 64 位字的 popcount（含符号位），非稳定接口 |
 | `set_raw_test` | `set_raw_test(int which, int v)` | `int` | 内部辅助：直接读第 `v` 位，调用前须保证 `which` 合法且 `0 <= v < 128`，非稳定接口 |
 
-```c
+```cin
 import "set.cin"
 
 function main() -> int {
@@ -1789,7 +1789,7 @@ function main() -> int {
 
 排序与查找库。三个基础排序 + 快速排序，全部原地升序；二分查找要求数组已升序。
 
-```c
+```cin
 import "sort.cin"
 ```
 
@@ -1803,7 +1803,7 @@ import "sort.cin"
 | `sort_quick_all` | `sort_quick_all(int[] a, int n)` | `void` | 整体入口，等价于 `n > 1` 时调用 `sort_quick(a, 0, n - 1)` |
 | `bin_search` | `bin_search(int[] a, int n, int v)` | `int` | 二分查找，返回命中下标或 `-1`；**数组必须已升序**，重复元素返回其中某个位置（不保证是第一个） |
 
-```c
+```cin
 import "sort.cin"
 
 function main() -> int {
@@ -1825,7 +1825,7 @@ function main() -> int {
 面向 `int` 数组的**顺序统计量**库（中位数/众数/百分位/直方图）与免排序的聚合量。
 与 `codecin/lib/vec.cin`（浮点统计）互补。需要升序输入的接口以 `_sorted` 结尾。
 
-```c
+```cin
 import "stat.cin"
 ```
 
@@ -1847,7 +1847,7 @@ import "stat.cin"
 | `stat_stdev_x100` | `stat_stdev_x100(int[] a, int n)` | `int` | 标准差 ×100（整数化），实现为 `stat_variance_x1000(a, n) / 10` |
 | `stat_is_sorted` | `stat_is_sorted(int[] a, int n)` | `int` | 升序判定，`1`/`0`（与 `sort_is_sorted` 同语义） |
 
-```c
+```cin
 import "stat.cin"
 
 function main() -> int {
@@ -1871,7 +1871,7 @@ function main() -> int {
 字符串变换库。依赖内建 `upper` / `lower` / `substr` / `indexof` / `strlen` / `strcmp`。
 这些函数**分配新堆块**，大量循环拼接会消耗堆（64 位槽，不回收），长循环里请尽量减少拼接次数。
 
-```c
+```cin
 import "str.cin"
 ```
 
@@ -1885,7 +1885,7 @@ import "str.cin"
 | `s_count` | `s_count(string hay, string needle)` | `int` | 不重叠出现次数（如 `s_count("aaa","aa")` 为 1）；`needle` 为空串返回 0 |
 | `s_repeat` | `s_repeat(string ch, int n)` | `string` | 把 `ch` 重复 `n` 次；`n <= 0` 返回空串。参数名是 `ch` 但可传任意字符串 |
 
-```c
+```cin
 import "str.cin"
 
 function main() -> int {
@@ -1906,7 +1906,7 @@ Termux API 便捷封装库。内部 `import "json.cin"`，并转调 `termux_avai
 `termux_clipboard_*` / `termux_battery` / `termux_location` / `termux_wifi_info` 等宿主能力内建。
 需要 **termux-api 命令 + Termux:API 应用**；非 Termux 环境下调用返回 `-1` 或空串。
 
-```c
+```cin
 import "termux.cin"
 ```
 
@@ -1932,7 +1932,7 @@ import "termux.cin"
 | `tx_prompt` | `tx_prompt(string title)` | `string` | 弹出输入对话框并返回用户输入文本；不可用为空串 |
 | `tx_alert` | `tx_alert(string title, string content)` | `int` | 组合动作：通知 + 振动 200ms，返回通知的返回值 |
 
-```c
+```cin
 import "termux.cin"
 
 function main() -> int {
@@ -1954,7 +1954,7 @@ function main() -> int {
 轻量测试断言库。提供计数器（全局 `T_PASS` / `T_FAIL`）与断言；结束时调用 `t_report()`
 输出汇总并**返回失败数**，因此可直接 `return t_report()` 作为 `main` 的退出码。
 
-```c
+```cin
 import "test.cin"
 ```
 
@@ -1968,7 +1968,7 @@ import "test.cin"
 | `t_reset` | `t_reset()` | `void` | 把 `T_PASS` / `T_FAIL` 归零 |
 | `t_report` | `t_report()` | `int` | 输出汇总：全通过打印 `OK: N assertions passed`，否则 `FAILED: F of T`；返回失败数 `T_FAIL` |
 
-```c
+```cin
 import "test.cin"
 import "array.cin"
 
@@ -1990,7 +1990,7 @@ function main() -> int {
 
 下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致）：非 ASCII 按 UTF-8 字节序列逐个处理，不做码点解码；大小写转换只折叠 ASCII 字母（`a-z` / `A-Z`），其余字节原样保留。
 
-```c
+```cin
 import "text.cin"
 ```
 
@@ -2019,7 +2019,7 @@ import "text.cin"
 字符串拼接与 `substr` 都新建堆块且不回收，`txt_reverse` / `txt_swap_case` / `txt_title` 逐段重建结果串，n 字节约需 O(n²) 字节堆。默认 1 GiB 内存下常规文本不会触顶；超长串请分块调用以避免 O(n²) 重组，或加 `--mem-size`，否则会报 `Heap exhausted: need ...`。
 :::
 
-```c
+```cin
 import "text.cin"
 
 function main() -> int {
@@ -2049,7 +2049,7 @@ function main() -> int {
 
 时间工具库。依赖内建 `time()` 取当前 Unix 时间戳（秒）。字符串化依赖 `int_to_str` / `idiv`。
 
-```c
+```cin
 import "time.cin"
 ```
 
@@ -2062,7 +2062,7 @@ import "time.cin"
 | `t_breakdown` | `t_breakdown(int secs, int[] out)` | `void` | 拆解为天/时/分/秒写入 4 元素数组 `out[0..3]`；负秒按绝对值处理 |
 | `t_human` | `t_human(int secs)` | `string` | 人性化时长 `"1d 2h 3m 4s"`，**省略为 0 的高位单位**（`t_human(5)` 为 `"5s"`，`t_human(90061)` 为 `"1d 1h 1m 1s"`） |
 
-```c
+```cin
 import "time.cin"
 
 function main() -> int {
@@ -2085,7 +2085,7 @@ function main() -> int {
 
 切分语义（与 Go `strings.Split` 一致）：`delim` 按**整串**匹配（多字符分隔符算一个整体，不是字符集合）；**保留空 token** —— 连续分隔符之间、串首/串尾分隔符旁边都会产生空 token；空串切分后是 1 个空 token；`delim` 为空串时整个串是唯一 token。下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致），非 ASCII 按 UTF-8 字节序列处理，分隔符请用完整字符。
 
-```c
+```cin
 import "token.cin"
 ```
 
@@ -2102,7 +2102,7 @@ import "token.cin"
 
 内部辅助函数（`tok_match_at` / `tok_is_space_byte`）不是公开 API，后续版本可能调整。
 
-```c
+```cin
 import "token.cin"
 
 function main() -> int {
@@ -2130,7 +2130,7 @@ function main() -> int {
 不支持删除节点，所以节点一旦分配就始终有效，已有节点恰好是下标 `0..tree_size()-1`；
 拒绝重复键，树中不含重复键。遍历结果为空格分隔的字符串，空树时为空串 `""`。
 
-```c
+```cin
 import "tree.cin"
 ```
 
@@ -2152,7 +2152,7 @@ import "tree.cin"
 | `tree_postorder_str` | `tree_postorder_str()` | `string` | 后序遍历（左-右-根），空格分隔；空树返回 `""` |
 | `tree_new_node` | `tree_new_node(int k)` | `int` | 内部辅助：分配一个叶子节点，返回新下标；**满时返回 -1**，非稳定接口 |
 
-```c
+```cin
 import "tree.cin"
 
 function main() -> int {
@@ -2192,7 +2192,7 @@ function main() -> int {
 越界编号是“非法元素”：`uf_find` / `uf_rank` 返回 `-1`，`uf_size` 返回 `0`，
 `uf_connected` / `uf_union` 只要有一个非法就返回 `0`。
 
-```c
+```cin
 import "unionfind.cin"
 ```
 
@@ -2207,7 +2207,7 @@ import "unionfind.cin"
 | `uf_connected` | `uf_connected(int a, int b)` | `int` | `a`、`b` 是否属于同一集合，`1`/`0`；**任一编号越界返回 `0`** |
 | `uf_union` | `uf_union(int a, int b)` | `int` | 合并 `a`、`b` 所在集合；**真正合并返回 1，已在同一集合返回 0，任一编号越界返回 0** |
 
-```c
+```cin
 import "unionfind.cin"
 
 function main() -> int {
@@ -2234,7 +2234,7 @@ function main() -> int {
 字符/字符串校验库。与 `codecin/lib/str.cin` 互补：`str.cin` 做变换（大小写/包含/重复），
 本库做**判定与安全解析**（字符类别、整数字符串、标识符、限幅、带 fallback 的解析）。
 
-```c
+```cin
 import "validate.cin"
 ```
 
@@ -2256,7 +2256,7 @@ import "validate.cin"
 | `val_parse_int` | `val_parse_int(string s, int fallback)` | `int` | 安全解析：`val_is_int` 不通过时返回 `fallback`，否则 `atoi(s)` |
 | `val_is_hex_color` | `val_is_hex_color(string s)` | `int` | 是否 3 位或 6 位十六进制颜色，可带 `#`：`"#ABC"` / `"A1B2C3"` 通过，`"#AB"` / `"#XYZ"` 不通过 |
 
-```c
+```cin
 import "validate.cin"
 
 function main() -> int {
@@ -2278,7 +2278,7 @@ function main() -> int {
 浮点向量与统计库。与 `codecin/lib/stat.cin`（整数顺序统计）互补；`v_var` / `v_std` 是
 **样本**方差与样本标准差（除以 `n-1`），`v_normalize` 是原地操作。
 
-```c
+```cin
 import "vec.cin"
 ```
 
@@ -2297,7 +2297,7 @@ import "vec.cin"
 | `v_norm` | `v_norm(float[] a, int n)` | `float` | 欧几里得范数 `sqrt(v_dot(a, a, n))` |
 | `v_lerp` | `v_lerp(float a, float b, float t)` | `float` | 线性插值 `a + (b - a) * t`；`t` 不限制在 `[0,1]`（可外插） |
 
-```c
+```cin
 import "vec.cin"
 
 function main() -> int {

@@ -45,7 +45,7 @@ Native engine unavailable: 未找到 codecin-native 动态库。
 | `mkdir(path)` | 递归创建目录 |
 | `dir_list(path)` | 列出目录内容 (换行分隔, 目录名带 `/`) |
 
-```c
+```cin
 function main() -> int {
     string path = "diary.txt"
 
@@ -84,7 +84,7 @@ function main() -> int {
 | `temp_dir()` | 系统临时目录 |
 | `chdir(p)` | 切换当前工作目录 |
 
-```c
+```cin
 function main() -> int {
     string dir = temp_dir()
     string f = path_join(dir, "demo.txt")
@@ -109,7 +109,7 @@ function main() -> int {
 `io.cin` 把常见的文本操作包装好了。注意 `io_line_count` / `io_get_line` 接收的是
 **文本内容**而不是路径:
 
-```c
+```cin
 import "io.cin"
 
 function main() -> int {
@@ -142,7 +142,7 @@ function main() -> int {
 
 ## 11.4 系统信息与环境变量
 
-```c
+```cin
 function main() -> int {
     println("系统: " + os_name())          // windows / darwin / linux
     println("主机名: " + hostname())
@@ -178,7 +178,7 @@ function main() -> int {
 | `mem_info()` | 内存信息 JSON `{"total_kb":N,"free_kb":M}`; 未知平台为 0 |
 | `is_android()` | `1` Android (含 Termux) / `0` |
 
-```c
+```cin
 function main() -> int {
     println("毫秒时间戳: " + time_ms())
     println("CPU: " + cpu_count() + " 架构: " + arch_name())
@@ -199,7 +199,7 @@ function main() -> int {
 | `http_post(url, body)` | POST (`text/plain; charset=utf-8`) 并返回响应体; 失败空串 |
 | `download(url, path)` | 下载到文件; `0` 成功 / `-1` 失败 (**非 2xx 算失败**, 上限 256 MiB) |
 
-```c
+```cin
 function main() -> int {
     string page = http_get("https://example.com/")
     println("拿到 " + strlen(page) + " 字节")
@@ -226,7 +226,7 @@ function main() -> int {
 | `base64_encode(s)` | 标准 Base64 编码 (带 `=`) |
 | `base64_decode(s)` | Base64 解码; **非法输入返回空串** |
 
-```c
+```cin
 function main() -> int {
     println(sha256("hello"))
     string enc = base64_encode("hello")
@@ -246,7 +246,7 @@ function main() -> int {
 | `notify(title, body)` | 弹系统通知, `0` 成功 / `-1` 失败 |
 | `open_url(url)` | 用默认浏览器打开, `0` 成功 / `-1` 失败 |
 
-```c
+```cin
 function main() -> int {
     clipboard_set("来自 CIN 的文本")
     println(clipboard_get())
@@ -273,7 +273,7 @@ function main() -> int {
 | `exec(cmd)` | 执行命令, 返回退出码 |
 | `exec_output(cmd)` | 执行命令并返回它的标准输出 |
 
-```c
+```cin
 function main() -> int {
     println("echo 的输出: " + exec_output("echo hello"))
     int code = exec("exit 3")
@@ -304,7 +304,7 @@ function main() -> int {
 | `save_png(path)` | 导出 PNG, `0` 成功 / `-1` 失败 |
 | `show_canvas()` | 存到临时文件并用系统查看器打开 |
 
-```c
+```cin
 function main() -> int {
     canvas(320, 200)
     set_color(0x3366FF)
@@ -319,7 +319,7 @@ function main() -> int {
 
 运行后当前目录会出现 `picture.png`。也可以在 `gui.cin` 里用图表函数直接画柱状图:
 
-```c
+```cin
 import "gui.cin"
 
 function main() -> int {
@@ -355,7 +355,7 @@ g_save = 0
   `termux_brightness` / `termux_camera_photo` / `termux_fingerprint` / `termux_sensor`。
   这些在**非 Android 环境一律优雅失败** (返回 `-1` 或空串), 不会抛异常:
 
-```c
+```cin
 function main() -> int {
     if (is_android() == 1) {
         termux_torch(1)                          // 打开手电筒
@@ -378,7 +378,7 @@ function main() -> int {
 `key_flush()` 清空键盘输入缓冲。需要**真实终端** (管道 / 重定向下 `key_hit` 恒 `0`、
 `get_key` 恒 `-1`, 不报错), 程序退出自动恢复终端设置。
 
-```c
+```cin
 import "key.cin"
 
 function main() -> int {

@@ -22,7 +22,7 @@ CIN 是 Code CIN 的高级语言：一门**语法近似 C / Go 的静态类型�
 
 ## 最小可运行程序
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     println("2 + 3 = " + (2 + 3))
@@ -101,7 +101,7 @@ v5.9.0 起为 native-only：纯 Python 解释器与 JIT 已删除，全部程序
 
 一个 `.cin` 文件由四类顶层元素组成，顺序不限（但 `import` 必须在文件顶部列首）：
 
-```c
+```cin
 // 1. 模块引入 (可省略, 必须在顶部; 同一行不能带行尾注释)
 import "math.cin"
 
@@ -139,7 +139,7 @@ hello 25
 语句以**换行**结尾（推荐），也可用 `;` 显式分隔。注意：换行在花括号块内是**语句终止符**，
 不能随意折行；需要折行时用行尾运算符或括号（详见 [词法规则](/language/lexical)）。
 
-```c
+```cin
 function demo() -> int {
     int a = 1; int b = 2        // 分号分隔, 合法
     int c = a + b               // 换行结尾, 推荐

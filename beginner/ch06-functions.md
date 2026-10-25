@@ -16,7 +16,7 @@ description: "第 6 章：CIN 函数——定义、参数、返回值、void、�
 
 ## 6.2 定义与调用
 
-```c
+```cin
 // 定义: function 名字(参数列表) -> 返回类型 { ... }
 function add(int a, int b) -> int {
     return a + b
@@ -49,7 +49,7 @@ add(10, 20) = 30
 
 ## 6.3 没有返回值: void
 
-```c
+```cin
 function print_info(string name, int age) -> void {
     println(name + " 今年 " + age + " 岁")
 }
@@ -71,7 +71,7 @@ function main() -> int {
 
 ## 6.4 作用域: 局部变量、全局变量与遮蔽
 
-```c
+```cin
 int counter = 0                 // 全局变量, 所有函数都能读写
 
 function bump() -> void {
@@ -103,7 +103,7 @@ x = 1
 CIN 目前**没有真正的块级遮蔽**: 在内层块里再写一次 `int x = 99`, 它和外面的 `x`
 用的是**同一个存储位置**, 内层赋值会把外层也改掉:
 
-```c
+```cin
 function main() -> int {
     int x = 1
     if (true) {
@@ -131,7 +131,7 @@ function main() -> int {
 
 ### 阶乘
 
-```c
+```cin
 function factorial(int n) -> int {
     if (n <= 1) {
         return 1                    // 出口
@@ -153,7 +153,7 @@ function main() -> int {
 
 ### 斐波那契
 
-```c
+```cin
 function fib(int n) -> int {
     if (n < 2) {
         return n                    // fib(0)=0, fib(1)=1
@@ -182,7 +182,7 @@ codecin prog.cin --mem-size 262144      # 把内存扩到 256 KiB
 
 或者把递归改写成循环 (累加/递推), 空间占用恒定:
 
-```c
+```cin
 function fib_loop(int n) -> int {
     int a = 0
     int b = 1
@@ -201,7 +201,7 @@ function fib_loop(int n) -> int {
 CIN 的返回值通过一个寄存器 (`X0`) 传回, 所以**一次只能返回一个值**。
 需要“一次算出两个结果”时, 把结果写进调用方给的数组:
 
-```c
+```cin
 // 求商和余数: 结果写进 out2[0] / out2[1]
 function divmod(int a, int b, int[] out2) -> void {
     out2[0] = idiv(a, b)

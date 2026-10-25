@@ -12,7 +12,7 @@ description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语�
 
 新建 `hello.cin`:
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     println("2 + 3 = " + (2 + 3))
@@ -65,7 +65,7 @@ Code CIN 的编译器/汇编器接受三种输入, 最终都产出 UCBC 字节�
 
 == CIN (`.cin`)
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     return 0

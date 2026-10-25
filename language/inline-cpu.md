@@ -21,7 +21,7 @@ CIN 保留了 7 条 **CPU 风格语句**, 直接对变量做寄存器级操作 �
 
 第二操作数可以是**变量**或**立即数**; 第一操作数必须是已声明的变量。
 
-```c
+```cin
 function cpu_ops() -> void {
     int x = 10
     set x 30
@@ -36,7 +36,7 @@ function cpu_ops() -> void {
 
 ## 与普通表达式的关系
 
-```c
+```cin
 int a = 5
 int b = 3
 
@@ -63,7 +63,7 @@ a += b                // 复合赋值 (同样 a = a + b)
 - [汇编语法参考](/asm/syntax) — `.pl` (关键字风格) 与 `.asm` (助记符风格)
 - [指令集编码表](/reference/isa) — 自动生成的编码表
 
-```c
+```cin
 // 用 --compile-only + --disasm 可以看到内嵌语句编译出的真实指令
 function demo() -> void {
     int x = 1

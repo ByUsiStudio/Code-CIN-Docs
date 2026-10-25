@@ -11,7 +11,7 @@ description: "第 5 章：CIN 循环——while / for / do-while、break 与 con
 
 ## 5.1 while: 条件为真就一直做
 
-```c
+```cin
 function main() -> int {
     int n = 5
     while (n > 0) {
@@ -33,7 +33,7 @@ function main() -> int {
 
 语法: `for (初始化; 条件; 每轮结束后执行) { 循环体 }`
 
-```c
+```cin
 function main() -> int {
     for (int i = 1; i <= 5; i++) {
         println("第 " + i + " 次循环")
@@ -66,7 +66,7 @@ function main() -> int {
 
 数组元素挨个处理时, 不用自己维护下标:
 
-```c
+```cin
 function main() -> int {
     int scores[4] = {90, 75, 88, 60}
     int total = 0
@@ -89,7 +89,7 @@ function main() -> int {
 
 ## 5.3 do-while: 至少执行一次
 
-```c
+```cin
 function main() -> int {
     int i = 10
     do {
@@ -112,7 +112,7 @@ function main() -> int {
 - `break`: 立刻结束**当前这一层**循环;
 - `continue`: 跳过本轮剩下的代码, 直接进入下一轮。
 
-```c
+```cin
 function main() -> int {
     for (int i = 1; i <= 10; i++) {
         if (i % 5 == 0) continue      // 跳过 5 和 10
@@ -132,7 +132,7 @@ function main() -> int {
 
 ### 累加 (求和、求积)
 
-```c
+```cin
 function main() -> int {
     int sum = 0
     for (int i = 1; i <= 100; i++) {
@@ -149,7 +149,7 @@ function main() -> int {
 
 ### 计数 (满足条件的有几个)
 
-```c
+```cin
 function main() -> int {
     int count = 0
     for (int i = 1; i <= 30; i++) {
@@ -175,7 +175,7 @@ function main() -> int {
 
 ## 5.6 嵌套循环
 
-```c
+```cin
 function main() -> int {
     for (int i = 1; i <= 3; i++) {
         for (int j = 1; j <= 3; j++) {
@@ -197,7 +197,7 @@ function main() -> int {
 
 ## 5.7 例子: 判断质数
 
-```c
+```cin
 function main() -> int {
     int n = 29
     bool is_prime = n > 1
@@ -220,7 +220,7 @@ function main() -> int {
 
 ## 5.8 例子: 反转数字
 
-```c
+```cin
 function main() -> int {
     int n = 12345
     int rev = 0

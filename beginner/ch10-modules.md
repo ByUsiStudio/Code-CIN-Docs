@@ -25,7 +25,7 @@ description: "第 10 章：CIN 模块与标准库——import 规则、把代码
 | `import "./helpers.cin"` (以 `./` 或 `../` 开头) | **当前文件所在目录** (相对路径) |
 | `import "math.cin"` (裸名字) | **内置标准库** `codecin/lib/` |
 
-```c
+```cin
 import "math.cin"
 import "str.cin"
 import "./helpers.cin"
@@ -53,7 +53,7 @@ Compiler error: Expected IDENT but got STRING ('math.cin')
 
 `helpers.cin` (模块, 只有函数, 没有 `main`):
 
-```c
+```cin
 // 通用小工具
 function helper_double(int x) -> int {
     return x * 2
@@ -73,7 +73,7 @@ function helper_max3(int a, int b, int c) -> int {
 
 `main.cin` (主程序):
 
-```c
+```cin
 import "./helpers.cin"
 
 function main() -> int {
@@ -139,7 +139,7 @@ max3 = 9
 
 ## 10.5 用标准库写成绩分析
 
-```c
+```cin
 import "math.cin"
 import "array.cin"
 import "sort.cin"
@@ -172,7 +172,7 @@ function main() -> int {
 
 ## 10.6 常用库速览
 
-```c
+```cin
 import "str.cin"
 import "conv.cin"
 import "rand.cin"

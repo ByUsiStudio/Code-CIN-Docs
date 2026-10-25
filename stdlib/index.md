@@ -141,7 +141,7 @@ FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandb
 按**惯用命名**移植成纯 CIN 函数（`libc_strlen` / `stl_vec_push_back` / `go_strings_contains`），
 方便从现有代码迁移算法或按语言文档查阅语义：
 
-```c
+```cin
 import "cstd.cin"
 import "cppstd.cin"
 import "gostd.cin"
@@ -201,7 +201,7 @@ codecin prog.cin --sandbox      # 拦截宿主 SYS, 纯计算库不受影响
 
 新建 `demo.cin`，导入数学与数组两个库并在 `main` 中调用：
 
-```c
+```cin
 import "math.cin"
 import "array.cin"
 import "sort.cin"
@@ -238,7 +238,7 @@ clamp=10
 
 == 调用标准库
 
-```c
+```cin
 import "math.cin"
 
 function main() -> int {
@@ -249,7 +249,7 @@ function main() -> int {
 
 == 调用内建
 
-```c
+```cin
 function main() -> int {
     println(float_to_str(round(2.5)))      // 3
     return 0

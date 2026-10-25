@@ -42,7 +42,7 @@ python -m codecin.cli --version
 
 新建一个文件夹 (例如 `cin-learn`), 在里面创建文件 `hello.cin`:
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     return 0
@@ -93,7 +93,7 @@ Hello, Code CIN!
 
 把 `hello.cin` 改成:
 
-```c
+```cin
 function main() -> int {
     println("2 + 3 = " + (2 + 3))
     println("10 / 4 = " + (10 / 4))
@@ -123,7 +123,7 @@ Hello CIN
 
 ## 1.4 注释与代码可读性
 
-```c
+```cin
 // 这是单行注释, 从 // 到行尾都会被忽略
 
 /* 这是块注释
@@ -152,7 +152,7 @@ readable
 
 故意制造一个错误 —— 把 `println` 拼错成 `printline`:
 
-```c
+```cin
 function main() -> int {
     printline("oops")
     return 0
@@ -188,7 +188,7 @@ Code CIN 会打印一个**红色错误面板**, 里面有关键信息:
 CIN 程序从**文件第一条语句**开始按顺序执行; 全局变量先初始化, 然后执行
 `main` 里的代码。所以最简单的完整程序就是上面那个样子。约定:
 
-```c
+```cin
 // 1) import (可选, 必须放在文件最上面)
 import "math.cin"
 

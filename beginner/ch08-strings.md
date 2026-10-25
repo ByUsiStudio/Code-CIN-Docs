@@ -18,7 +18,7 @@ CIN 的 `string` 是 **NUL 结尾的字节序列**, 变量里保存的是“这�
 - 字符串**不能原地修改**: 想改就生成一个新的。
 
 ::: warning 因为是指针, 所以 `==` 不能比较内容
-```c
+```cin
 string a = "ab" + "c"
 string b = "abc"
 println(a == b)              // false (地址不同)
@@ -29,7 +29,7 @@ println(strcmp(a, b) == 0)   // true  (内容相同)
 
 ## 8.2 拼接与转义
 
-```c
+```cin
 function main() -> int {
     string first = "Code"
     string last = "CIN"
@@ -56,7 +56,7 @@ Code CIN
 
 ## 8.3 长度、比较、复制
 
-```c
+```cin
 function main() -> int {
     string a = "apple"
     string b = "banana"
@@ -87,7 +87,7 @@ apple / apple
 
 ## 8.4 大小写、去空白、截取、查找
 
-```c
+```cin
 function main() -> int {
     string s = "  Hello, CIN  "
     println("原始长度: " + strlen(s))
@@ -125,7 +125,7 @@ function main() -> int {
 
 `s[i]` 返回第 `i` 个字节的**整数编码** (`0..255`), 只能读、不能写:
 
-```c
+```cin
 function main() -> int {
     string s = "Hello Code CIN"
     int n = strlen(s)
@@ -159,7 +159,7 @@ function main() -> int {
 
 回文 = 正着读和倒着读一样 (`level`、`上海自来水来自海上`)。
 
-```c
+```cin
 function main() -> int {
     string s = "level"
     int n = strlen(s)
@@ -185,7 +185,7 @@ level 是回文
 
 思路: 数“从空白进入非空白”的次数。
 
-```c
+```cin
 function main() -> int {
     string text = "the quick brown fox"
     int n = strlen(text)

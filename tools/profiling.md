@@ -14,7 +14,7 @@ v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（
 
 在 CIN 程序里直接打点。`time_us()` 返回单调微秒计时，`time_ns()` 是纳秒版本（更高分辨率）；两者的实现是引擎侧系统调用（SYS 138/139），不受 `--seed` 影响。
 
-```c
+```cin
 function main() -> int {
     int t0 = time_us()
     int sum = 0

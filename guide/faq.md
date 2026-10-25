@@ -47,7 +47,7 @@ Termux:API 应用 + `pkg install termux-api` 后可用 `termux_*` 宿主能力�
 
 CIN 的 `/` **恒为浮点除法**。需要整数除法时用内建 `idiv(a, b)` (向零截断):
 
-```c
+```cin
 int q = idiv(17, 5)      // 3
 int r = idiv(-17, 5)     // -3
 ```

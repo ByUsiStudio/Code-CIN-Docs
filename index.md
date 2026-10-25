@@ -75,7 +75,7 @@ codecin --help           # 完整命令行帮助
 
 == CIN (高级语言)
 
-```c
+```cin
 function main() -> int {
     println("Hello, Code CIN!")
     return 0

@@ -37,7 +37,7 @@ CIN 是静态类型语言：每个变量、参数与返回值都有确定类型�
 
 ## 整数类型与别名
 
-```c
+```cin
 function int_aliases() -> int {
     char c = 'A'              // 65
     char big = 300            // 合法: char 与 int 同宽
@@ -65,7 +65,7 @@ function int_aliases() -> int {
 
 ## 浮点
 
-```c
+```cin
 float pi = 3.14159265
 float tiny = 1e-5
 float forced = 100f          // 100.0
@@ -78,7 +78,7 @@ float result = sqrt(16)      // 4 (打印时省略 .0)
 
 ## 布尔
 
-```c
+```cin
 bool ok = true
 bool zero = 0                // false
 bool five = 5                // true (非零即真)
@@ -98,7 +98,7 @@ println("num = " + (true + true))   // num = 2
 
 `string` 变量持有指向 NUL 结尾字节序列的指针：
 
-```c
+```cin
 string s = "hello"
 int n = strlen(s)            // 5
 int first = s[0]             // 104 ('h'), 只读
@@ -113,7 +113,7 @@ string t = s + " world"      // 拼接产生新堆块
 
 `void` 只能作为函数返回类型，不能声明 `void` 变量：
 
-```c
+```cin
 function greet() {           // 省略 -> void
     println("hi")
 }
@@ -125,7 +125,7 @@ function greet2() -> void {  // 显式写 void
 
 ## struct 类型
 
-```c
+```cin
 struct Point {
     float x
     float y
@@ -152,7 +152,7 @@ struct Student {
 `enum` 为一组**编译期整数常量**命名; 枚举类型名本身等价于 `int` (`Color c = BLUE` 中的 `c`
 就是一个 64 位整数槽, 默认值 `0`):
 
-```c
+```cin
 enum Color { RED, GREEN = 5, BLUE }     // RED=0, GREEN=5, BLUE=6
 
 Color c = BLUE
@@ -167,7 +167,7 @@ println(int_to_str(c))                  // 6
 | 语义 | 成员是只读常量; 可用在表达式、全局初始化与 `case` 标签中 |
 | 类型等价 | 枚举类型名解析为 `int` (可作变量类型、参数类型、返回类型) |
 
-```c
+```cin
 enum Level { LOW = 1, MID = LOW + 4, HIGH = MID * 2 }   // 1, 5, 10
 
 function rank(Level l) -> int {
@@ -186,7 +186,7 @@ function rank(Level l) -> int {
 
 ### 固长数组 `T[n]`
 
-```c
+```cin
 int a[5]                     // 一维, 全零
 float m[3][4]                // 二维 (行主序)
 int init[4] = {1, 2, 3, 4}   // 字面量初始化
@@ -195,7 +195,7 @@ int ident[2][2] = { {1, 0}, {0, 1} }
 
 **维度必须是整型常量表达式**——字面量、`const` 命名常量、`enum` 成员与它们的算术组合：
 
-```c
+```cin
 const int N = 4
 enum Size { K = 3 }
 int a[N]                // 4
@@ -215,7 +215,7 @@ int grid[N][N]          // 二维用同一个常量
 
 用于函数参数与返回值：
 
-```c
+```cin
 function sum(int[] arr, int n) -> int {
     int s = 0
     for (int i = 0; i < n; i++) {
@@ -242,7 +242,7 @@ function make(int n) -> int[] {
 
 == CIN
 
-```c
+```cin
 int a[5]                     // 固长
 function sum(int[] arr) -> int {
     return arr[0]
@@ -282,7 +282,7 @@ func sum(arr []int) int {    // 切片 (引用语义)
 ::: danger 局部固长数组和局部标量都不可靠
 编译器在函数序言里只做栈指针下移，**不发射清零代码**。栈槽在同一进程内会被复用：
 
-```c
+```cin
 function dirty() -> void {
     int a[4]
     a[0] = 111
@@ -305,7 +305,7 @@ function main() -> int {
 ::: danger 局部标量变量同样不要依赖"默认值"
 同一个原因在标量上更常见：
 
-```c
+```cin
 function f() -> void {
     int p
     int q
@@ -349,7 +349,7 @@ function main() -> int {
 | `int` / `bool` → `float` | `ITOF` 提升 |
 | `float` → `string` | 需要显式内建 `float_to_str(f)`（拼接/打印时会自动字符串化） |
 
-```c
+```cin
 function conversions() -> int {
     float a = -2.7
     float b = 2.7
@@ -383,7 +383,7 @@ t=true ti=1 tf=1
 
 == CIN：`/` 是浮点除
 
-```c
+```cin
 float x = 7 / 2              // 3.5
 int y = 7 / 2                // 3   (3.5 截断)
 int z = idiv(7, 2)           // 3   (显式整数除)

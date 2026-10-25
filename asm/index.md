@@ -173,7 +173,7 @@ loop:
 
 == CIN 高级语言
 
-```c
+```cin
 function main() -> int {
     int sum = 0
     int i = 1
@@ -190,7 +190,7 @@ function main() -> int {
 
 三者输出都是 `55`。内嵌 CPU 指令的 CIN 写法见 [内嵌 CPU 指令语句](/language/inline-cpu):
 
-```c
+```cin
 function main() -> int {
     int i = 0
     int total = 0

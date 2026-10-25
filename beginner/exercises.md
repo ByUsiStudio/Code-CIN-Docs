@@ -17,7 +17,7 @@ description: "CIN 初学者教程各章练习的参考实现与思路提示，�
 
 **练习 1**: 打印名字与日期。
 
-```c
+```cin
 function main() -> int {
     println("姓名: 小明")
     println("日期: 2026-09-26")
@@ -27,7 +27,7 @@ function main() -> int {
 
 **练习 2**: 三行内容, 第二行是算式, 第三行是空行。
 
-```c
+```cin
 function main() -> int {
     println("你好, CIN!")
     println("1 + 1 = " + (1 + 1))
@@ -43,7 +43,7 @@ function main() -> int {
 
 **练习 1**: 三个变量一句话输出。
 
-```c
+```cin
 function main() -> int {
     int age = 18
     float height = 1.75
@@ -55,7 +55,7 @@ function main() -> int {
 
 **练习 2**: 分钟换算成“天/小时/分”。
 
-```c
+```cin
 function main() -> int {
     int total = 1450
     int days = idiv(total, 1440)              // 1 天 = 1440 分钟
@@ -68,7 +68,7 @@ function main() -> int {
 
 **练习 4**: 观察浮点误差。
 
-```c
+```cin
 function main() -> int {
     float a = 1.0 / 3.0
     println("a = " + a)
@@ -83,7 +83,7 @@ function main() -> int {
 
 **练习 1**: 三种“除法”的区别。
 
-```c
+```cin
 function main() -> int {
     println("17 / 5 = " + (17 / 5))            // 浮点除法
     println("idiv(17, 5) = " + idiv(17, 5))    // 整数商
@@ -94,7 +94,7 @@ function main() -> int {
 
 **练习 2**: 89 分钟。
 
-```c
+```cin
 function main() -> int {
     int total = 89
     println(idiv(total, 60) + " 小时 " + (total % 60) + " 分")
@@ -104,7 +104,7 @@ function main() -> int {
 
 **练习 3**: 判断偶数 (三目)。
 
-```c
+```cin
 function main() -> int {
     int n = 7
     println(n + (n % 2 == 0 ? " 是偶数" : " 是奇数"))
@@ -114,7 +114,7 @@ function main() -> int {
 
 **练习 4**: 检查第 3 位。
 
-```c
+```cin
 function main() -> int {
     int flags = 0b1010
     int bit = (flags & (1 << 3)) != 0 ? 1 : 0
@@ -127,7 +127,7 @@ function main() -> int {
 
 **练习 1**: 及格判断。
 
-```c
+```cin
 function main() -> int {
     int score = 58
     if (score >= 60) {
@@ -141,7 +141,7 @@ function main() -> int {
 
 **练习 2**: 三个数的最大值。
 
-```c
+```cin
 function main() -> int {
     int a = 12
     int b = 45
@@ -157,7 +157,7 @@ function main() -> int {
 
 **练习 3**: 月份 → 季节。
 
-```c
+```cin
 function main() -> int {
     int month = 8
     switch (month) {
@@ -175,7 +175,7 @@ function main() -> int {
 
 **练习 1**: 1..20 的偶数和。
 
-```c
+```cin
 function main() -> int {
     int sum = 0
     for (int i = 2; i <= 20; i += 2) {
@@ -188,7 +188,7 @@ function main() -> int {
 
 **练习 2**: 5 的乘法表。
 
-```c
+```cin
 function main() -> int {
     for (int i = 1; i <= 9; i++) {
         println("5 x " + i + " = " + (5 * i))
@@ -199,7 +199,7 @@ function main() -> int {
 
 **练习 4**: 计算整数位数。
 
-```c
+```cin
 function main() -> int {
     int n = 90210
     int digits = 0
@@ -217,7 +217,7 @@ function main() -> int {
 
 **练习 1 + 2**: 判断偶数 + 三数最大。
 
-```c
+```cin
 function is_even(int n) -> bool {
     return n % 2 == 0
 }
@@ -238,7 +238,7 @@ function main() -> int {
 
 **练习 3**: 循环实现幂。
 
-```c
+```cin
 function power(int base, int exp) -> int {
     int result = 1
     for (int i = 0; i < exp; i++) {
@@ -255,7 +255,7 @@ function main() -> int {
 
 **练习 5**: 循环版与递归版求和。
 
-```c
+```cin
 function sum_loop(int n) -> int {
     int s = 0
     for (int i = 1; i <= n; i++) { s += i }
@@ -278,7 +278,7 @@ function main() -> int {
 
 **练习 2**: 最大值的下标。
 
-```c
+```cin
 function main() -> int {
     int a[6] = {4, 8, 15, 16, 23, 42}
     int n = 6
@@ -293,7 +293,7 @@ function main() -> int {
 
 **练习 3**: 统计偶数个数。
 
-```c
+```cin
 function main() -> int {
     int a[8] = {3, 8, 12, 7, 20, 5, 16, 9}
     int n = 8
@@ -308,7 +308,7 @@ function main() -> int {
 
 **练习 4**: 从大到小排序 (只改比较方向)。
 
-```c
+```cin
 function main() -> int {
     int a[6] = {4, 8, 15, 3, 23, 16}
     int n = 6
@@ -331,7 +331,7 @@ function main() -> int {
 
 **练习 3**: 统计数字字符个数。
 
-```c
+```cin
 function main() -> int {
     string s = "CIN 2026 released 09/26"
     int n = strlen(s)
@@ -347,7 +347,7 @@ function main() -> int {
 
 **练习 5**: 拆分日期字符串。
 
-```c
+```cin
 function main() -> int {
     string s = "2026-09-26"
     int first = indexof(s, "-")
@@ -365,7 +365,7 @@ function main() -> int {
 ::: tip 更简单的写法
 固定格式的日期可以直接按位置取:
 
-```c
+```cin
 string year = substr(s, 0, 4)
 string month = substr(s, 5, 2)
 string day = substr(s, 8, 2)
@@ -376,7 +376,7 @@ string day = substr(s, 8, 2)
 
 **练习 2**: 两点距离的平方。
 
-```c
+```cin
 struct Point {
     int x
     int y
@@ -402,7 +402,7 @@ function main() -> int {
 
 **练习 4**: 返回累加后的 struct。
 
-```c
+```cin
 struct Counter {
     int value
 }
@@ -426,7 +426,7 @@ function main() -> int {
 
 **练习 1**: 自建模块。建两个文件:
 
-```c
+```cin
 // mytools.cin
 function my_is_even(int n) -> bool {
     return n % 2 == 0
@@ -439,7 +439,7 @@ function my_clamp(int v, int lo, int hi) -> int {
 }
 ```
 
-```c
+```cin
 // main.cin
 import "./mytools.cin"
 
@@ -453,7 +453,7 @@ function main() -> int {
 
 **练习 3**: 随机数排序。
 
-```c
+```cin
 import "rand.cin"
 import "sort.cin"
 
@@ -476,7 +476,7 @@ function main() -> int {
 
 **练习 1**: 写文件再读回来。
 
-```c
+```cin
 function main() -> int {
     string path = "nums.txt"
     file_write(path, "")
@@ -490,7 +490,7 @@ function main() -> int {
 
 **练习 3**: 生成一张图片。
 
-```c
+```cin
 function main() -> int {
     canvas(200, 200)
     set_color(0xFF0000)
@@ -507,7 +507,7 @@ function main() -> int {
 
 **练习 1**: 死循环的原因与修复。
 
-```c
+```cin
 // 错误版本: 循环体里没有改变 i, 条件永远为真
 function main_wrong() -> int {
     int i = 0

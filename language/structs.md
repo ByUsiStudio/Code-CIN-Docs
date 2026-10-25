@@ -16,7 +16,7 @@ struct 名称 {
 }
 ```
 
-```c
+```cin
 struct Point {
     float x
     float y
@@ -35,7 +35,7 @@ struct Rectangle {
 
 == CIN
 
-```c
+```cin
 struct Point { int x
     int y }
 
@@ -88,7 +88,7 @@ pt: DQ 0
 
 成员访问统一使用 `.`，支持链式：
 
-```c
+```cin
 struct Point { float x
     float y }
 
@@ -129,7 +129,7 @@ function main() -> int {
 | `Point corners[2]` | ❌ 编译期报错：struct 元素固长数组**不能作字段**（见 [字段限制](#字段限制)） |
 | `string name` | 一个指针槽（字符串本身在堆上） |
 
-```c
+```cin
 struct Inner { int a
     int b }
 
@@ -155,7 +155,7 @@ function main() -> int {
 
 声明 struct 变量时可以用花括号一次性给字段赋值，按**字段声明顺序**逐个对应：
 
-```c
+```cin
 struct P { int x
     int y }
 
@@ -206,7 +206,7 @@ CIN 没有 C 那样的 `{.y = 4}` 具名初始化器，所以 `{3, 4}` 永远按
 
 == 整体赋值 = 值拷贝
 
-```c
+```cin
 struct P { int x }
 
 function main() -> int {
@@ -221,7 +221,7 @@ function main() -> int {
 
 == 传参 = 引用可见
 
-```c
+```cin
 struct P { int x }
 
 function bump(P p) { p.x = 99 }
@@ -237,7 +237,7 @@ function main() -> int {
 
 == 返回 = 拷贝出来
 
-```c
+```cin
 struct P { int x
     int y }
 
@@ -267,7 +267,7 @@ function main() -> int {
 字段可以是固长数组，数组**元素是标量**时值内嵌在 struct 里（`_type_slots` 会按
 `维度 × 元素槽数` 展开）。
 
-```c
+```cin
 struct Student {
     int grades[5]         // 固长数组字段（值内嵌）
     float gpa
@@ -288,7 +288,7 @@ function main() -> int {
 
 多维固长数组字段同样支持：
 
-```c
+```cin
 struct Grid {
     int cell[3][4]        // 行主序
     int rows
@@ -307,7 +307,7 @@ separate objects); use a fixed array of struct variables instead
 数组**提升为独立的 struct 数组变量**，让每个元素各自成为完整对象，需要成组传递时再用
 下标关联（或自己维护一个计数字段）：
 
-```c
+```cin
 struct Point { int x
     int y }
 
@@ -345,7 +345,7 @@ function main() -> int {
 ::: danger 变长指针数组字段
 `struct Bag { int[] items }` 这类写法不在受支持范围内。请改写为定长容量 + 计数字段：
 
-```c
+```cin
 struct Bag {
     int items[64]        // 容量固定
     int count            // 实际使用数量
@@ -358,7 +358,7 @@ struct Bag {
 
 `StructName 变量名` 声明即分配存储，**所有字段默认为类型默认值**（`int` → `0`、`float` → `0.0`、`bool` → `false`、`string` → 空串、嵌套 struct 递归全零）；这块存储由编译器**显式清零**，不是"碰巧是新的堆内存"。
 
-```c
+```cin
 struct Point { int x
     int y
     string label
@@ -384,7 +384,7 @@ function main() -> int {
 
 == 局部实例化
 
-```c
+```cin
 struct Point { int x
     int y }
 
@@ -397,7 +397,7 @@ function main() -> int {
 
 == 全局实例化
 
-```c
+```cin
 struct Point { int x
     int y }
 
@@ -410,7 +410,7 @@ function main() -> int {
 
 == 数组实例化
 
-```c
+```cin
 struct Point { int x
     int y }
 
@@ -425,7 +425,7 @@ function main() -> int {
 
 ## 完整示例：Point / Rectangle / Student
 
-```c
+```cin
 // shapes.cin —— 运行: codecin shapes.cin
 
 struct Point {

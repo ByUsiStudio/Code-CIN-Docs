@@ -24,7 +24,7 @@ description: "第 3 章：CIN 运算符与表达式全解——整数除法陷�
 
 这是初学者最容易写错的地方。CIN 里 `/` **不做整数除法**:
 
-```c
+```cin
 function main() -> int {
     println("7 / 2 = " + (7 / 2))              // 3.5, 不是 3
     println("idiv(7, 2) = " + idiv(7, 2))      // 3   整数商
@@ -48,7 +48,7 @@ idiv(7, -2) = -3
 **记忆口诀**: 要小数用 `/`, 要整数商用 `idiv(a, b)`, 要余数用 `%`。
 
 ::: warning 把 `/` 的结果存进 int 会被截断
-```c
+```cin
 int q = 7 / 2        // 3.5 赋给 int -> 3 (截断)
 int q2 = idiv(7, 2)  // 3 (推荐写法, 意图明确)
 ```
@@ -57,7 +57,7 @@ int q2 = idiv(7, 2)  // 3 (推荐写法, 意图明确)
 
 ## 3.3 浮点运算与取整
 
-```c
+```cin
 function main() -> int {
     float a = 10.0 / 4.0
     float b = 10 / 4                 // 整数参与也按浮点算
@@ -79,7 +79,7 @@ yuan = 19
 
 想要“四舍五入到两位小数”这种效果, 用整数“分”来算最稳:
 
-```c
+```cin
 function main() -> int {
     float price = 12.5
     int qty = 7
@@ -109,7 +109,7 @@ function main() -> int {
 ::: danger 字符串不能用 `==` 比内容
 `==` 比较的是字符串的**地址**。两个内容相同的字符串可能是 `false`:
 
-```c
+```cin
 string a = "ab" + "c"      // 运行时拼出来的新字符串
 string b = "abc"           // 源码里的字面量
 println(a == b)            // false (地址不同!)
@@ -134,7 +134,7 @@ true
 
 **短路**: `&&` 左边为假时右边不执行; `||` 左边为真时右边不执行。用带打印的函数能直接看到:
 
-```c
+```cin
 function side(int tag) -> bool {
     println("  (求值 " + tag + ")")
     return true
@@ -172,7 +172,7 @@ a=false b=true c=true
 | `<<` | 左移 | `1 << 4` | `16` |
 | `>>` | 算术右移 | `-16 >> 2` | `-4` |
 
-```c
+```cin
 function main() -> int {
     int a = 0b1100 & 0b1010
     int b = 0b1100 | 0b1010
@@ -198,7 +198,7 @@ shl=16 asr=-4 not=-1
 
 ## 3.7 复合赋值与自增自减
 
-```c
+```cin
 function main() -> int {
     int x = 10
     x += 5          // 15
@@ -228,7 +228,7 @@ pre=6 post=6 y=5
 
 语法: `条件 ? 条件为真时的值 : 条件为假时的值`
 
-```c
+```cin
 function main() -> int {
     int score = 72
     println(score >= 60 ? "及格" : "不及格")
@@ -265,7 +265,7 @@ abs_x = 3
 | | `\|\|` |
 | 最低 | `?:` 与各类赋值 `=` `+=` … |
 
-```c
+```cin
 function main() -> int {
     println("2 + 3 * 4 = " + (2 + 3 * 4))          // 14
     println("(2 + 3) * 4 = " + ((2 + 3) * 4))      // 20
@@ -288,7 +288,7 @@ function main() -> int {
 
 内建函数 (不需要 `import`) 可以直接用:
 
-```c
+```cin
 function main() -> int {
     println("sqrt(16) = " + sqrt(16))        // 4
     println("pow(2, 10) = " + pow(2, 10))    // 1024

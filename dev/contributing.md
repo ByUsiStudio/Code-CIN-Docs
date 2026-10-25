@@ -119,7 +119,7 @@ npm run docs:preview   # 预览构建产物
 
   == CIN
 
-  ```c
+  ```cin
   println("hi")
   ```
 

@@ -13,7 +13,7 @@ description: "第 4 章：CIN 条件分支——if / else if / else、组合条�
 
 语法: `if (条件) { 条件为真时执行 }`
 
-```c
+```cin
 function main() -> int {
     int age = 20
     if (age >= 18) {
@@ -33,7 +33,7 @@ function main() -> int {
 
 ## 4.2 else 与 else if
 
-```c
+```cin
 function main() -> int {
     int score = 87
     string grade = "F"          // 先给默认值, 再用分支改写
@@ -62,7 +62,7 @@ function main() -> int {
 
 ## 4.3 单语句可以省略花括号
 
-```c
+```cin
 function main() -> int {
     int x = 5
     if (x > 0) println("正数")
@@ -82,7 +82,7 @@ function main() -> int {
 
 ## 4.4 条件里的组合与嵌套
 
-```c
+```cin
 function main() -> int {
     int age = 20
     bool has_ticket = true
@@ -114,7 +114,7 @@ function main() -> int {
 
 `&&` (并且) / `||` (或者) / `!` (取反) 可以自由组合, 用括号让意图更清楚:
 
-```c
+```cin
 if ((a > 0 || b > 0) && !done) { ... }
 ```
 
@@ -122,7 +122,7 @@ if ((a > 0 || b > 0) && !done) { ... }
 
 当判断的是“**某个整数等于几**”时, `switch` 比一串 `else if` 更清晰:
 
-```c
+```cin
 function main() -> int {
     int day = 3
     switch (day) {
@@ -155,7 +155,7 @@ function main() -> int {
 - `switch` 内部的 `break` 只跳出 `switch`, 不影响外层循环。
 
 ::: danger 最常见的 bug: 忘了 break
-```c
+```cin
 switch (n) {
     case 1: println("一")      // 忘了 break
     case 2: println("二"); break
@@ -168,7 +168,7 @@ switch (n) {
 
 闰年规则: 能被 4 整除, 但被 100 整除时不算, 除非也能被 400 整除。
 
-```c
+```cin
 function main() -> int {
     int year = 2024
     bool leap = false
@@ -194,7 +194,7 @@ function main() -> int {
 
 当“两种取值”很短时, 三目更紧凑:
 
-```c
+```cin
 function main() -> int {
     int n = 7
     println(n + (n % 2 == 0 ? " 是偶数" : " 是奇数"))

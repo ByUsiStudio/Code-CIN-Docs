@@ -19,7 +19,7 @@ CIN 用 `import` 引入其它 `.cin` 文件。解析规则只有两条, 且 `imp
 `lib/` 前缀是历史写法的兼容别名, `import "lib/math.cin"` 等价于 `import "math.cin"`。
 :::
 
-```c
+```cin
 // main.cin
 // 注意: import 行不能写行尾注释 (会报 Expected IDENT)
 import "math.cin"
@@ -69,7 +69,7 @@ repeat(ab,3)=ababab
 
 ## 自建模块示例
 
-```c
+```cin
 // helpers.cin (与 main.cin 同目录)
 function helper_double(int x) -> int {
     return x * 2
@@ -80,7 +80,7 @@ function helper_greet(string name) -> void {
 }
 ```
 
-```c
+```cin
 // main.cin
 import "./helpers.cin"
 
@@ -96,7 +96,7 @@ function main() -> int {
 普通 `import` 在编译期展开源码；如果希望把库**单独编译成对象**再链接，使用顶层
 `extern function` / `extern <type>` 声明跨对象符号：
 
-```c
+```cin
 // lib.cin —— 不写 main, 作为函数库对象
 int counter = 5
 
@@ -109,7 +109,7 @@ function get() -> int {
 }
 ```
 
-```c
+```cin
 // main.cin
 extern int counter
 extern function bump()
