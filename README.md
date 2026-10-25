@@ -147,8 +147,3 @@ GitHub Pages / Gitee Pages / Netlify 等:
 npm run docs:build
 # 产物目录: docs/.vitepress/dist
 ```
-
-## 许可
-
-文档内容版权归 ByUsi Studio 所有, 与主项目一致采用 MIT 许可证发布。
-问题与反馈: admin@byusistudio.fun
