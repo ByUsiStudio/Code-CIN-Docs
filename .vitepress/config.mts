@@ -474,7 +474,7 @@ export default defineConfig({
     darkModeSwitchTitle: '切换到深色模式',
 
     footer: {
-      message: '基于 MIT 许可证发布 · 文档由 VitePress 构建',
+      message: '文档由 VitePress 构建',
       copyright: 'Copyright © 2024-2026 ByUsi Studio · 开发者: 北啊呢'
     }
   }
