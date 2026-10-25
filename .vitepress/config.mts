@@ -353,7 +353,7 @@ export default defineConfig({
 
     footer: {
       message: '文档由 VitePress 构建',
-      copyright: 'Copyright © 2024-2026 ByUsi Studio · 开发者: 北啊呢'
+      copyright: 'Copyright © 2026 ByUsi Studio · 开发者: 北啊呢'
     }
   }
 })
