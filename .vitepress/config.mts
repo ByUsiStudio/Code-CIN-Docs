@@ -200,6 +200,7 @@ export default defineConfig({
         ]
       },
       { text: '标准库', link: '/stdlib/', activeMatch: '^/stdlib/' },
+      { text: '官方生态', link: '/ecosystem/', activeMatch: '^/ecosystem/' },
       {
         text: '发布',
         activeMatch: '^/reference/changelog',
@@ -358,6 +359,15 @@ export default defineConfig({
           items: [
             { text: '标准库总览', link: '/stdlib/' },
             { text: '逐库函数参考', link: '/stdlib/reference' }
+          ]
+        }
+      ],
+      '/ecosystem/': [
+        {
+          text: '官方生态',
+          items: [
+            { text: '官方开源组织', link: '/ecosystem/' },
+            { text: 'rich 终端富文本库', link: '/ecosystem/rich' }
           ]
         }
       ],
