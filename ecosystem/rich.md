@@ -36,7 +36,7 @@ pic install rich
 pic install rich --project
 
 # 精确版本 (安装后可用 rich::1.1.1:* 导入)
-pic install rich::1.1.1:*
+pic install rich@1.1.1
 ```
 
 安装后可以按入口或模块分块导入：

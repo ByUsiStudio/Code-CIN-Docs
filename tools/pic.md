@@ -160,6 +160,11 @@ import "rich::1.1.1:table"    // 指定版本的 table 模块
 
 - 通配 `*` 会跳过 `main.cin`、`test/`、`demo/`、`internal/` 等非公开模块；
 - 指定模块时可以先 `pic modules rich` 查看可导入的模块名；
+- 私有模块可显式写 `rich:internal/table` / `rich:internal/table.cin`
+  （会先展开入口以保证符号完整）；
+- **不写版本时默认使用最高已安装版本**（不受 `pic use` 的 `current`
+  指针影响）；
+- 像 `rich` 这样公开 API 都集中在入口的包，`rich:*` 与 `rich` 等价；
 - 指定版本要求该版本已安装；否则报错并提示
   `pic install rich@1.1.1`；
 - 旧写法 `import "rich/table.cin"` 仍然可用。
@@ -189,10 +194,15 @@ pic info rich --json
 pic yank rich 1.1.0           # 撤回版本 (也可 rich@1.1.0)
 pic unyank rich 1.1.0         # 恢复
 pic latest rich 1.1.0         # 把 latest 指针指向 1.1.0
+pic use rich 1.1.0            # 本地切换 current (不重新下载)
+pic use rich                  # 切到本地最高已安装版本
 ```
 
 - 只有版本发布者或管理员可以撤回/恢复/设置 latest；
 - `latest` 指向的版本被撤回时，解析会自动回退到最高的未撤回版本；
+- 本地 `pic use` 只切换 `$PIC_HOME/index.json` 的 `current`（供
+  `pic show` / `pic list` 等本地命令使用）；**CIN `import` 始终优先
+  最高已安装版本**；
 - 删除版本/整个包在后台管理页执行 (`pic admin`)。
 
 ## 后台管理
@@ -225,6 +235,10 @@ PIC_ADMIN_IDS="u_xxx"
   "schema": "pic.package/v1",
   "name": "hello",
   "repo": "https://github.com/you/cin-hello",
+  "latest": "1.0.0",
+  "description": "hello package",
+  "keywords": [],
+  "downloads": 0,
   "versions": {
     "1.0.0": {
       "version": "1.0.0",
@@ -302,6 +316,7 @@ pic modules hello [--json]
 pic yank hello 1.0.0
 pic unyank hello 1.0.0
 pic latest hello 1.0.0
+pic use hello 1.0.0
 pic admin [--no-browser] [--print-token]
 pic registry list
 pic registry add <name> <git-url>   # 本地回退登记

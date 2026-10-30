@@ -86,6 +86,9 @@ import "rich::1.1.1:table"    // 指定版本的 table 模块
 
 - `*` 只包含公开模块，跳过 `main.cin`、`test/`、`demo/`、`internal/`；
 - 模块名可用 `pic modules <包名>` 查看；
+- 私有模块可显式写 `rich:internal/table`（会先展开入口以保证符号完整）；
+- **不写版本时默认使用最高已安装版本**（与 `pic use` 的 `current` 指针无关）；
+- 像 `rich` 这样公开 API 都集中在入口的包，`rich:*` 与 `rich` 等价；
 - 指定版本时必须已经安装该版本，否则提示 `pic install <包名>@<版本>`；
 - 旧的 `import "rich/table.cin"` 包内路径写法仍然可用。
 
