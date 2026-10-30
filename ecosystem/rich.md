@@ -29,15 +29,26 @@ CIN 源码高亮，以及实时动画与终端输入缓存。
 ## 安装
 
 ```bash
-# 从注册表安装到全局
+# 从注册表安装最新版本到全局 (默认)
 pic install rich
 
 # 安装到当前项目的 pic_modules/ (可直接 import)
 pic install rich --project
+
+# 精确版本 (安装后可用 rich::1.1.1:* 导入)
+pic install rich::1.1.1:*
 ```
 
-安装后直接 `import "rich"`。包管理与注册表细节见 [pic 包管理](/tools/pic)，
-官方仓库清单见 [官方生态](/ecosystem/)。
+安装后可以按入口或模块分块导入：
+
+```cin
+import "rich"          // 入口 (兼容旧写法)
+import "rich:*"        // 全部公开模块
+import "rich:table"    // 只导入表格模块
+```
+
+可用 `pic modules rich` 查看全部可导入模块。包管理与注册表细节见
+[pic 包管理](/tools/pic)，官方仓库清单见 [官方生态](/ecosystem/)。
 
 ## 快速开始
 

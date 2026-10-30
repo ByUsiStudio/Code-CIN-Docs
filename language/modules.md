@@ -13,6 +13,9 @@ CIN 用 `import` 引入其它 `.cin` 文件。解析规则只有两条, 且 `imp
 |------|--------|
 | `import "./util.cin"`、`import "../shared/x.cin"` | **相对当前 `.cin` 文件**所在目录 (可带子目录) |
 | `import "math.cin"`、`import "lib/math.cin"` | **codecin 内置标准库** `codecin/lib/` (随 pip 包分发) |
+| `import "rich"`、`import "rich/util.cin"` | 已安装的 **pic 包入口 / 包内文件** |
+| `import "rich:*"`、`import "rich:table"` | pic 包的**分块导入** (全部公开模块 / 指定模块) |
+| `import "rich::1.1.1:*"` | 指定版本的 pic 包分块导入 |
 
 ::: tip 一句话记住
 想引用自己项目里的文件就写 `"./"` 前缀; 不写前缀一律当作内置库名。
@@ -66,6 +69,25 @@ repeat(ab,3)=ababab
 ::: warning `import` 不能在函数里
 `import` 只允许出现在文件顶部。写在函数体内会当作语法错误处理。
 :::
+
+## pic 库的分块导入
+
+安装后的 pic 包除了入口，还可以按模块/版本选择导入，避免一次性展开整个库：
+
+```cin
+import "rich"                 // 只导入入口 (兼容旧写法)
+import "rich:*"               // 入口 + 全部公开模块
+import "rich:table"           // 只导入 table 模块
+import "rich:table,markdown"  // 多个模块 (也可用 + 分隔)
+import "rich::1.1.1"          // 指定版本的入口
+import "rich::1.1.1:*"        // 指定版本的全部公开模块
+import "rich::1.1.1:table"    // 指定版本的 table 模块
+```
+
+- `*` 只包含公开模块，跳过 `main.cin`、`test/`、`demo/`、`internal/`；
+- 模块名可用 `pic modules <包名>` 查看；
+- 指定版本时必须已经安装该版本，否则提示 `pic install <包名>@<版本>`；
+- 旧的 `import "rich/table.cin"` 包内路径写法仍然可用。
 
 ## 自建模块示例
 

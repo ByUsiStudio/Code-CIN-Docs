@@ -30,15 +30,18 @@ Code CIN 的官方 pic 库集中托管在 Gitee 组织 **Code CIN**（[gitee.com
 ## 安装官方库
 
 ```bash
-pic install rich              # 安装到全局
+pic install rich              # 安装最新版本到全局 (默认)
 pic install rich --project    # 安装到当前项目的 pic_modules/，可直接 import
 pic install rich@^1.1         # 指定版本范围
+pic install rich::1.1.1:*     # 精确版本 (导入提示使用分块写法)
 ```
 
 安装后直接导入：
 
 ```cin
-import "rich"
+import "rich"          // 入口 (兼容旧写法)
+import "rich:*"        // 全部公开模块 (分块导入)
+import "rich:table"    // 只导入 table 模块
 ```
 
 登录、离线模式、制品校验与中央记录格式见 [pic 包管理](/tools/pic)。
