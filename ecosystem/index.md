@@ -12,7 +12,7 @@ Code CIN 的官方 pic 库集中托管在 Gitee 组织 **Code CIN**（[gitee.com
 
 | 类型 | 位置 | 使用方式 |
 | --- | --- | --- |
-| 标准库 | 随工具链分发的 `codecin/lib/` | `import "math.cin"`，无需安装 |
+| 标准库 | 随工具链分发的 `codecin/lib/<name>/src/<name>.cin` | `import "math.cin"`，无需安装 |
 | 官方 pic 库 | 独立仓库发布到中央注册表 | 先 `pic install`，再按包名 `import` |
 
 标准库覆盖语言基础能力（数组、排序、数学、JSON、网络、FFI 等），见 [标准库总览](/stdlib/)；

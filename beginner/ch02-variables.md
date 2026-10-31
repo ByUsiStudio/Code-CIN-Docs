@@ -133,7 +133,7 @@ c = 0.3333333333333333
 - `7.0` 会打印成 `7` (没有小数点), 这是正常的;
 - `1.0 / 3.0` 是**无限循环小数**, 只能存近似值, 所以打印出一长串;
 - 想只显示两位小数, 可以乘 100 取整再自己拼小数点 (第 3 章有例子),
-  或者用 `codecin/lib/conv.cin` 里的格式化函数。
+  或者用 `codecin/lib/conv/src/conv.cin` 里的格式化函数。
 
 ::: warning 浮点数不要用 `==` 比较
 `0.1 + 0.2` 在计算机里不等于 `0.3`。比较浮点时判断差值:
@@ -276,7 +276,7 @@ echo 42 | codecin read_int.cin --log-level ERROR
 ### 其他输入方式
 
 - **键盘轮询 (游戏循环)**: `key_hit` / `get_key` 逐键非阻塞读取,
-  配合 `codecin/lib/key.cin` 的 `K_*` 键码常量,
+  配合 `codecin/lib/key/src/key.cin` 的 `K_*` 键码常量,
   见 [宿主能力: 键盘输入监听](/language/host-abilities);
 - **汇编 `IN` 指令**: `in x0` 直接读一行整数到 `x0`,
   见 [汇编语法参考](/asm/syntax) 与 [指令语义参考](/asm/instructions);

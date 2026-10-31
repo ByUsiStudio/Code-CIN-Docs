@@ -4,7 +4,7 @@ description: 用 pip 安装 Code CIN 的完整步骤：安装期原生库编译�
 
 # 安装 Code CIN
 
-Code CIN 以 **pip 包**作为唯一发行形式: 包内自带 36 个内置标准库 (`codecin/lib/*.cin`),
+Code CIN 以 **pip 包**作为唯一发行形式: 包内自带 41 个内置标准库（`codecin/lib/<name>/src/<name>.cin`，每个库一个 pic 包）,
 Python 侧提供唯一命令行入口 `codecin`, 负责编译前端与程序装载; 语言实现
 (Go 编译器 / 字节码引擎 / CROM / AOT 运行时) 以 c-shared 原生库的形式随包加载 ——
 **原生库是运行必需组件**, 缺失时程序会直接抛 `CPUSimulatorError`, 没有解释器回退。
@@ -130,8 +130,8 @@ python -c "from codecin import native; print(native.get_engine())"
 codecin --build-info
 # 查看 native 字段与包版本是否 matches
 
-# 4) 内置标准库是否随包分发 (应列出 36 个 .cin)
-python -c "import codecin,os,glob;print(len(glob.glob(os.path.join(os.path.dirname(codecin.__file__),'lib','*.cin'))))"
+# 4) 内置标准库是否随包分发 (应列出 41 个 .cin)
+python -c "import codecin,os,glob;print(len(glob.glob(os.path.join(os.path.dirname(codecin.__file__),'lib','*','src','*.cin'))))"
 
 # 5) 跑一个最小程序
 codecin --log-level ERROR hello.cin

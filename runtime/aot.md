@@ -280,7 +280,7 @@ AOT: 残留临时目录清理失败: D:\...\codecin\native\.aotbuild-1a2b3c4d5e6
 `import` 的解析规则与普通编译完全一致：
 
 - `import "./x.cin"` / `import "../x.cin"` → 相对**当前 `.cin` 文件**所在目录；
-- `import "x.cin"`（裸名字）→ 解析到内置标准库 `codecin/lib/`（`lib/` 前缀保留为兼容写法）；
+- `import "x.cin"`（裸名字）→ 解析到内置标准库 `codecin/lib/<name>/src/`（`lib/` 前缀保留为兼容写法）；
 - 同一文件每次编译只包含一次，循环引用报错。
 
 因为展开发生在编译期，**产物不读任何 `.cin`**。实测：把带 `import "stat.cin"` 的程序构建到临时目录后，在没有 `codecin/lib` 的目录里直接运行产物，输出与直接 `codecin` 运行一致（`sum=55 stat=15`）。

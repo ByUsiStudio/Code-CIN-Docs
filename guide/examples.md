@@ -82,7 +82,7 @@ max = 9
 point = (3, 4)
 ```
 
-要点: `import "sort.cin"` 走内置标准库 (`codecin/lib/`); 固长数组以指针形式传参;
+要点: `import "sort.cin"` 走内置标准库（`codecin/lib/<name>/src/`）; 固长数组以指针形式传参;
 struct 实例默认全零、成员用 `.` 访问。参考 [模块与标准库](/language/modules)、
 [数组](/language/arrays)、[struct](/language/structs) 与 [标准库参考](/stdlib/reference)。
 
@@ -200,7 +200,7 @@ contains(bana)=1
 repeat(ab,3)=ababab
 ```
 
-要点: 不写 `./` 前缀的 `import` 一律解析到内置标准库 `codecin/lib/`; 自建模块要写
+要点: 不写 `./` 前缀的 `import` 一律解析到内置标准库 `codecin/lib/<name>/src/`; 自建模块要写
 `import "./helpers.cin"`。参考 [模块与标准库](/language/modules)。
 
 ## 7. 宿主能力 (需要原生运行时)

@@ -1,5 +1,5 @@
 ---
-description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib、重复与循环引用处理、独立编译/链接，以及 41 个官方库清单。"
+description: "CIN 模块系统：import 解析规则、内置标准库 codecin/lib/<name>/src、重复与循环引用处理、独立编译/链接，以及 41 个官方库清单。"
 ---
 
 # 模块与标准库
@@ -12,7 +12,7 @@ CIN 用 `import` 引入其它 `.cin` 文件。解析规则只有两条, 且 `imp
 | 写法 | 解析到 |
 |------|--------|
 | `import "./util.cin"`、`import "../shared/x.cin"` | **相对当前 `.cin` 文件**所在目录 (可带子目录) |
-| `import "math.cin"`、`import "lib/math.cin"` | **codecin 内置标准库** `codecin/lib/` (随 pip 包分发) |
+| `import "math"`、`import "math.cin"`、`import "lib/math.cin"` | **codecin 内置标准库** `codecin/lib/<name>/src/` (随 pip 包分发) |
 | `import "rich"`、`import "rich/util.cin"` | 已安装的 **pic 包入口 / 包内文件** |
 | `import "rich:*"`、`import "rich:table"` | pic 包的**分块导入** (全部公开模块 / 指定模块) |
 | `import "rich::1.1.1:*"` | 指定版本的 pic 包分块导入 |
@@ -170,7 +170,7 @@ codecin --link main.cin --link lib.cin -o app
 
 ## 官方标准库清单
 
-内置库位于 `codecin/lib/`, 共 41 个, 随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
+内置库是 `codecin/lib/<name>/` 下的 41 个 pic 包（`src/<name>.cin`），随 pip 包一起分发 (安装后即可 `import`, 不需要额外下载):
 
 | 库 | 前缀 | 主要函数 |
 |----|------|----------|

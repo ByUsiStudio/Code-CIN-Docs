@@ -208,7 +208,7 @@ println(s.score)
 ## 模块与标准库
 
 ```cin
-// 裸名字 = 内置标准库 codecin/lib/; "./x.cin" = 相对当前文件的路径
+// 裸名字 = 内置标准库 codecin/lib/<name>/src/; "./x.cin" = 相对当前文件的路径
 // 注意: import 行不能写行尾注释
 import "math.cin"
 import "./helpers.cin"

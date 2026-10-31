@@ -65,7 +65,7 @@ v5.9.0 起为 native-only：纯 Python 解释器与 JIT 已删除，全部程序
 | 字符串 | NUL 结尾、拼接、字节下标、`\x`/`\u` 转义、字符串内建 | [字符串](/language/strings) |
 | 内建函数 | 数学、字符串、转换、数值工具、多参数 `print`/`println` | [内建函数](/language/builtins) |
 | 宿主能力 | 绘图、音频、文件与路径、网络、FFI、哈希、桌面集成、系统交互、Termux/Android API | [宿主能力](/language/host-abilities) |
-| 模块与标准库 | `import` 解析规则、`codecin/lib/` 函数清单 | [模块与标准库](/language/modules) |
+| 模块与标准库 | `import` 解析规则、`codecin/lib/<name>/src/` 函数清单 | [模块与标准库](/language/modules) |
 | 内嵌 CPU 指令语句 | `set` / `add` / `multiply` 等 7 条寄存器风格语句 | [内嵌 CPU 指令语句](/language/inline-cpu) |
 | 限制与常见错误 | 禁用特性、报错表、排错入口 | [限制与常见错误](/language/errors) |
 

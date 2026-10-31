@@ -74,7 +74,7 @@ Code CIN 构建信息 (build info) - 6.0.0
 codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
 ```
 
-`--libs` 列出 `codecin/lib/` 全部官方标准库, 并按**类别**标注三类
+`--libs` 列出 `codecin/lib/<name>/src/` 全部官方标准库, 并按**类别**标注三类
 (分类由源码扫描内建引用得出, 与库头注释保持一致):
 
 ```text

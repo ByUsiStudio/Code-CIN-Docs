@@ -152,7 +152,7 @@ println(log)                     // [info] start n=42
 :::
 
 > 拼接会产生新的堆块; 循环里大量拼接字符串会持续占用堆空间, 必要时改用
-> `codecin/lib/conv.cin` 的 `c_repeat` 等工具函数 (见 [标准库参考](/stdlib/reference))。
+> `codecin/lib/conv/src/conv.cin` 的 `c_repeat` 等工具函数 (见 [标准库参考](/stdlib/reference))。
 
 ## 三目表达式
 

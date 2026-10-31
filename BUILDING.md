@@ -445,7 +445,7 @@ python -m build            # 需要 wheel 时手动构建 (默认会带上本机
 - `CODECIN_SKIP_NATIVE=1` 可跳过本地编译 (仅用于 CI/发布场景: 产物**无法运行**,
   因为原生库是唯一执行引擎; CI/Release 构建发布物时设这个变量, 是为了保证
   `dist/` 里没有任何平台二进制, 用户安装时再现场编译);
-- `codecin/lib/*.cin` (内置标准库) 通过 `package-data` 与 `MANIFEST.in`
+- `codecin/lib/<name>/src/<name>.cin` (内置标准库) 通过 `package-data` 与 `MANIFEST.in`
   **同时进入 wheel 与 sdist**; 缺了它们安装后任何 `import "math.cin"` 都会失败。
   CI 的 `dist` 作业会断言 wheel/sdist 内至少含 19 个 `.cin`, 断言**不含**预编译库,
   并实际从 sdist 安装后验证原生库确实被编译出来。

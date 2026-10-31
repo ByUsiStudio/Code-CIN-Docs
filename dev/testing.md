@@ -164,7 +164,7 @@ python -m pytest ../tests/test_no_go_cli.py
 | `test_features_importloc.py` | import 行级源映射: 错误定位精确到模块 `file:line` |
 | `test_ffi_net.py` | FFI 动态库调用与网络系统调用 (HTTP 扩展 / TCP / UDP / DNS) |
 | `test_isa_single_source.py` | ISA 单一真源守卫: 各手写映射表与 `isa.py` 不漂移 |
-| `test_libs.py` | 官方标准库 (`codecin/lib/*.cin`) 行为回归; 依赖原生库, 无则 skip |
+| `test_libs.py` | 官方标准库 (`codecin/lib/*/src/*.cin`) 行为回归; 依赖原生库, 无则 skip |
 | `test_libs_ext.py` | 新增标准库 `bits/stat/hash/validate/matrix/queue` 回归 |
 | `test_literals_and_bom.py` | 数值字面量与带 UTF-8 BOM 源码中 `import` 的双端一致性 |
 | `test_native_hardening.py` | 原生库加固: 步数用尽报错、不可信字节码、CROM 解压上限 |
@@ -186,7 +186,7 @@ python -m pytest ../tests/test_no_go_cli.py
 |------|------|---------------|--------|
 | `test` | <span v-pre>`pytest (py${{ matrix.python-version }})`</span> | ubuntu-latest / 30 min | Python **3.9 / 3.11 / 3.13** 矩阵: 装 `requirements-dev.txt` → `gen_isa_docs.py --check` → `gen_native_isa.py --check` → `python -m pytest` → 检查是否有源码被 `.gitignore` 意外吞掉 |
 | `integration` | `原生/Go 集成 (真实跑原生路径)` | ubuntu-latest / 45 min | Python 3.11 + `setup-go` (版本取自 `codecin/native/go.mod`) → `go build -buildmode=c-shared -o ../libcodecin_native.so .` → **断言 `native.get_engine() is not None`** → `python -m pytest -rs --cov=codecin --cov-report=term-missing --cov-fail-under=70`, 环境变量 `CODECIN_AOT_TESTS=1` |
-| `dist` | `打包 (wheel/sdist 必须含内置标准库)` | ubuntu-latest / 30 min | `CODECIN_SKIP_NATIVE=1 python -m build` → 断言 wheel/sdist 各含 ≥19 个 `codecin/lib/*.cin` 且**不含** `.so/.dylib/.dll` → 装 wheel 后跑一个 `import "str.cin"` 的冒烟程序 |
+| `dist` | `打包 (wheel/sdist 必须含内置标准库)` | ubuntu-latest / 30 min | `CODECIN_SKIP_NATIVE=1 python -m build` → 断言 wheel/sdist 各含 ≥19 个 `codecin/lib/*/src/*.cin` 且**不含** `.so/.dylib/.dll` → 装 wheel 后跑一个 `import "str.cin"` 的冒烟程序 |
 | `lint` | `ruff` | ubuntu-latest / 15 min | `ruff check codecin cpu.py script tests` |
 | `native` | `Go native (build check)` | ubuntu-latest / 30 min | `go build ./...`、`go vet ./...`、`gofmt -l .` 门禁、`go test ./... -race -count=1`、断言 Go 侧无额外 `package main`、五次交叉编译自检、Linux c-shared 构建 |
 

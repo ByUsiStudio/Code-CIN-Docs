@@ -538,7 +538,7 @@ if (is_android() == 1) {
 (管道 / 重定向 / 测试捕获) 保持"缓冲 + 结束回传"不变。
 
 ::: tip 推荐 key.cin 标准库
-[`codecin/lib/key.cin`](/stdlib/reference#key) 提供 `enum Key` 键码常量 (`K_UP`..`K_F10`、
+[`codecin/lib/key/src/key.cin`](/stdlib/reference#key) 提供 `enum Key` 键码常量 (`K_UP`..`K_F10`、
 `K_ESC` `K_ENTER` `K_TAB` `K_BACKSPACE`) 与 `k_ctrl` (Ctrl 组合键码)、
 `k_is_special` (扩展键码判定)、`key_wait` (10ms 轮询阻塞等一键)。
 :::

@@ -290,6 +290,6 @@ Sum 1..10 = 55
 
 - [命令行参考](/guide/cli) — 全部选项、默认值与退出码
 - [CIN 语言总览](/language/) — 类型、控制流、函数、struct、数组、字符串
-- [标准库总览](/stdlib/) — 36 个内置库与逐函数参考
+- [标准库总览](/stdlib/) — 41 个内置库与逐函数参考
 - [宿主能力](/language/host-abilities) — 画布、GUI、音频、FFI 与网络
 - [示例程序集](/guide/examples) — 按主题整理的完整示例

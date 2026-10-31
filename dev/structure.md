@@ -18,7 +18,7 @@ v5.9.0 起 Code CIN 为 **native-only 架构**: 纯 Python 解释器与 JIT 已�
 UCPU/
 ├── cpu.py                    # 唯一 CLI 入口 (转发到 codecin.cli: main)
 ├── codecin/                  # Python 主包
-│   ├── lib/                  # 内置标准库 (41 个 .cin, 随包分发)
+│   ├── lib/                  # 内置标准库 pic 包 (pic.toml + src/<name>.cin)
 │   ├── native/               # Go 原生库源码 (module codecin-native)
 │   └── ...
 ├── tests/                    # pytest 套件 (55 个 test_*.py + helpers/conftest)
@@ -71,7 +71,7 @@ UCPU/
 c-shared 头文件)。
 
 ```text
-codecin/lib/   (41 个内置标准库, import 时按裸名字解析到这里)
+codecin/lib/<name>/src/<name>.cin   (41 个内置标准库, import 时按裸名字解析到这里)
 array  bigint  bits  bitset  codec  combin  conv  cppstd  cstd  csv
 dp  ffi  fmt  frac  gostd  graph  gui  hash  heap  io  json  key
 math  matrix  net  path  queue  rand  set  sort  stat  str  termux
@@ -226,7 +226,7 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 | CIN 编译器双语对齐 (Python `cin.py` 与 Go `compiler/`) | `tests/test_compiler_errors.py`、`tests/test_switch_semantics.py`、`tests/test_literals_and_bom.py` |
 | 版本号只是 `codecin/__init__.py` 一个数 | `tests/test_version.py`、Release 工作流的 `version-check` 作业 |
 | PyPI 包不含预编译原生库 | `tests/test_packaging.py`、CI `dist` 作业 |
-| 内置标准库必须随包分发 | `pyproject.toml` package-data + `MANIFEST.in`、CI `dist` 作业断言 `codecin/lib/*.cin` |
+| 内置标准库必须随包分发 | `pyproject.toml` package-data + `MANIFEST.in`、CI `dist` 作业断言 `codecin/lib/*/src/*.cin` |
 | 指令集文档与 `isa.py` 一致 | `script/gen_isa_docs.py --check`、`script/gen_native_isa.py --check` |
 
 ## 改一处要同步哪些文件
@@ -236,7 +236,7 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 | 新增/删除一条指令 | `isa.py` (`Opcode`/`OPCODE_NAMES`/`ARG_COUNTS`/`BRANCH_OPS`/`FP_OPS`) → `engine/vm.go` → `assembler.py` | `python script/gen_isa_docs.py`、`python script/gen_native_isa.py`、重编原生库、`pytest` |
 | 新增一个 SYS 功能号 | `isa.py: Syscall` → `engine/vm.go: doSyscall` → `cin.py: HOST_BUILTINS` (若暴露给 CIN) + `compiler/codegen.go: hostBuiltins` | 同上 (编号三处必须一致) |
 | 改了版本号 | `codecin/__init__.py: __version__` (唯一真源) → 重新生成 `version_gen.go`; `CHANGELOG.md` 加 `## [x.y.z]` 条目 | `python script/bump_version.py x.y.z` (先 `--dry-run` 预演)、`pytest tests/test_version.py` |
-| 改了内置标准库 | `codecin/lib/*.cin` (package-data 自动覆盖) | `pytest tests/test_libs.py tests/test_libs_ext.py` |
+| 改了内置标准库 | `codecin/lib/<name>/src/<name>.cin` (package-data 自动覆盖) | `pytest tests/test_libs.py tests/test_libs_ext.py` |
 | 改了打包配置 | `pyproject.toml` / `MANIFEST.in` / `setup.py` / `build.sh` / `build.bat` | `pytest tests/test_packaging.py` |
 | 改了 CI 工作流 | `.github/workflows/*.yml` | `pytest tests/test_workflows.py` |
 | 改了寄存器/内存语义 | `registers.py` / `memory.py` / `cpu.py` **以及** `engine/vm.go` (原生侧) | `pytest tests/test_sparse_memory.py` |

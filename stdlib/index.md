@@ -5,7 +5,7 @@ description: Code CIN 官方标准库总览：41 个内置库（含 C / C++ / Go
 
 # 标准库总览
 
-Code CIN 官方标准库由 41 个 `.cin` 源文件组成，随 pip 包一起分发在 `codecin/lib/` 目录下。
+Code CIN 官方标准库由 41 个 pic 包组成（`codecin/lib/<name>/pic.toml` + `src/<name>.cin`），随 pip 包一起分发。
 它们本身是**用 CIN 语言写成的模块**，不是宿主内建函数：编译器在编译主文件时按需展开，
 因此函数签名、边界行为和返回值都可以直接阅读源码核对。
 
@@ -19,8 +19,9 @@ FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandb
 
 | 你写的 import | 编译器解析到 | 说明 |
 | --- | --- | --- |
-| `import "math.cin"` | `codecin/lib/math.cin` | 官方标准库的规范写法 |
-| `import "lib/math.cin"` | `codecin/lib/math.cin` | 历史兼容别名，两者等价 |
+| `import "math.cin"` | `codecin/lib/math/src/math.cin` | 官方标准库的规范写法 |
+| `import "math"` | `codecin/lib/math/src/math.cin` | 包入口写法，与 `math.cin` 等价 |
+| `import "lib/math.cin"` | `codecin/lib/math/src/math.cin` | 历史兼容别名，两者等价 |
 | `import "./util.cin"` | 当前 `.cin` 文件同目录的 `util.cin` | 项目自有模块，必须带 `./` 前缀 |
 
 要点：
@@ -28,7 +29,7 @@ FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandb
 - `import` 只能出现在**文件顶部（列首）**；
 - 不带 `./` 前缀的名字一律当作**内置库名**，不会去当前目录找；
 - 同一文件每个编译只包含一次（防重复），循环引用报错，缺失模块报 `Import file not found`；
-- 标准库之间可以层层引用（例如 `codecin/lib/termux.cin` 内部 `import "json.cin"`）。
+- 标准库之间可以层层引用（例如 `codecin/lib/termux/src/termux.cin` 内部 `import "json.cin"`）。
 
 模块解析的完整规则见 [模块与标准库](/language/modules)。
 
@@ -82,14 +83,14 @@ FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandb
 | —（函数名以 `http_` / `tcp_` / `udp_` / `dns_` 开头） | `net.cin` | 网络便捷封装 |
 
 ::: warning `t_` 前缀冲突
-`codecin/lib/time.cin` 与 `codecin/lib/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
+`codecin/lib/time/src/time.cin` 与 `codecin/lib/test/src/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
 重复定义，但两库混用后**函数名容易看错**（`t_report` 是测试库、`t_hms` 是时间库）。
 建议在测试文件里只导入 `test.cin`，把时间格式化放到别的模块中。
 :::
 
 ## 总览表
 
-「函数个数」按 `codecin/lib/<库>.cin` 中 `function` 定义逐个数出，与源码一致。
+「函数个数」按 `codecin/lib/<库>/src/<库>.cin` 中 `function` 定义逐个数出，与源码一致。
 
 | 库 | 前缀 | 函数个数 | 用途 | 依赖宿主能力 |
 | --- | --- | --- | --- | --- |
@@ -173,12 +174,12 @@ function main() -> int {
   `strings.TrimSpace`）；`go_os_args_len` / `go_os_args_get` 依赖命令行参数内建。
 
 三库都是**纯 CIN**（只调用语言内建），行为与运行方式无关。
-逐一核对函数签名与边界行为请直接阅读 `codecin/lib/*.cin` 源码。
+逐一核对函数签名与边界行为请直接阅读 `codecin/lib/*/src/*.cin` 源码。
 
 ## 纯 CIN 库与宿主能力库
 
-纯 CIN 库（上表「依赖宿主能力 = 否」的 35 个，含三个兼容层库）内部只调用语言内建，例如 `codecin/lib/matrix.cin`
-只用数组与循环，`codecin/lib/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们不发起任何宿主 SYS
+纯 CIN 库（上表「依赖宿主能力 = 否」的 35 个，含三个兼容层库）内部只调用语言内建，例如 `codecin/lib/matrix/src/matrix.cin`
+只用数组与循环，`codecin/lib/conv/src/conv.cin` 只用 `substr`/`strlen`/`atoi`。它们不发起任何宿主 SYS
 调用，`--sandbox` 下也可正常运行：
 
 ```bash

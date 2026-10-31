@@ -136,7 +136,7 @@ BuildPyWithNative.run()
 
 | 位置 | 内容 | 由谁负责 |
 |------|------|----------|
-| `codecin/lib/*.cin` | 41 个内置标准库 (**必须进包**) | `package-data` + `MANIFEST.in` |
+| `codecin/lib/<name>/src/*.cin` | 41 个内置标准库 pic 包 (**必须进包**) | `package-data` + `MANIFEST.in` |
 | `codecin/native/**` | Go 源码 / `go.mod` / 构建脚本 (安装时要编译) | `MANIFEST.in` |
 | `docs/**/*.md` | 文档 (仓库文档 + 文档站页面) | `MANIFEST.in` (`prune docs/node_modules`、`prune docs/.vitepress`) |
 | `examples/**`、`script/*.py`、`misc/**` | 示例、工具脚本、编辑器配置 | `MANIFEST.in` |
@@ -144,7 +144,7 @@ BuildPyWithNative.run()
 
 ```ini
 # MANIFEST.in (节选)
-recursive-include codecin/lib *.cin
+recursive-include codecin/lib *.cin *.toml
 recursive-include codecin/native *.go *.txt go.mod go.sum build.sh build.ps1
 recursive-include docs *.md
 prune docs/node_modules
@@ -175,7 +175,7 @@ AOT 构建在 `codecin/native/` 下留下的 `.aotbuild-*` / `.aotprobe-*` 临�
 
 `.github/workflows/ci.yml` 的 `dist` 作业 (用 `CODECIN_SKIP_NATIVE=1` 构建) 会:
 
-1. 断言 wheel 与 sdist 里各有 **≥ 19 个** `codecin/lib/*.cin`;
+1. 断言 wheel 与 sdist 里各有 **≥ 19 个** `codecin/lib/*/src/*.cin`;
 2. 断言两份产物里**没有任何** `.so` / `.dll` / `.dylib`;
 3. 在临时 venv 里 `pip install` wheel, 真跑一个使用内置标准库的程序。
 

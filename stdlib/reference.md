@@ -4,13 +4,13 @@ description: Code CIN 41 个官方标准库（含 C / C++ / Go 兼容层）的�
 
 # 逐库函数参考
 
-本页覆盖 `codecin/lib/` 下全部 **41 个**官方标准库（`codecin/lib/` 目录里就是 41 个 `.cin`），
+本页覆盖 `codecin/lib/<name>/src/` 下全部 **41 个**官方标准库（每个库一个 pic 包：`pic.toml` + `src/<name>.cin`），
 每个库一节，先说明用途与 `import` 语句，再以表格列出**该库的全部函数**，
 最后给出一个可直接运行的 CIN 示例。
 
 约定与阅读提示：
 
-- 签名（参数个数、顺序、类型）与返回值**直接取自 `codecin/lib/<库>.cin` 中的真实定义**；
+- 签名（参数个数、顺序、类型）与返回值**直接取自 `codecin/lib/<库>/src/<库>.cin` 中的真实定义**；
 - CIN 数组**不携带长度**，因此所有数组接口都要求显式传入元素个数 `n`；
 - `void` 返回值表示该函数只产生副作用（原地修改数组、写输出数组、打印、写文件），无返回值；
 - `_sorted` 结尾的函数要求输入**已升序**，否则结果无意义；矩阵类 `_to` 风格函数把结果写入调用方提供的输出数组；
@@ -363,7 +363,7 @@ function main() -> int {
 
 ## combin
 
-数论与组合数学库 (`codecin/lib/combin.cin`, 前缀 `comb_`)。**纯 CIN 实现**: 不调用任何
+数论与组合数学库 (`codecin/lib/combin/src/combin.cin`, 前缀 `comb_`)。**纯 CIN 实现**: 不调用任何
 宿主能力内建 (无 `file_*` / `path_*` / `mkdir`), 只用 `strlen` / `substr` / `strcmp` /
 `int_to_str` / `idiv` / `%` / `abs`。**没有动态内存分配**: 素数筛用「定长全局数组 +
 容量常量」的形式。
@@ -1506,7 +1506,7 @@ function main() -> int {
 
 ## path
 
-纯字符串路径工具库 (`codecin/lib/path.cin`, 前缀 `path_`)。与 `io` 库的
+纯字符串路径工具库 (`codecin/lib/path/src/path.cin`, 前缀 `path_`)。与 `io` 库的
 `io_join` / `io_basename` / `io_dirname` 不同, 本库**不访问文件系统**、**不依赖任何宿主能力**:
 只用 `strlen` / `substr` / `strcmp` / `int_to_str`, 不发起任何宿主调用。
 `/` 与 `\` 两种分隔符都识别 (等价), 输出统一用 `/`。
@@ -1823,7 +1823,7 @@ function main() -> int {
 ## stat
 
 面向 `int` 数组的**顺序统计量**库（中位数/众数/百分位/直方图）与免排序的聚合量。
-与 `codecin/lib/vec.cin`（浮点统计）互补。需要升序输入的接口以 `_sorted` 结尾。
+与 `codecin/lib/vec/src/vec.cin`（浮点统计）互补。需要升序输入的接口以 `_sorted` 结尾。
 
 ```cin
 import "stat.cin"
@@ -2231,7 +2231,7 @@ function main() -> int {
 
 ## validate
 
-字符/字符串校验库。与 `codecin/lib/str.cin` 互补：`str.cin` 做变换（大小写/包含/重复），
+字符/字符串校验库。与 `codecin/lib/str/src/str.cin` 互补：`str.cin` 做变换（大小写/包含/重复），
 本库做**判定与安全解析**（字符类别、整数字符串、标识符、限幅、带 fallback 的解析）。
 
 ```cin
@@ -2275,7 +2275,7 @@ function main() -> int {
 
 ## vec
 
-浮点向量与统计库。与 `codecin/lib/stat.cin`（整数顺序统计）互补；`v_var` / `v_std` 是
+浮点向量与统计库。与 `codecin/lib/stat/src/stat.cin`（整数顺序统计）互补；`v_var` / `v_std` 是
 **样本**方差与样本标准差（除以 `n-1`），`v_normalize` 是原地操作。
 
 ```cin
