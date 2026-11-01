@@ -145,7 +145,7 @@ codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 
 | `--libs` | 列出内置标准库并标注执行路径要求后退出 |
 | `--sandbox` | 沙箱模式: 仅放行 ALLOCFRAME/TIMEUS/TIMENS, 其余宿主 SYS 报错 |
 | `--mem-size <bytes>` | 内存大小 (默认 1073741824, 即 1 GiB) |
-| `--max-instructions <n>` | 指令数上限 (默认 100000000, 防死循环) |
+| `--max-instructions <n>` | 已弃用 (隐藏参数); 默认不限制指令数, 死循环用 `Ctrl+C` 中断 |
 | `--compile` / `--compile-only` | 编译为 .bin 字节码 (后者编译后退出) |
 | `-o, --output <file>` | 指定 `.crom` / `.bin` 输出路径 (`--build-exe` 用自己的 `OUT` 参数) |
 | `--crom <file>` | 加载 .crom 内存镜像 |

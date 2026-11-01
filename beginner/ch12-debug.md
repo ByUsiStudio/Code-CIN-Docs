@@ -233,7 +233,7 @@ function average(int[] a, int n) -> float {   // a 只带地址, 不带长度
 | 开关 | 用途 | 例子 |
 |------|------|------|
 | `--bounds-check` | 数组越界检查 | `codecin prog.cin --bounds-check` |
-| `--max-instructions N` | 限制指令数, 抓死循环 (用尽报错退出码 1) | `codecin prog.cin --max-instructions 100000` |
+| `--max-instructions N` | 已弃用 (隐藏参数); 默认不限制指令数, 死循环用 `Ctrl+C` 中断 | — |
 | `--mem-size BYTES` | 扩大内存 (深递归 / 大数组撞栈或堆) | `codecin prog.cin --mem-size 2147483648` |
 
 ## 12.10 提问的正确姿势
