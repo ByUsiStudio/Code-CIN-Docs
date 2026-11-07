@@ -31,8 +31,9 @@ v7.22.10 的默认编译产物是 **`.sdgcc`** (CODE 段 = BIN v3), 并提供 **
 - **持久化**: 段式 CROM v4 / `.sdgcc` (BIN v3 CODE 段), 旧版 `.bin` 可读不可写;
 - **GUI / 音频 / 键盘**: 窗口 (Win32/X11)、2D 画布、WAV 播放、非阻塞键盘轮询等
   宿主能力, 全部由原生引擎实现 (`cincc` 产物暂不支持这些能力);
-- **AOT / 对象链接**: `--build-exe` 产出静态单文件 (`CGO_ENABLED=0`), 默认 C 后端,
-  可选 Go native/VM 后端、`-O0..3`、交叉编译、构建缓存与 `--build-debug`;
+- **AOT / 对象链接**: `--build-exe` 产出独立可执行文件, 默认 C 后端
+  (静态单文件需 `--build-static`), 可选 Go native/VM 后端、`-O0..3`、交叉编译、
+  构建缓存与 `--build-debug`;
   `--emit-object` / `--link` / `--emit-archive` 支持 CIN/ASM/PL 独立编译、
   `.colib` 静态库与链接期 GC。
 

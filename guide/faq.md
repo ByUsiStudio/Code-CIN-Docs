@@ -66,7 +66,8 @@ codecin prog.cin --bounds-check
 ### 递归报 `Stack overflow` 怎么办?
 
 默认内存已是 **1 GiB** (4 KiB 稀疏分页、按需提交), 常规深度的递归直接可用。
-确有特殊需求时再调大 `--mem-size`, 长循环注意 `--max-instructions` 上限 (默认 1 亿)。
+确有特殊需求时再调大 `--mem-size`; `--max-instructions` 已弃用且默认不限制,
+长循环不再有 1 亿步的硬上限。
 
 ### `input()` 读不到我输入的内容?
 
@@ -111,11 +112,28 @@ codecin prog.cin --bounds-check
 
 ### 我的程序到底是怎么执行的?
 
-v5.9.0 起只有**一条执行路径** (native-only): Python 侧完成编译与装载后, 通过 ABI v2
-的 `codecin_run_v2` 把整程序一次调用交给 Go 原生引擎执行, 再回传寄存器/向量/NZCV/
-脏内存段与输出。纯 Python 解释器与 JIT 已整体移除, `--no-native`、`--jit`、
-`--debug`、`--step`、`--profile`、`--mmu`、`--debug-server`、`--stats` 等选项也随之删除。
+v7.22.10 有**两条**执行路径:
+
+- **默认**: Python 侧完成编译与装载后, 通过 ABI v2 的 `codecin_run_v2` 把整程序一次
+  调用交给 Go 原生引擎执行, 再回传寄存器/向量/NZCV/脏内存段与输出。纯 Python 解释器
+  与 JIT 已移除, `--no-native`、`--jit`、`--debug`、`--step`、`--profile`、`--mmu`、
+  `--debug-server`、`--stats` 等选项也随之删除;
+- **原生机器码**: `--native` 调用 Go 编译器 `cincc` 直出 x86-64 ELF, 不经 C 也不经
+  字节码; `--native-out` 只构建不运行。
+
 详见 [执行路径](/guide/execution-paths)。
+
+### `--native` 报找不到 `cincc` / 目标不支持?
+
+`cincc` 不是默认安装产物, 需要先构建:
+
+```bash
+cd codecin/native && go build -o cincc ./cmd/cincc
+```
+
+或用 `CODECIN_CINCC` 指向已有编译器。当前只支持 `linux/amd64` (`x86_64-linux`);
+Windows 下 Python 会自动经 WSL 调用。`--native` 只覆盖语言子集, 缺 GUI/音频/HTTP/DNS/FFI,
+需要这些能力请用默认 `.sdgcc` 路径。
 
 ### 运行报 `CPUSimulatorError`, 提示原生库缺失怎么办?
 
@@ -187,42 +205,50 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 
 ## 产物与交付
 
-### `.bin` 和 `.crom` 有什么区别?
+### `.sdgcc`、`.bin` 和 `.crom` 有什么区别?
 
-| 项 | `.bin` | `.crom` |
-|----|--------|---------|
-| 内容 | UCBC 字节码 (代码) | 虚拟机内存镜像 (整机状态快照) |
-| 生成 | `--compile` / `--compile-only` | `--save` |
-| 用途 | 分发/复用编译结果, 可直接运行 | 保存/恢复内存状态 (可选 zlib 压缩 + CRC32) |
-| 通用性 | 只有 VM 能执行 | 不能当可执行文件用; `--crom` 仅在 `.pl` / `.asm` 路径生效 |
+| 项 | `.sdgcc` (默认) | `.bin` (兼容) | `.crom` |
+|----|----------------|---------------|---------|
+| 内容 | BIN v3 + 元数据/符号/源码清单 | UCBC 字节码 (代码) | 虚拟机内存镜像 |
+| 生成 | `--compile` / `--compile-only` | `--compile-only -o x.bin` | `--save` |
+| 用途 | 分发的默认程序产物, 可直接运行 | 兼容旧工具/旧产物, 可直接运行 | 保存/恢复内存状态 |
+| 通用性 | 只有 VM 能执行 | 只有 VM 能执行 | 不能当可执行文件用; `--crom` 仅在 `.pl` / `.asm` 路径生效 |
 
-v5.9.0 起为段式 **BIN v3 / CROM v4**, 只保存实际使用的内存页; 旧 BIN v2 / CROM v3
-产物仍可读取。注意 BIN v2 的格式可读不等于内存布局兼容: v2 没有 `heap_base`,
-当前 `--mem-size` 必须与文件头 `mem_size` 一致, 否则加载阶段会报错并提示
-`--mem-size <文件头 mem_size>` 或重新编译。细节见 [二进制格式](/runtime/formats)。
+`.sdgcc` 的 `CODE` 段与 BIN v3 逐字节一致; v5.9.0 起为段式 **BIN v3 / CROM v4**,
+只保存实际使用的内存页; 旧 BIN v2 / CROM v3 产物仍可读取。注意 BIN v2 的格式可读
+不等于内存布局兼容: v2 没有 `heap_base`, 当前 `--mem-size` 必须与文件头 `mem_size`
+一致, 否则加载阶段会报错并提示 `--mem-size <文件头 mem_size>` 或重新编译。细节见
+[二进制格式](/runtime/formats)。
 
 ### 怎么把程序交付给没装 Python 的人?
 
 ```bash
-codecin prog.cin --build-exe prog                       # 本机平台
-codecin prog.cin --build-exe prog --build-target linux/amd64
+codecin prog.cin --build-exe prog                       # 本机平台 (默认 C 后端)
+codecin prog.cin --build-exe prog-linux --build-target linux/amd64 --build-static
+codecin prog.cin --build-exe prog-mac --build-target darwin/arm64 --build-backend native
 ```
 
-产物是静态链接的单文件 (默认 auto: 小程序 native 机器码, 大程序内嵌字节码由 Go VM
-执行), 不依赖 Python、Go、libc 或任何动态库。需要 Go 工具链与源码树 (不适用于已安装的
-wheel)。CIN/ASM/PL 也可用 `--emit-object` + `--link` 独立编译链接。见 [AOT](/runtime/aot)。
+AOT 产物运行时不需要 Python、Go 工具链或 Code CIN 动态库。默认 `auto` 优先 C 后端,
+需系统 GCC/Clang 或 `zig`; C 后端默认动态链接系统 C 库, `--build-static` 时静态链接。
+Go native/VM 后端只支持源码树 (不适用于已安装的 wheel)。CIN/ASM/PL 也可用
+`--emit-object` + `--link` 独立编译链接。见 [AOT](/runtime/aot)。
+
+如果只想要不经 C/字节码的机器码, 用 `--native-out` (需先构建 `cincc`)。
 
 ### 环境变量有哪些?
 
-`CODECIN_NATIVE_LIB`、`CODECIN_SKIP_NATIVE`、`CODECIN_NO_GO`、`CODECIN_FORCE_REBUILD`、
-`CODECIN_STATIC`、`CODECIN_AOT_TESTS`, 完整说明见 [命令行参考 · 环境变量](/guide/cli#环境变量)。
+`CODECIN_NATIVE_LIB`、`CODECIN_CINCC`、`CODECIN_SKIP_NATIVE`、`CODECIN_NO_GO`、
+`CODECIN_FORCE_REBUILD`、`CODECIN_STATIC`、`CODECIN_AOT_TESTS`, 完整说明见
+[命令行参考 · 环境变量](/guide/cli#环境变量)。
 
 ## 开发与文档
 
 ### Go 侧为什么没有 `codecin` 命令?
 
-Go 是语言实现的唯一核心, 但**只以库的形式存在** (c-shared), 唯一命令行入口
-是 Python 侧, 避免了两套 CLI / 两套语义的问题。见 [项目结构](/dev/structure)。
+Go 是语言实现的核心, 但用户命令行入口仍是 Python 侧, 避免两套 CLI / 两套语义。
+Go 侧现在允许两个 `package main`: c-shared 库入口 `main.go`, 以及 `cincc` 编译器
+(`codecin/native/cmd/cincc/`, 仅供 `--native` 使用), 二者都不是用户 CLI。
+见 [项目结构](/dev/structure)。
 
 ### 怎么新增一条指令或系统调用?
 

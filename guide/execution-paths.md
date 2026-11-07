@@ -1,5 +1,5 @@
 ---
-description: Code CIN 的执行路径 (v7.22.10): .sdgcc 默认 Go 原生引擎路径、--native 的 cincc 机器码路径、装载格式与两种路径的差异。
+description: "Code CIN 的执行路径 (v7.22.10): .sdgcc 默认 Go 原生引擎路径、--native 的 cincc 机器码路径、装载格式与两种路径的差异。"
 ---
 
 # 执行路径

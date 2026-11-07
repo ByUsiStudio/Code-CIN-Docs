@@ -1,16 +1,17 @@
 ---
-description: "Code CIN 仓库结构: Python 包各模块职责、Go 原生库各包、tests/script/examples/misc 目录、三语言输入与单执行路径 (native-only)、常量单一真源与\"改一处要同步哪些文件\"。"
+description: "Code CIN 仓库结构: Python 包各模块职责、Go 原生库与 cincc 各包、tests/script/examples/misc 目录、三语言输入与 .sdgcc/cincc 两条主线、常量单一真源与\"改一处要同步哪些文件\"。"
 ---
 
 # 项目结构
 
 仓库 `UCPU` (项目 Code CIN / 包 codecin) 由三部分组成: **Python 包** `codecin/`
-(CLI 外壳 + 编译/装载编排 + 结果回写)、**Go 原生库** `codecin/native/` (语言实现核心:
-CIN 编译器、字节码 VM、CROM、AOT 运行时)、以及 **`docs/` 官方文档站**
-(VitePress, 同时是独立仓库 Code-CIN-Docs, 以 git submodule 内嵌)。
+(CLI 外壳 + 编译/装载编排 + 结果回写)、**Go 原生库/编译器** `codecin/native/`
+(语言实现核心: CIN 编译器、字节码 VM、CROM、AOT 运行时、`cincc` 原生编译器)、
+以及 **`docs/` 官方文档站** (VitePress, 同时是独立仓库 Code-CIN-Docs, 以 git submodule 内嵌)。
 
 v5.9.0 起 Code CIN 为 **native-only 架构**: 纯 Python 解释器与 JIT 已整体删除,
-所有程序统一由 Go 原生引擎执行 (ABI v2, 整程序一次调用)。
+默认路径统一由 Go 原生引擎执行 (ABI v2, 整程序一次调用)。v7.22.10 另有
+`--native` 的 `cincc` 机器码主线。
 
 ## 顶层目录树
 
@@ -21,7 +22,7 @@ UCPU/
 │   ├── lib/                  # 内置标准库 pic 包 (pic.toml + src/<name>.cin)
 │   ├── native/               # Go 原生库源码 (module codecin-native)
 │   └── ...
-├── tests/                    # pytest 套件 (55 个 test_*.py + helpers/conftest)
+├── tests/                    # pytest 套件 (test_*.py + helpers/conftest)
 ├── script/                   # 代码生成、版本脚本、安装脚本
 ├── examples/                 # 示例程序 (.cin / .asm)
 ├── misc/                     # 编辑器支持 (vim 语法/文件类型检测)
@@ -46,20 +47,22 @@ UCPU/
 | `__init__.py` | 包导出 (`CPU`/`Config`/`Syscall`/`Opcode`/`Constants`/`CPUSimulatorError` 等) 与**版本号单一真源** `__version__ = "x.y.z"` |
 | `cli.py` | 命令行入口: `build_parser()` (argparse) → `Config` → 加载 → 运行; 唯一参数表来源 |
 | `config.py` | `Config` dataclass: 全部运行配置字段 + `validate()` 夹取 (内存默认 1 GiB) |
-| `cpu.py` | CPU 编排 (native-only): 编译/装载 (`.cin`/`.asm`/`.pl`/`.bin`/`.crom`) → 一次调用 Go 引擎 → 回写寄存器/内存/统计 |
+| `cpu.py` | CPU 编排 (native-only): 编译/装载 (`.cin`/`.asm`/`.pl`/`.sdgcc`/`.bin`/`.crom`) → 一次调用 Go 引擎 → 回写寄存器/内存/统计 |
 | `isa.py` | 指令集定义: `Opcode`、`Syscall` (0–157)、`Cond`、`Constants`、`KIND_*`、`BC_MAGIC` |
 | `assembler.py` | ASM / PL 汇编器: `.equ` 常量、表达式、数据段、标签、内存操作数 |
 | `cin.py` | CIN 高级语言编译器: 词法/语法/代码生成、import 展开、`HOST_BUILTINS` 表 |
 | `memory.py` | `FastMemory` 稀疏分页内存 (4 KiB 页按需分配, `resident_bytes` 只算已触碰页) 与逐字节保护表 |
 | `registers.py` | `RegisterFile` (X0–X31/XZR) 与 `VectorRegisterFile` (V0–V31 × 4 lane) |
-| `stats.py` | 统计载体: `Statistics` / `PerformanceCounters` / `InstructionProfiler` / `BranchPredictor` (单路径下主要承载引擎回传的步数) |
+| `stats.py` | 统计载体: `Statistics` / `PerformanceCounters` / `InstructionProfiler` / `BranchPredictor` (默认路径下主要承载引擎回传的步数) |
+| `sdgcc.py` | `.sdgcc` 容器读写: v1/v2 头部、CODE/META/SYMS/SRCS 段、可选 zlib 压缩 (CODE 段 = BIN v3) |
 | `crom.py` | 段式 CROM v4 镜像与 BIN v3 容器读写 (只存已分配页; 兼容读旧 CROM v3 / BIN v2) |
 | `native.py` | Go 原生库 ctypes 桥接: 库查找、ABI v2 `codecin_run_v2` 调用与结果解码 |
-| `aot.py` | AOT 编排: 依赖检查 → 编译/优化 → native 代码生成或 UCBC 编码 → `go build` 静态产物; 缓存/调试构建 |
-| `native_codegen.py` | native 后端: 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 (基本块拆分) |
+| `aot.py` | AOT 编排: 依赖检查 → 编译/优化 → C/Go native/VM 后端 → 独立产物; 缓存/调试构建 |
+| `cbackend.py` | C 后端: 指令流 → C 源码, 调 GCC/Clang/`zig cc` 产出独立可执行文件 |
+| `native_codegen.py` | 旧 Go native 后端: 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 (基本块拆分) |
 | `optimizer.py` | IR 优化器: `-O0..3` (窥孔/常量折叠/不可达代码删除) |
 | `object.py` | 可重定位 `.co` 对象、`.colib` 归档、链接器、重定位与链接期 GC |
-| `disasm.py` | 反汇编 `.bin` 字节码为文本清单 (支持 BIN v3 与旧 BIN v2 头) |
+| `disasm.py` | 反汇编 `.sdgcc` / `.bin` 字节码为文本清单 (支持 BIN v3 与旧 BIN v2 头) |
 | `environment.py` | 宿主工具链检测与安装提示 (`find_tool`/`install_hint`/`native_runtime_hint`), 供 AOT、pip 安装与 `--build-info` 环境自检共用 |
 | `stdlib.py` | 内置标准库清单与分类 (`library_report`, 按"纯 CIN / 兼容层 / 需原生运行时"三分类), 驱动 `--libs` |
 | `console.py` | rich 适配层: `Console` / `Table` / `Panel` / `Colors` (模块禁止直接 `print`) |
@@ -85,7 +88,8 @@ Go 模块名 `codecin-native`, `go.mod` 声明 `go 1.26`。
 ```text
 codecin/native/
 ├── go.mod                    # module codecin-native / go 1.26 (无第三方依赖)
-├── main.go                   # 唯一的 package main: cgo c-shared 库入口
+├── main.go                   # package main: cgo c-shared 库入口
+├── cmd/cincc/main.go         # package main: cincc 编译器命令 (-o / -target / -v)
 ├── build.sh / build.ps1      # Linux/Termux/macOS 与 Windows 构建脚本
 ├── ir/                       # 中间表示: ir.go (Program / Instr / Operand / DataWrite)
 ├── engine/                   # 字节码 VM 与运行时
@@ -113,17 +117,21 @@ codecin/native/
 │   ├── tokenizer.go / parser.go / types.go / codegen.go
 │   ├── syscalls.go           # 生成物: SYS 功能号常量 (勿手改)
 │   └── compile_test.go
-└── aot/                      # AOT 产物运行时
-    ├── aot.go                # aot.Main(bytecode, memImage) -> int (VM 后端)
-    └── stub_main.go.txt      # VM 产物入口模板
+├── mc/                       # cincc 原生编译器: 指令选择/寄存器分配/ELF 写出
+│   ├── *.go                  # x86-64 稳定, AArch64 骨架; runtime 内建
+│   └── *_test.go             # go test ./mc
+├── aot/                      # AOT 产物运行时
+│   ├── aot.go                # aot.Main(bytecode, memImage) -> int (VM 后端)
+│   └── stub_main.go.txt      # VM 产物入口模板
+└── native_test.go / *_test.go
 ```
 
-**Go 侧不提供 CLI**: `codecin/native/` 下唯一的 `package main` 就是 c-shared 库入口
-`main.go` (见 `tests/test_no_go_cli.py` 与 CI `native` 作业的断言)。历史版本里的
-`cmd/codecin/` 全 Go CLI 已移除 —— 唯一的命令行入口是 Python
-(`codecin` / 安装后的 `codecin` console script)。
+**Go 侧有两个 `package main`**: c-shared 库入口 `main.go`, 以及编译器命令
+`cmd/cincc/`。`cincc` 只负责把 CIN 编译为机器码, 不提供运行/日志/调试命令;
+用户命令行入口仍是 Python (`codecin` / 安装后的 console script)。历史版本里的
+`cmd/codecin/` 全 Go CLI 已移除, 现在新增的 `cmd/cincc` 是编译器而非用户 CLI。
 
-## 三语言输入与单执行路径
+## 三语言输入与两条执行主线
 
 ```text
 输入 (三语言)                     前端                        中间产物
@@ -131,16 +139,20 @@ codecin/native/
 .cin  (CIN 高级语言)   ──►  cin.py / compiler/*.go  ──►  UCBC 字节码
 .pl   (PL 关键字汇编)  ──►  assembler.py            ──►  UCBC 字节码
 .asm  (ASM 汇编)       ──►  assembler.py            ──►  UCBC 字节码
+.sdgcc (默认容器)      ──►  sdgcc.unwrap           ──►  BIN v3 + 元数据/符号/源码清单
 .bin  (CPUSA 容器)     ──►  crom.load_bin           ──►  UCBC 字节码 + 内存镜像
 .crom (CROM v4 镜像)   ──►  crom.load_crom          ──►  内存镜像
 ```
 
 ```text
-执行 (单路径, native-only, 同一份 UCBC 字节码)
+执行 (两条主线)
 ─────────────────────────────────────────────────────────
-Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, ABI v2)
-              整程序一次调用, 回传寄存器/向量/NZCV/脏内存段/输出
-              动态库缺失时抛 CPUSimulatorError 并附重建指引, 无回退
+默认路径: .sdgcc ─► Go 原生 VM (native.py → ctypes → codecin_run_v2, ABI v2)
+          整程序一次调用, 回传寄存器/向量/NZCV/脏内存段/输出
+          动态库缺失时抛 CPUSimulatorError 并附重建指引, 无回退
+
+原生路径: .cin ─► cincc (Go) ─► x86-64 ELF ─► 操作系统直接执行
+          --native / --native-out; Windows 经 WSL; 覆盖语言子集
 ```
 
 ## `tests/` — 测试套件
@@ -172,11 +184,14 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 | `test_examples.py` | `examples/` 示例冒烟 (结果确定) |
 | `test_native_hardening.py` | 原生库加固: 步数用尽报错、不可信输入、缓冲上限 |
 | `test_native_lib_lookup.py` | 原生库查找顺序: 架构专属名优先于通用名 |
-| `test_no_go_cli.py` | 架构门禁: Go 侧只作为库存在, 无额外 `package main` |
+| `test_sdgcc.py` | `.sdgcc` 容器读写: 头部/段表/压缩/兼容 BIN v3 |
+| `test_cbackend.py` | C 后端: 指令展开、目标映射、编译与运行 |
+| `test_bin_compat.py` | BIN v3 / 旧 v2 只读兼容 |
+| `test_no_go_cli.py` | Go 侧入口约定: c-shared 库入口 + `cmd/cincc` 编译器, 无用户 CLI |
+| `test_aot.py` | AOT 产物可独立运行、交叉编译、静态链接 (无 `PT_INTERP`)、目标解析 |
 | `test_packaging.py` | 打包设计门禁: package-data / MANIFEST / 只发 sdist / `BuildPyWithNative` |
 | `test_version.py` | 版本设施: pyproject dynamic / Go `BuildVersion` / semver / `--version` / `--build-info`; `build_info()` 绝不抛异常; `bump_version.py` 全链路; `CHANGELOG.md` 必须含当前版本小节 |
 | `test_workflows.py` | GitHub Actions 工作流静态校验 (表达式函数、matrix 引用、job/step 形状) |
-| `test_aot.py` | AOT 产物可独立运行、交叉编译、Linux 静态链接 (无 `PT_INTERP`)、目标解析 |
 
 ## `script/`、`examples/`、`misc/`
 
@@ -192,16 +207,18 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 
 ## 关键约束
 
-### 1. Go 侧不提供 CLI
+### 1. Go 侧不提供用户 CLI
 
 语言实现全在 Go (`codecin/native/` 下的 CIN 编译器、字节码 VM、CROM), 但 Go 侧
-**没有任何命令行入口**。唯一允许的 `package main` 是 cgo 的 c-shared 库入口
-`main.go`, 它导出 `codecin_run_v2` / `codecin_free` / `codecin_crom_pack` /
-`codecin_crom_unpack` / `codecin_version`, 由 Python ctypes 加载。
+**没有用户命令行入口**。允许的 `package main` 有两个:
 
-把关点: `tests/test_no_go_cli.py` 断言唯一的 `package main` 是
-`codecin/native/main.go`; CI 的 `native` 作业用 `grep -rl '^package main'` 做同样的检查,
-并额外断言 `main.go` 仍包含 `#include <stdlib.h>`。
+- `main.go`: cgo 的 c-shared 库入口, 导出 `codecin_run_v2` / `codecin_free` /
+  `codecin_crom_pack` / `codecin_crom_unpack` / `codecin_version`, 由 Python ctypes 加载;
+- `cmd/cincc/main.go`: `cincc` 编译器命令, 只做 CIN → 机器码, 由 Python 的
+  `--native` / `mkn build --native` 调用。
+
+`tests/test_no_go_cli.py` 与 CI 的 `native` 作业检查 `package main` 白名单, 并断言
+`main.go` 仍包含 `#include <stdlib.h>`; `cmd/cincc` 不导出 C ABI, 也不是用户 CLI。
 
 ### 2. 常量单一真源: `isa.py` → Go
 
@@ -233,8 +250,8 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 
 | 你改了什么 | 必须同步的地方 | 命令 |
 |------------|----------------|------|
-| 新增/删除一条指令 | `isa.py` (`Opcode`/`OPCODE_NAMES`/`ARG_COUNTS`/`BRANCH_OPS`/`FP_OPS`) → `engine/vm.go` → `assembler.py` | `python script/gen_isa_docs.py`、`python script/gen_native_isa.py`、重编原生库、`pytest` |
-| 新增一个 SYS 功能号 | `isa.py: Syscall` → `engine/vm.go: doSyscall` → `cin.py: HOST_BUILTINS` (若暴露给 CIN) + `compiler/codegen.go: hostBuiltins` | 同上 (编号三处必须一致) |
+| 新增/删除一条指令 | `isa.py` (`Opcode`/`OPCODE_NAMES`/`ARG_COUNTS`/`BRANCH_OPS`/`FP_OPS`) → `engine/vm.go` → `assembler.py` → `native/mc` (cincc 指令选择) | `python script/gen_isa_docs.py`、`python script/gen_native_isa.py`、重编原生库、`pytest`、`go test ./mc` |
+| 新增一个 SYS 功能号 | `isa.py: Syscall` → `engine/vm.go: doSyscall` → `cin.py: HOST_BUILTINS` (若暴露给 CIN) + `compiler/codegen.go: hostBuiltins` → `native/mc` 运行时 | 同上 (编号三处必须一致) |
 | 改了版本号 | `codecin/__init__.py: __version__` (唯一真源) → 重新生成 `version_gen.go`; `CHANGELOG.md` 加 `## [x.y.z]` 条目 | `python script/bump_version.py x.y.z` (先 `--dry-run` 预演)、`pytest tests/test_version.py` |
 | 改了内置标准库 | `codecin/lib/<name>/src/<name>.cin` (package-data 自动覆盖) | `pytest tests/test_libs.py tests/test_libs_ext.py` |
 | 改了打包配置 | `pyproject.toml` / `MANIFEST.in` / `setup.py` / `build.sh` / `build.bat` | `pytest tests/test_packaging.py` |
@@ -246,7 +263,7 @@ Go 原生 VM  ← 唯一执行路径 (native.py → ctypes → codecin_run_v2, A
 
 ## 相关页面
 
-- [编译 Go 原生库](/dev/build-native) — 三平台构建命令与产物
+- [编译 Go 原生库与 cincc](/dev/build-native) — 三平台构建命令与产物
 - [测试与 CI](/dev/testing) — 本地复现 CI 的完整命令
 - [打包与发布](/dev/packaging) — 版本真源、构建钩子、Release 资产
 - [扩展指令 / 系统调用](/dev/extend) — 逐步改动清单

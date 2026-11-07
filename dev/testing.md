@@ -1,5 +1,5 @@
 ---
-description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、两个文档/常量一致性检查、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
+description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、两条一致性检查、Go 侧 (含 cincc/mc) 测试、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
 ---
 
 # 测试与 CI
@@ -116,19 +116,20 @@ CI 的 `native` 作业另有 `gofmt -l .` 门禁 —— 生成器已按 gofmt �
 
 ```bash
 cd codecin/native
-go build ./...                # 全部包 (Go 侧不含 CLI 入口)
+go build ./...                # 全部包 (含 cmd/cincc 编译器入口)
 go vet ./...
 gofmt -l .                    # 必须无输出
 go test ./... -race -count=1
+go test ./mc -count=1         # cincc 原生编译器
 ```
 
-交叉编译自检 (不需要 C 交叉工具链):
+交叉编译自检 (不需要 C 交叉工具链；`cmd/cincc` 是纯 Go，可一并检查):
 
 ```bash
 cd codecin/native
 for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
   GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 \
-    go build ./engine ./ir ./compiler ./aot
+    go build ./engine ./ir ./compiler ./aot ./mc ./cmd/cincc
 done
 ```
 
@@ -136,8 +137,9 @@ done
 
 ```bash
 cd codecin/native
-# 唯一的 package main 必须是 c-shared 库入口
-grep -rl '^package main' --include='*.go' . | grep -v '^\./main\.go$'   # 必须无输出
+# 允许的 package main: c-shared 库入口 main.go + cincc 编译器 cmd/cincc/main.go
+grep -rl '^package main' --include='*.go' . \
+  | grep -v -E '^\./main\.go$|^\./cmd/cincc/main\.go$'   # 必须无输出
 python -m pytest ../tests/test_no_go_cli.py
 ```
 
@@ -147,7 +149,10 @@ python -m pytest ../tests/test_no_go_cli.py
 |------|--------|
 | `conftest.py` | 会话级工作目录夹具 (`workdir` → 仓库内 `.pytest_tmp/`, 会话结束清理) |
 | `helpers.py` | 测试辅助: `reg`/`imm`/`mem` 操作数构造、`new_cpu`、`run_program`、`run_cin_source`、`run_cin_file`、`asm_program`、`snapshot` |
-| `test_aot.py` | AOT 产物可独立运行、native/VM 后端、交叉编译 x86-64/ARM64、Linux ELF 无 `PT_INTERP` (静态)、`--build-debug`、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
+| `test_aot.py` | AOT 产物可独立运行、C/native/VM 后端、交叉编译 x86-64/ARM64、静态 ELF 无 `PT_INTERP`、`--build-debug`、非法 `--target` 报 `AotError`; 临时目录生命周期 (陈旧 `.aotbuild-*`/`.aotprobe-*` 被 sweep、新鲜目录保留、越界不误删、删除失败告警不抛异常、`build()` 返回后不留临时目录) |
+| `test_sdgcc.py` | `.sdgcc` 容器: 头部/段表/压缩/CODE 段与 BIN v3 一致 |
+| `test_cbackend.py` | C 后端: 指令展开、syscall 白名单、目标映射、产物运行 |
+| `test_bin_compat.py` | BIN v3 与旧 BIN v2 的只读兼容 |
 | `test_native_codegen.py` | native 指令降低、基本块模式、native/VM 输出一致性、优化器 `-O0..3` |
 | `test_object_link.py` | `.co` 对象、CIN/ASM 跨对象链接、`NAME±N`/`DW/DD/DQ` 重定位、extern 函数/全局、struct 指针槽、`.colib` 归档选择、`--gc-sections` |
 | `test_assembler_ext.py` | 汇编器 `.equ` 常量、立即数/偏移表达式、符号算术、数据段表达式 |
@@ -169,7 +174,7 @@ python -m pytest ../tests/test_no_go_cli.py
 | `test_literals_and_bom.py` | 数值字面量与带 UTF-8 BOM 源码中 `import` 的双端一致性 |
 | `test_native_hardening.py` | 原生库加固: 步数用尽报错、不可信字节码、CROM 解压上限 |
 | `test_native_lib_lookup.py` | 原生库查找顺序: 架构专属文件名优先于通用名 |
-| `test_no_go_cli.py` | 架构门禁: 唯一 `package main` 是 c-shared 入口; 源码树无构建产物 |
+| `test_no_go_cli.py` | 架构门禁: 允许 c-shared 入口与 `cmd/cincc` 编译器, 无用户 CLI; 源码树无构建产物 |
 | `test_packaging.py` | 打包设计: package-data 含内置库不含二进制、MANIFEST 带 Go 源码、只发 sdist、`BuildPyWithNative` |
 | `test_sparse_memory.py` | 稀疏分页内存: 页按需分配、`resident_bytes`、越界与负地址提示、保护检查 |
 | `test_switch_semantics.py` | switch 语义回归 (Go 与 Python 双编译器对齐) |
@@ -188,7 +193,7 @@ python -m pytest ../tests/test_no_go_cli.py
 | `integration` | `原生/Go 集成 (真实跑原生路径)` | ubuntu-latest / 45 min | Python 3.11 + `setup-go` (版本取自 `codecin/native/go.mod`) → `go build -buildmode=c-shared -o ../libcodecin_native.so .` → **断言 `native.get_engine() is not None`** → `python -m pytest -rs --cov=codecin --cov-report=term-missing --cov-fail-under=70`, 环境变量 `CODECIN_AOT_TESTS=1` |
 | `dist` | `打包 (wheel/sdist 必须含内置标准库)` | ubuntu-latest / 30 min | `CODECIN_SKIP_NATIVE=1 python -m build` → 断言 wheel/sdist 各含 ≥19 个 `codecin/lib/*/src/*.cin` 且**不含** `.so/.dylib/.dll` → 装 wheel 后跑一个 `import "str.cin"` 的冒烟程序 |
 | `lint` | `ruff` | ubuntu-latest / 15 min | `ruff check codecin cpu.py script tests` |
-| `native` | `Go native (build check)` | ubuntu-latest / 30 min | `go build ./...`、`go vet ./...`、`gofmt -l .` 门禁、`go test ./... -race -count=1`、断言 Go 侧无额外 `package main`、五次交叉编译自检、Linux c-shared 构建 |
+| `native` | `Go native (build check)` | ubuntu-latest / 30 min | `go build ./...`、`go vet ./...`、`gofmt -l .` 门禁、`go test ./... -race -count=1`、断言 Go 侧无额外用户 CLI (`package main` 仅 main.go + cmd/cincc)、五次交叉编译自检、Linux c-shared 构建 |
 
 `test` 作业的最后一步值得一提: 它用
 `git ls-files --others --ignored --exclude-standard -- '*.py' '*.go' '*.cin' '*.asm'`
@@ -220,9 +225,11 @@ ruff check codecin cpu.py script tests
 # 3) 与 native 作业等价
 cd codecin/native
 go build ./... && go vet ./... && gofmt -l . && go test ./... -race -count=1
-grep -rl '^package main' --include='*.go' . | grep -v '^\./main\.go$'
+go test ./mc -count=1
+grep -rl '^package main' --include='*.go' . \
+  | grep -v -E '^\./main\.go$|^\./cmd/cincc/main\.go$'
 for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-  GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 go build ./engine ./ir ./compiler ./aot
+  GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 go build ./engine ./ir ./compiler ./aot ./mc ./cmd/cincc
 done
 go build -buildmode=c-shared -o /tmp/libcodecin_native.so .
 cd ../..
@@ -259,6 +266,6 @@ python -c "from codecin import native; print(native.get_engine())"
 ## 相关页面
 
 - [项目结构](/dev/structure) — tests/ 与 script/ 在仓库中的位置
-- [编译 Go 原生库](/dev/build-native) — 让 integration 作业前置条件成立的步骤
+- [编译 Go 原生库与 cincc](/dev/build-native) — 让 integration 作业前置条件成立的步骤
 - [打包与发布](/dev/packaging) — `dist` 作业与 Release 流程
 - [贡献指南](/dev/contributing) — 提交前应跑哪些检查

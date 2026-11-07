@@ -5,10 +5,11 @@ description: "把 Code CIN 当作 Python 库使用: 包导出、Config 全部字
 # Python 嵌入 API
 
 Code CIN 除了命令行工具, 也可以直接当作 Python 库嵌入到自己的程序里: 构造一个
-`Config`, 交给 `CPU`, 调用 `run()` 一次性执行。v5.9.0 起是 **native-only 单引擎**:
+`Config`, 交给 `CPU`, 调用 `run()` 一次性执行。v5.9.0 起默认路径是 **native-only**:
 整份字节码一次调用交给 Go 原生引擎 (`codecin_run_v2`), 不再有逐条解释 / JIT /
-单步调试路径。整条工具链 (汇编器、CIN 编译器、Go 原生 VM 桥接、CROM 读写、AOT、
-反汇编、统计) 都是公开可调用的。
+单步调试路径。v7.22.10 另有 `--native` 调用入口 (`cincc`) 直出机器码。
+整条工具链 (汇编器、CIN 编译器、Go 原生 VM 桥接、`.sdgcc`/CROM 读写、AOT、
+`cincc`、反汇编、统计) 都是公开可调用的。
 
 本页所有签名均以当前源码为准: 包导出见 `codecin/__init__.py`, 配置字段见
 `codecin/config.py`, 运行时见 `codecin/cpu.py`。
@@ -341,19 +342,20 @@ print(res['status'], res['regs'][0])   # 正常结束, x0 = 42
 
 ## AOT: `codecin.aot`
 
-`codecin/aot.py` 把 CIN/ASM/PL/BIN/CO 程序编译成**独立静态可执行文件**。默认
-`auto` 后端: 指令数 ≤ 20000 时 native (直接生成 Go 代码 → 机器码), 否则 VM
-(内嵌 UCBC 字节码与初始内存段文件, 由内置 Go VM 执行)。运行时不需要
-Python / Go / 动态库。native 代码生成位于 `codecin/native_codegen.py`。
-构建强制 `CGO_ENABLED=0`, 因此 cgo 实现的 FFI 在 AOT 产物内调用会得到运行期错误
+`codecin/aot.py` 把 CIN/ASM/PL/SDGCC/BIN/CO 程序编译成**独立可执行文件**。默认
+`auto` 后端优先 **C 后端** (`codecin/cbackend.py` + 系统 GCC/Clang/`zig cc`),
+C 不支持程序指令时回退 Go `native` 或 `vm`。C 后端默认动态链接系统 C 库
+(`c_static=True` 时静态链接); Go 后端强制 `CGO_ENABLED=0` 纯静态。
+native 代码生成位于 `codecin/native_codegen.py`。
+Go 后端产物里 cgo 实现的 FFI 调用会得到运行期错误; C 后端按其 SYS 白名单执行
 (详见 [AOT 独立可执行文件](/runtime/aot))。
 
 | 接口 | 签名要点 |
 |------|----------|
-| `build_program(program_file, out=None, target=None, keep_temp=False, mem_size=None, backend='auto', max_instructions=100_000_000, optimize=0, use_cache=True, debug=False, logger=None) -> str` | 由源文件/`.bin`/`.co` 一键构建, 返回产物绝对路径 |
+| `build_program(program_file, out=None, target=None, keep_temp=False, mem_size=None, backend='auto', max_instructions=0, optimize=0, use_cache=True, debug=False, c_static=False, c_strip=False, c_keep_c=False, logger=None) -> str` | 由源文件/`.sdgcc`/`.bin`/`.co` 一键构建, 返回产物绝对路径; `max_instructions=0` 表示不限制 |
 | `build(bytecode, seg_file, out, target=None, keep_temp=False, debug=False, logger=None) -> str` | VM 底层入口, 直接吃字节码与段文件 |
-| `build_native(go_source, out, target=None, keep_temp=False, debug=False, logger=None) -> str` | native 底层入口, 编译 `generate_go_source()` 的产物 |
-| `build_from_ir(instructions, labels, data_labels, segments, entry_pc, mem_size, sp, heap_base, out, target=None, backend='auto', max_instructions=..., optimize=0, program_name='linked', keep_temp=False, debug=False, use_cache=False, cache_key=None, logger=None) -> str` | 从链接后的 IR 构建 (对象/归档链接使用) |
+| `build_native(go_source, out, target=None, keep_temp=False, debug=False, logger=None) -> str` | Go native 底层入口, 编译 `generate_go_source()` 的产物 |
+| `build_from_ir(instructions, labels, data_labels, segments, entry_pc, mem_size, sp, heap_base, out, target=None, backend='auto', max_instructions=0, optimize=0, program_name='linked', keep_temp=False, debug=False, use_cache=False, cache_key=None, c_static=False, c_strip=False, c_keep_c=False, logger=None) -> str` | 从链接后的 IR 构建 (对象/归档链接使用), 同样支持 C 后端开关 |
 | `build_cache_key(...)` / `link_cache_key(...)` | AOT 源构建/对象链接缓存键 |
 | `pack_seg_file(mem_size, sp, heap_base, segs) -> bytes` | 打包初始内存段 + 布局参数为 `program.segs` 段文件 |
 | `program_dependencies(program_file) -> List[str]` | 依赖闭包 (含自身, 去重保序) |
@@ -484,7 +486,7 @@ cpu.stats.display_summary(cpu.console, native_used=cpu.native_used)
 
 - [寄存器与内存模型](/reference/registers-memory) — 寄存器/内存/栈帧约定
 - [指令集编码表](/reference/isa) — `Opcode` 枚举的完整编码
-- [执行路径](/guide/execution-paths) — native-only 单引擎的数据流与装载格式
+- [执行路径](/guide/execution-paths) — 默认 `.sdgcc` 路径、`--native` 路径与装载格式
 - [Go 原生运行时](/runtime/native) — ABI v2、原生库查找顺序与重建
 - [二进制格式 (.bin/.crom)](/runtime/formats) — UCBC 与 CROM v4 布局
 - [内存模型与运行时开关](/tools/memory-cache) — 稀疏分页与 `--mem-size` 等

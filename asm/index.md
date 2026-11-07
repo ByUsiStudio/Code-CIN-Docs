@@ -108,8 +108,8 @@ Sum 1..10 = 55
 | 开关 | 作用 |
 | --- | --- |
 | `--strict` | 严格汇编模式, 校验指令的操作数个数 |
-| `--compile-only` | 只编译为 `.bin` 字节码, 不执行 |
-| `--disasm` | 反汇编 `.bin` 字节码并退出 |
+| `--compile-only` | 只编译为 `.sdgcc` (默认产物), 不执行 |
+| `--disasm` | 反汇编 `.sdgcc` / `.bin` 字节码并退出 |
 | `--log-level ERROR` | 只输出错误, 保持示例输出干净 |
 
 在 Windows PowerShell 中同样直接调用:

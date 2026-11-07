@@ -87,7 +87,7 @@ Hello, Code CIN!
 
 ## DEBUG 级别的埋点
 
-`--log-level DEBUG` 会打开全部 DEBUG 埋点。v5.9.0 起单执行路径（Go 原生引擎），不再有逐指令追踪；DEBUG 覆盖的是**编译/汇编细节与引擎执行结果**。
+`--log-level DEBUG` 会打开全部 DEBUG 埋点。v5.9.0 起默认路径为 Go 原生引擎，不再有逐指令追踪；DEBUG 覆盖的是**编译/汇编细节与引擎执行结果**。
 
 ### CPU 初始化快照
 
@@ -207,7 +207,7 @@ codecin hello.cin --log-level WARNING --log-file logs/hello.log
 ## 常见问题
 
 - **日志跑到程序输出里了**：这是设计如此，日志默认写 stdout。要分离，用 `--log-file` 或 `--log-level ERROR`。
-- **DEBUG 行比以前少了**：v5.9.0 起单执行路径，逐指令追踪随解释器一并移除；DEBUG 只覆盖编译/汇编/引擎结果等埋点。若想看更多细节，确认没有用 `--log-level` 提高过级别。
+- **DEBUG 行比以前少了**：v5.9.0 起默认路径为 Go 原生引擎，逐指令追踪随解释器一并移除；DEBUG 只覆盖编译/汇编/引擎结果等埋点。若想看更多细节，确认没有用 `--log-level` 提高过级别。
 - **`--log-file` 里没有 DEBUG 行**：文件 handler 固定记录全量 DEBUG，若为空说明该次运行确实没有产生对应埋点（例如未编译 CIN 而是直接载入 `.bin`）。
 - **错误面板没有行号**：只有编译/汇编阶段的错误带 `文件:行号`；运行期错误（除零、越界）本身没有源码位置。
 - 更多异常对照见 [/guide/faq](/guide/faq) 与 [/language/errors](/language/errors)。

@@ -1003,8 +1003,10 @@ function cpu_ops() -> void {
 
 ```bash
 codecin prog.cin                    # 编译并由 Go 原生引擎执行
-codecin prog.cin --compile-only     # 仅编译为 prog.bin (UCBC 字节码)
-codecin prog.bin                    # 运行字节码
+codecin prog.cin --native           # 可选: cincc 直出机器码并运行
+codecin prog.cin --compile-only     # 仅编译为 prog.sdgcc (CODE 段为 UCBC 字节码)
+codecin prog.sdgcc                  # 运行默认产物
+codecin prog.bin                    # 运行兼容 BIN v3 字节码
 codecin prog.cin --save             # 运行后保存 prog.crom 内存镜像
 codecin prog.cin --build-exe prog   # AOT 编译为独立可执行文件
 codecin prog.cin --log-level DEBUG --log-file codecin.log   # 全量日志落盘

@@ -1,5 +1,5 @@
 ---
-description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语言、原生引擎单路径执行、编译为字节码与 AOT 单文件。
+description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语言、默认 .sdgcc/Go 引擎路径、cincc 原生机器码路径、AOT 单文件。
 ---
 
 # 快速开始
@@ -59,7 +59,7 @@ Hello, Code CIN!
 
 ## 2. 同一件事, 三种写法
 
-Code CIN 的编译器/汇编器接受三种输入, 最终都产出 UCBC 字节码:
+Code CIN 的编译器/汇编器接受三种输入, 默认都产出 `.sdgcc` (其 `CODE` 段为 UCBC BIN v3):
 
 ::: tabs
 
@@ -114,12 +114,12 @@ codecin hello.asm        # 汇编
 - `sys #24` 是宿主系统调用 `PRINT_STR` (打印 `x0` 指向的 NUL 结尾字符串), `out` 输出数值,
   值为 `10` 时输出换行 —— 详见 [指令语义参考](/asm/instructions)。
 
-## 3. 单执行路径: Go 原生引擎
+## 3. 两条执行主线: Go 引擎与 cincc
 
-所有程序都由**同一条路径**执行 (详见 [执行路径](/guide/execution-paths)):
+默认路径由 Go 原生引擎执行 (详见 [执行路径](/guide/execution-paths)):
 
 ```bash
-codecin hello.cin
+codecin hello.cin                     # 编译为 .sdgcc, 由 Go 引擎执行
 ```
 
 Python 侧负责编译与装载, 然后通过 ABI v2 的 `codecin_run_v2` 把整程序一次调用
@@ -128,20 +128,35 @@ v5.9.0 起**没有解释器/JIT 回退**: 原生库缺失时会直接抛 `CPUSim
 重建指引 (源码树 `codecin/native/` 下的 `build.ps1` / `build.sh`, 需 Go 1.26+),
 所以[安装后构建原生库](/guide/installation)是必要步骤。
 
+v7.22.10 起也可以走 `cincc` 原生机器码路径 (不经 C、不经字节码):
+
+```bash
+codecin hello.cin --native            # 编译为 x86-64 ELF 并运行 (Windows 经 WSL)
+codecin hello.cin --native-out hello  # 只构建, 不运行
+```
+
+`--native` 需先构建 `cincc` (`cd codecin/native && go build -o cincc ./cmd/cincc`),
+或设置 `CODECIN_CINCC`。它覆盖语言子集: 没有 GUI/画布/音频、HTTP/DNS、FFI。
+完整宿主能力请用默认 `.sdgcc` 路径。
+
 内存默认 **1 GiB** (4 KiB 稀疏分页、按需提交), 大数组/大缓冲不再需要 `--mem-size`。
 
 ## 4. 编译产物与内存镜像
 
 ```bash
-# 编译为 UCBC 字节码 (不执行)
-codecin hello.cin --compile-only -o hello.bin
-# INFO  Binary saved to hello.bin (753 bytecode bytes)
+# 编译为默认 .sdgcc 容器 (不执行)
+codecin hello.cin --compile-only
+# INFO  CIN compiled: 30 instructions
+# INFO  Compiled to hello.sdgcc
 
-# 直接运行字节码
-codecin hello.bin
+# 显式要兼容 BIN v3 时:
+codecin hello.cin --compile-only -o hello.bin
+
+# 直接运行产物
+codecin hello.sdgcc
 
 # 反汇编查看字节码清单
-codecin hello.bin --disasm
+codecin hello.sdgcc --disasm
 ```
 
 ```text
@@ -163,25 +178,30 @@ codecin prog.asm --crom prog.crom    # 汇编路径: 先恢复内存镜像再汇
 ```
 
 ::: warning `--crom` 只对 `.pl` / `.asm` 生效
-`CPU.load_program` 在 `.cin` 与 `.bin` 分支会直接返回, 因此这两个入口**不会读取** `--crom`;
+`CPU.load_program` 在 `.cin`、`.sdgcc` 与 `.bin` 分支会直接返回, 因此这些入口**不会读取** `--crom`;
 `.pl` / `.asm` 还会自动探测同目录同名的 `<程序名>.crom`。CROM 是内存镜像而不是可执行文件
 (直接 `codecin x.crom` 会被当作汇编源码而报错), 详见 [二进制格式](/runtime/formats)。
 :::
 
-## 5. 生成独立可执行文件 (AOT)
+## 5. 生成独立可执行文件 (AOT) 与原生机器码
 
 ```bash
-# 本机平台: 生成 hello.exe (Windows) / hello (Linux/macOS)
+# AOT: 本机平台生成 hello.exe (Windows) / hello (Linux/macOS)
 codecin hello.cin --build-exe hello
 
-# 交叉编译 (只需本机装好 Go 工具链)
-codecin hello.cin --build-exe app-linux --build-target linux/amd64
-codecin hello.cin --build-exe app-mac   --build-target darwin/arm64
+# 交叉编译 Linux 静态单文件
+codecin hello.cin --build-exe app-linux --build-target linux/amd64 --build-static
+
+# macOS 目标需显式使用 Go 后端 (C 后端不支持)
+codecin hello.cin --build-exe app-mac --build-target darwin/arm64 --build-backend native
 ```
 
-默认 `auto` 后端: 小程序编译成 native 机器码, 大程序内嵌字节码由 Go VM 执行;
-产物**运行时不需要 Python、Go 工具链或任何动态库**。CIN/ASM/PL 也可
-`--emit-object` + `--link` 独立编译链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
+默认 `auto` 后端优先使用 **C 后端** (需系统 GCC/Clang 或 `zig`); C 不支持时回退
+Go native/VM。产物**运行时不需要 Python、Go 工具链或 Code CIN 动态库**; C 后端默认动态
+链接系统 C 库, `--build-static` 时静态链接。CIN/ASM/PL 也可 `--emit-object` + `--link`
+独立编译链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
+
+如果只想要 `cincc` 直出的机器码 (不经 C/字节码), 用上一节的 `--native-out`。
 
 ## 6. 看看内置示例
 

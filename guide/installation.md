@@ -1,5 +1,5 @@
 ---
-description: 用 pip 安装 Code CIN 的完整步骤：安装期原生库编译、预编译库、源码树与 Termux 安装，以及安装验证与排错。
+description: 用 pip 安装 Code CIN 的完整步骤：安装期原生库编译、预编译库、源码树与 Termux 安装、可选 cincc 原生编译器，以及安装验证与排错。
 ---
 
 # 安装 Code CIN
@@ -95,14 +95,17 @@ cd Code-CIN
 
 # 必需: 构建 Go 原生引擎库 (运行程序前必须完成)
 cd codecin/native && sh build.sh      # Windows: .\build.ps1
+# 可选: 构建 cincc, 供 --native / mkn build --native 使用
+go build -o cincc ./cmd/cincc
 cd ../..
 
 codecin basic.cin                # 直接运行, 由 Go 原生引擎执行
+codecin basic.cin --native       # 可选: cincc 直出机器码 (Windows 经 WSL)
 codecin --help
 pip install -e .                       # 可选: 以可编辑模式装上 codecin 命令
 ```
 
-源码树方式适合改编译器/VM/加指令, 见 [编译 Go 原生库](/dev/build-native)。
+源码树方式适合改编译器/VM/加指令, 见 [编译 Go 原生库与 cincc](/dev/build-native)。
 
 == Termux (Android)
 
@@ -135,6 +138,9 @@ python -c "import codecin,os,glob;print(len(glob.glob(os.path.join(os.path.dirna
 
 # 5) 跑一个最小程序
 codecin --log-level ERROR hello.cin
+
+# 6) 可选: 检查 cincc 原生编译器 (仅供 --native)
+codecin/native/cincc -h
 ```
 
 最小验证程序 `hello.cin`:
@@ -185,5 +191,5 @@ pip cache purge                   # 需要时可清理 wheel/sdist 缓存
 
 - [快速开始](/guide/quickstart) — 五分钟写出并运行第一个 CIN 程序
 - [命令行参考](/guide/cli) — 全部选项与退出码
-- [执行路径](/guide/execution-paths) — 单路径 native-only 执行模型
-- [编译 Go 原生库](/dev/build-native) — 源码树下的原生库构建
+- [执行路径](/guide/execution-paths) — `.sdgcc` 默认路径与 `--native` 机器码路径
+- [编译 Go 原生库与 cincc](/dev/build-native) — 源码树下的原生库/编译器构建

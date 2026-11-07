@@ -342,13 +342,15 @@ main:
 ## 9. 编译成独立可执行文件
 
 ```bash
-codecin hello.cin --build-exe hello              # 本机平台
-codecin hello.cin --build-exe app --build-target linux/arm64   # 交叉编译
+codecin hello.cin --build-exe hello              # 本机平台 (默认 C 后端)
+codecin hello.cin --build-exe app --build-target linux/amd64 --build-static
 ./hello                                          # 运行产物 (无需 Python/Go)
 ```
 
-默认 `auto` 后端按指令数选 native/VM；可用 `--build-backend` 强制。CIN/ASM/PL
-也可 `--emit-object` + `--link` 独立编译链接。详见 [AOT 独立可执行文件](/runtime/aot)。
+默认 `auto` 后端优先 C 后端 (需系统 C 编译器或 `zig`), C 不支持时回退 Go native/VM;
+可用 `--build-backend` 强制。CIN/ASM/PL 也可 `--emit-object` + `--link` 独立编译链接。
+想要不经 C/字节码的机器码, 用 `--native-out` (需先构建 `cincc`)。
+详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 仓库内其他示例
 

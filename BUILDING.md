@@ -38,15 +38,17 @@ Code CIN/
 │   ├── memory.py           # FastMemory: 稀疏分页内存 (4 KiB 按需提交) + 保护 + 读写日志
 │   ├── registers.py        # RegisterFile (X0-X31 + XZR) / VectorRegisterFile
 │   ├── stats.py            # 统计: 指令计数 / 执行耗时
+│   ├── sdgcc.py            # .sdgcc 容器 (v1/v2, CODE/META/SYMS/SRCS, 可选压缩)
 │   ├── crom.py             # CROM v4 段式内存镜像 存/取 + .bin (BIN v3) 字节码
 │   ├── native.py           # Go 原生库 ctypes 桥接 (ABI v2: codecin_run_v2)
-│   ├── aot.py              # AOT 构建器: native/VM 后端 + 临时包 + go build
-│   ├── native_codegen.py   # native 后端: 指令流 -> 直接调用 NativeRuntime 的 Go 源码
+│   ├── aot.py              # AOT 构建器: C/Go native/VM 后端 + 缓存 + 工具链调用
+│   ├── cbackend.py         # C 后端: 指令流 -> C 源码 -> GCC/Clang/zig cc
+│   ├── native_codegen.py   # 旧 Go native 后端: 指令流 -> NativeRuntime Go 源码
 │   ├── optimizer.py        # IR 优化器: -O0..3 (窥孔/常量折叠/不可达代码删除)
 │   ├── object.py           # 可重定位对象/.colib 归档/链接器/GC
-│   ├── disasm.py           # 字节码反汇编 (--disasm)
+│   ├── disasm.py           # 字节码反汇编 (--disasm, 支持 .sdgcc)
 │   ├── errors.py           # 异常层次: CPUSimulatorError 及子类
-│   └── native/             # Go 原生库源码 (唯一执行引擎)
+│   └── native/             # Go 原生库/编译器源码 (默认执行引擎 + cincc)
 │       ├── go.mod          # Go 模块定义 (module codecin-native)
 │       ├── engine/         # 字节码 VM + NativeRuntime + CROM + UCBC 编码
 │       │   ├── vm.go       # 原生字节码 VM (engine.Run, 含全部宿主 SYS)
@@ -59,6 +61,8 @@ Code CIN/
 │       │   ├── aot.go      # 产物运行时 + stub_main.go.txt (Go/Python 共用)
 │       │   └── stub_main.go.txt  # 生成的入口 shell
 │       ├── compiler/       # Go 版 CIN 编译器 (tokenizer/parser/codegen)
+│       ├── mc/             # cincc 原生编译器 (指令选择/寄存器分配/ELF)
+│       ├── cmd/cincc/      # cincc 命令入口 (package main, 仅供 --native)
 │       ├── main.go         # c-shared 库入口 (与 Python ctypes 共享, 非 CLI)
 │       ├── build.ps1       # Windows 构建脚本
 │       └── build.sh        # Linux / Termux / macOS 构建脚本
@@ -67,29 +71,32 @@ Code CIN/
 └── docs/                   # 文档 (本目录)
 ```
 
-> **Go 侧不提供 CLI**: 语言实现全部在 Go, 但只以库的形式存在 ——
-> `codecin/native/` 下唯一的 `package main` 是 cgo 的 c-shared 库入口 `main.go`。
-> 唯一命令行入口是 Python (`python cpu.py` / 安装后的 `codecin` console script;
-> 注意 `python -m codecin` 不可用, 包内没有 `__main__.py`)。
-> `tests/test_no_go_cli.py` 与 CI 的 `native` 作业都会对此把关。
->
-> 构建产物 (`codecin/native/codecin*` 之类) 不入库, 构建命令一律是
+> **Go 侧没有用户 CLI**: 语言实现全部在 Go, 但用户入口只有 Python
+> (`codecin` console script)。`codecin/native/` 下允许两个 `package main`:
+> cgo 的 c-shared 库入口 `main.go`, 以及编译器命令 `cmd/cincc/main.go`
+> (`--native` 使用)。`cmd/cincc` 不是用户 CLI, 只负责把 CIN 编成机器码。
+> 构建产物 (`codecin/native/codecin*`、`cincc*`) 不入库, 原生库构建命令一律是
 > `go build -buildmode=c-shared`, 详见 §4。
 
-## 执行模型 (v5.9.0 native-only)
+## 执行模型 (v5.9.0 native-only, v7.22.10 双主线)
 
-唯一的执行路径是 **Go 原生引擎**: Python 侧完成编译/装载
-(`.cin` / `.asm` / `.pl` / `.bin` / `.crom`), 通过 ABI v2 (`codecin_run_v2`)
-一次调用把字节码、段式内存与输入交给原生 VM, 结束后回传寄存器、向量、
-NZCV 标志、脏内存段与程序输出。纯 Python 解释器与 JIT 已**整体删除**
+默认路径是 **Go 原生引擎**: Python 侧完成编译/装载
+(`.cin` / `.asm` / `.pl` / `.sdgcc` / `.bin` / `.crom`), 通过 ABI v2
+(`codecin_run_v2`) 一次调用把字节码、段式内存与输入交给原生 VM, 结束后回传寄存器、
+向量、NZCV 标志、脏内存段与程序输出。纯 Python 解释器与 JIT 已**整体删除**
 (`jit.py` / `debugger.py` / `cache.py` 不复存在), **没有解释器回退**:
 原生库缺失或版本不匹配 (缺少 `codecin_run_v2` 导出) 时抛 `CPUSimulatorError`,
 并附重建指引 (见 §4)。内存默认 1 GiB (1073741824 字节, 4 KiB 稀疏分页按需提交),
 堆基址 = `mem_size//2`, 栈顶 = `(mem_size-8) & ~0x7`。
 
-AOT 产物在这条路径之外还有两种构建形态: **native 后端**把指令流直接生成
-`engine.NativeRuntime` 调用 (由 Go 编译器产出机器码), **VM 后端**内嵌 UCBC 交给
-内置 VM; 两者共享同一套寄存器/内存/宿主能力语义, 见 §6.1。
+第二条主线是 **`cincc` 原生机器码**: `codecin prog.cin --native` 调用 Go 编译器
+`cincc` 直出 x86-64 ELF, 不经 C、不经 UCBC 字节码; `--native-out` 只构建不运行。
+需要先 `cd codecin/native && go build -o cincc ./cmd/cincc`, 或用 `CODECIN_CINCC`
+指定。`cincc` 覆盖语言子集 (无 GUI/音频/HTTP/DNS/FFI), 完整宿主能力请用默认路径。
+
+AOT 产物在这两条路径之外还有三种构建形态: **C 后端** (默认, 指令流 → C 源码 →
+GCC/Clang/`zig cc`)、**native 后端** (指令流 → `engine.NativeRuntime` Go 调用)、
+**VM 后端** (内嵌 UCBC 交给内置 VM), 见 §6.1。
 
 ---
 
@@ -146,8 +153,8 @@ codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 
 | `--sandbox` | 沙箱模式: 仅放行 ALLOCFRAME/TIMEUS/TIMENS, 其余宿主 SYS 报错 |
 | `--mem-size <bytes>` | 内存大小 (默认 1073741824, 即 1 GiB) |
 | `--max-instructions <n>` | 已弃用 (隐藏参数); 默认不限制指令数, 死循环用 `Ctrl+C` 中断 |
-| `--compile` / `--compile-only` | 编译为 .bin 字节码 (后者编译后退出) |
-| `-o, --output <file>` | 指定 `.crom` / `.bin` 输出路径 (`--build-exe` 用自己的 `OUT` 参数) |
+| `--compile` / `--compile-only` | 编译为 `.sdgcc` (后者编译后退出); `-o *.bin` 可显式写兼容 BIN v3 |
+| `-o, --output <file>` | 指定 `.sdgcc` / `.bin` 输出路径 (`--build-exe` 用自己的 `OUT` 参数) |
 | `--crom <file>` | 加载 .crom 内存镜像 |
 | `--save` / `--no-compress` | 保存 .crom / 关闭 zlib 压缩 |
 | `--optimize <0-3>` | 优化级别 |
@@ -157,7 +164,7 @@ codecin --build-info                  # 版本 / 解释器 / 平台 / 原生库 
 | `--disasm` | 反汇编字节码 |
 | `--build-exe [name]` | AOT 编译为独立可执行文件 (见 §6.1) |
 | `--build-target OS/ARCH` | AOT 交叉编译目标 (如 `linux/arm64`) |
-| `--build-backend auto\|native\|vm` | AOT 后端选择 (默认 auto) |
+| `--build-backend auto\|c\|native\|vm` | AOT 后端选择 (默认 auto 优先 C) |
 | `--no-build-cache` | 禁用 AOT 增量缓存 |
 | `--build-debug` | 保留符号表/DWARF |
 | `--build-keep-temp` | 保留 AOT 临时构建目录 |
@@ -289,23 +296,35 @@ python -c "from codecin import native; print(native.get_engine())"
 > 修改指令集后: `python script/gen_native_isa.py` → 重新编译原生库 → 跑 `python -m pytest`。
 > CI 中的 `script/gen_native_isa.py --check` 会拦截两者漂移。
 
-### 为什么没有 Go CLI
+### 为什么没有 Go 用户 CLI
 
-Go 是语言实现的**唯一核心** (编译器 / 字节码 VM / CROM / AOT 产物运行时),
-但**不提供任何命令行入口**: `codecin/native/` 下唯一的 `package main` 是
-cgo 的 c-shared 库入口 `main.go`。唯一 CLI 是 Python 侧
+Go 是语言实现的**唯一核心** (编译器 / 字节码 VM / CROM / AOT 产物运行时 / `cincc`),
+但**不提供用户命令行入口**: `codecin/native/` 下允许的 `package main` 只有
+c-shared 库入口 `main.go` 与编译器命令 `cmd/cincc/`。唯一用户 CLI 是 Python 侧
 (`python cpu.py` / 安装后的 `codecin` console script)。
 
 这避免了历史上"两套 CLI、两套语义、产物不对应"的问题:
 
-- Go 侧源码树里不再有 `cmd/codecin/`, 也没有需要单独分发的 Go 二进制;
-- `tests/test_no_go_cli.py` 与 CI 的 `native` 作业都会断言这一点;
-- AOT(`--build-exe`)仍然产出独立可执行文件, 那是**用户程序的产物**,
-  不是工具链 CLI。
+- Go 侧源码树里不再有 `cmd/codecin/`, 也没有需要单独分发的用户级 Go 二进制;
+- `cmd/cincc` 只被 `--native` / `mkn build --native` 调用, 不是供人直接使用的 CLI;
+- AOT(`--build-exe`)仍然产出独立可执行文件, 那是**用户程序的产物**, 不是工具链 CLI。
 
 ---
 
-## 5. 构建产物: .bin 字节码与 .crom 镜像
+## 5. 构建产物: .sdgcc / .bin / .crom
+
+### .sdgcc (默认编译产物, SDGCC v1/v2)
+
+`--compile` / `--compile-only` 不指定 `-o` 时的默认产物, 头部 magic `SDGCC`,
+`CODE` 段内嵌完整 BIN v3 (逐字节一致), 另带 `META`/`SYMS`/`SRCS` 段。
+`--sdgcc-compress` 只压缩 META/SYMS/SRCS (版本升为 2), CODE 段永不压缩。
+读取时 `sdgcc.unwrap()` 嗅探魔数, 裸 `.bin` 原样透传。
+
+```bash
+codecin basic.cin --compile-only                 # basic.sdgcc
+codecin basic.cin --compile-only --sdgcc-compress
+codecin basic.sdgcc                               # 直接运行
+```
 
 ### .bin (UCBC 字节码, BIN v3)
 
@@ -328,7 +347,7 @@ cgo 的 c-shared 库入口 `main.go`。唯一 CLI 是 Python 侧
 生成与执行:
 
 ```bash
-python cpu.py basic.cin --compile-only -o basic.bin   # 仅编译
+python cpu.py basic.cin --compile-only -o basic.bin   # 显式写兼容 BIN v3
 python cpu.py basic.cin --compile                     # 编译并继续执行
 python cpu.py basic.bin                               # 直接运行字节码
 ```
@@ -360,15 +379,17 @@ python cpu.py --crom basic.crom                 # 加载镜像运行
 
 ## 6. 打包独立可执行文件
 
-### 6.1 AOT 编译 (推荐: 真正的静态单文件)
+### 6.1 AOT 编译 (默认 C 后端)
 
-把 CIN/ASM/PL/BIN/CO 程序编译成**静态链接的独立可执行文件** (Windows / Linux / macOS)。
-默认 `auto` 后端: 指令数 ≤ 20000 时 native (直接生成 Go 代码 → 机器码), 否则 VM
-(内嵌 UCBC 字节码由 Go VM 执行)。CIN 程序仍支持 import 闭包在编译期展开内嵌。
+把 CIN/ASM/PL/SDGCC/BIN/CO 程序编译成**独立可执行文件** (Windows / Linux / macOS)。
+默认 `auto` 后端优先 **C 后端** (`codecin/cbackend.py` → GCC/Clang/`zig cc`,
+默认动态链接, `--build-static` 静态链接); C 不支持程序指令时回退 Go native 或 VM
+(内嵌 UCBC 字节码由 Go VM 执行)。C 后端目标为 windows/amd64、linux/amd64、
+linux/arm64; macOS / windows-arm64 需显式 `--build-backend native` 或 `vm`。
 
 ```bash
 python cpu.py basic.cin --build-exe basic            # 本机平台
-python cpu.py basic.cin --build-exe app --build-target linux/arm64   # 交叉编译
+python cpu.py basic.cin --build-exe app --build-target linux/amd64 --build-static
 python cpu.py basic.cin --build-exe app --build-backend native --optimize 3
 python cpu.py basic.cin --build-exe app --build-debug
 ```
@@ -377,16 +398,17 @@ python cpu.py basic.cin --build-exe app --build-debug
 
 | 环节 | 说明 |
 |------|------|
-| 前端 | CIN `CINCompiler` / ASM-PL 汇编器 / `.bin` `crom.load_bin` / `.co` 对象读取 |
+| 前端 | CIN `CINCompiler` / ASM-PL 汇编器 / `.sdgcc`、`.bin` `crom.load_bin` / `.co` 对象读取 |
 | IR 优化 | `codecin/optimizer.py`, `--optimize 0..3` |
+| C 后端 | `codecin/cbackend.py` → C 源码 → GCC/Clang/`zig cc`; `--build-keep-c` 保留 `program.c` |
 | native 代码生成 | `codecin/native_codegen.py` → 直接调用 `engine.NativeRuntime` 的 Go 源码; 超过 800 条指令自动基本块拆分 |
 | VM 产物 | `codecin/native/aot/stub_main.go.txt` + `aot.Main(bytecode, segFile)` |
-| 构建器 | Python: `codecin/aot.py` (唯一实现; 生成临时包后调用 `go build`) |
-| 临时包 | 模块内 `.aotbuild-<rand>/`; Go 忽略以 `.` 开头的目录, 故不影响 `go build ./...`。每次构建前会清扫超过 6 小时的 `.aotbuild-*` / `.aotprobe-*` 残留 (`codecin.aot.sweep_stale_build_dirs`), 清理失败会记 warning 并给出绝对路径与手动删除命令 |
-| 静态链接 | `CGO_ENABLED=0` (+ `-tags netgo,osusergo`), Linux 产物无 `PT_INTERP`, 不依赖 glibc |
-| 体积 | 默认 `-trimpath -ldflags "-s -w"`; `--build-debug` 保留符号/DWARF |
+| 构建器 | Python: `codecin/aot.py` (生成临时包/调用 C 工具链) |
+| 临时包 | Go 后端模块内 `.aotbuild-<rand>/`; Go 忽略以 `.` 开头的目录, 故不影响 `go build ./...`。每次构建前会清扫超过 6 小时的残留 (`codecin.aot.sweep_stale_build_dirs`), 清理失败会记 warning |
+| Go 静态链接 | `CGO_ENABLED=0` (+ `-tags netgo,osusergo`), Linux 产物无 `PT_INTERP`, 不依赖 glibc |
+| 体积 | C 后端几百 KB; Go 后端约 3.4–6.6 MiB (`--build-debug` 保留符号/DWARF) |
 | 缓存 | 源文件/依赖/目标/后端/O/工具链指纹; 对象/归档链接单独按内容缓存 |
-| 前置条件 | 仅需 Go 工具链 (1.26+); 产物本身不需要任何运行时 |
+| 前置条件 | C 后端需 C 编译器或 `zig`; Go 后端需 Go 1.26+ 与源码树; 产物本身不需要运行时 |
 
 对象与链接:
 
@@ -410,10 +432,13 @@ CIN 库文件不写 `main`, 用 `extern function` / `extern int` 声明跨对象
 产物行为: 标准输入只在被重定向时读取 (交互终端下不阻塞); 正常结束退出码 0,
 运行期错误打印 stderr 并以 1 退出。
 
-> **AOT 强制 `CGO_ENABLED=0`**: 依赖 cgo 的源文件被构建标签排除
+> **Go 后端 AOT 强制 `CGO_ENABLED=0`**: 依赖 cgo 的源文件被构建标签排除
 > (例如 FFI 的 cgo 实现, 另有 `ffi_nocgo.go` 桩保证纯 Go 包可编译)。
+> C 后端按其 SYS 白名单执行, 同样不含 FFI。
 > 因此 AOT 产物内**不能**使用 FFI (dlopen/ffi_call 等): 运行时调用会报错。
-> AOT 交叉编译也因此无需目标平台的 C 工具链。
+>
+> `--native` 是另一条路径: `cincc` 直出机器码, 不是 `--build-exe` 的后端。
+> 它只覆盖语言子集 (无 GUI/音频/HTTP/DNS/FFI), 不适用时需要默认 `.sdgcc` 路径。
 
 > 若默认 Go 构建缓存不可写 (只读 HOME / 受限 CI), 构建器会自动回退到仓库内
 > `.gocache` 重试一次, 并在仍失败时提示显式设置 `GOCACHE`。

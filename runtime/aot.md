@@ -65,7 +65,7 @@ codecin program.cin --build-exe              # 省略路径: 输出 <程序名>[
 两点容易踩的细节：
 
 - **输出名与 `-o` 无关**。`--build-exe` 只认自己的可选参数；Windows 目标若输出名不以 `.exe` 结尾，会**自动补 `.exe`**（`hello-aot` → `hello-aot.exe`）。
-- **C 后端目标只有 `windows/amd64`、`linux/amd64`、`linux/arm64`**；`windows/arm64`、`darwin/amd64`、`darwin/arm64` 请显式用 `--build-backend native` 或 `vm`。Go 后端支持全部六种 `os/arch` 组合，`--build-target` 只校验两段非空，其余交给 Go 工具链判断。
+- **C 后端目标只有 `windows/amd64`、`linux/amd64`、`linux/arm64`**；`windows/arm64`、`darwin/amd64`、`darwin/arm64` 请显式用 `--build-backend native` 或 `vm`。Go 后端支持 `SUPPORTED_TARGETS` 列出的六种 `os/arch` 组合，`--build-target` 只校验两段非空，其余交给 Go 工具链判断。
 
 成功时的两行日志（C 后端）：
 

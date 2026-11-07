@@ -268,10 +268,11 @@ key_hit() get_key() key_flush()        // 键盘轮询, 需真实终端 (游戏�
 | `codecin prog.cin --bounds-check` | 数组越界检查 |
 | `codecin prog.cin --sandbox` | 沙箱模式 (拦截宿主能力) |
 | `codecin prog.cin --mem-size 2147483648` | 内存扩到 2 GiB |
-| `codecin prog.cin --max-instructions 100000` | 限制指令数 (抓死循环) |
+| `codecin prog.cin --max-instructions 100000` | 限制指令数（已弃用；默认不限制） |
 | `codecin prog.cin --seed 42` | 固定随机种子 |
 | `codecin --build-info` | 环境自检 (版本/原生库状态) |
-| `codecin prog.cin --compile-only -o prog.bin` | 只编译成字节码 |
+| `codecin prog.cin --compile-only` | 只编译成默认 `.sdgcc` 产物 |
+| `codecin prog.cin --compile-only -o prog.bin` | 只编译成兼容 BIN v3 字节码 |
 | `codecin prog.bin --disasm` | 反汇编查看 |
 | `codecin prog.cin --build-exe prog` | 编译成独立可执行文件 |
 | `codecin --help` | 全部选项 |

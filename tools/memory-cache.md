@@ -6,7 +6,7 @@ description: "Code CIN 内存模型与运行时开关: 1 GiB 稀疏分页原理�
 
 本页说明 Code CIN 的稀疏分页内存模型、内存区域布局，以及改变运行时行为的命令行开关。默认值以 `codecin/config.py` 的 `Config` 与 `codecin/cli.py` 的 `build_parser()` 为准，实现位于 `codecin/memory.py`（Python 侧）与 `codecin/native/engine/vm.go`（Go 引擎侧）。
 
-> 旧版的 LRU 缓存与 MMU 分页已在 v5.9.0 随单执行路径重构一并移除。
+> 旧版的 LRU 缓存与 MMU 分页已在 v5.9.0 随默认执行路径重构一并移除。
 
 - 寄存器与内存语义参考见 [/reference/registers-memory](/reference/registers-memory)；
 - 内存错误的日志与退出码见 [/tools/logging](/tools/logging)；
@@ -111,7 +111,7 @@ m.write_float(16, 1.5)       # 未保护地址可写
 | 选项 | 默认值 | 作用 |
 |------|--------|------|
 | `--mem-size <BYTES>` | `1073741824`（1 GiB） | 逻辑内存大小；小于 `256` 被 `Config.validate()` 抬到 `256`，大于 1 TiB 被压回 `1 TiB` |
-| `--max-instructions <N>` | `100000000` | 指令数上限；小于 `1` 时被抬到 `1` |
+| `--max-instructions <N>` | `0`（不限制，已弃用） | 旧版默认 `100000000`；现仅作为隐藏参数保留以兼容旧脚本 |
 | `--sandbox` | 关 | 沙箱模式：拦截宿主能力系统调用（见下） |
 | `--seed <N>` | `None`（随机） | 以固定种子初始化 RNG，使 `SYS RAND`（随机数）序列可复现 |
 | `--bounds-check` | 关 | CIN 数组越界检查（编译期注入，见下） |

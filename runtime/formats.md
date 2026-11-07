@@ -155,7 +155,7 @@ v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + b
   "Stack overflow (collides with heap)" (并非真实栈写满)。
   该字节码可能由 v5.9.0 之前的旧版本 (默认 64 KB 内存) 编译; 格式可读不等于内存布局兼容。
 请任选其一:
-  1) 用当前版本重新编译源码: codecin <源码>.cin --compile -o <新文件>.bin
+  1) 用当前版本重新编译源码: codecin <源码>.cin --compile-only -o <新文件>.sdgcc
   2) 用与字节码一致的内存布局运行: codecin basic.bin --mem-size 65536
 ```
 
@@ -163,7 +163,7 @@ v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + b
 
 处理方式：
 
-- **有源码**：用当前版本重新编译（推荐）：`codecin basic.cin --compile -o basic_new.bin`；
+- **有源码**：用当前版本重新编译（推荐）：`codecin basic.cin --compile-only -o basic_new.sdgcc`（或显式 `-o basic_new.bin` 写 BIN v3）；
 - **没有源码**：用旧 BIN 头部声明的内存大小运行：`codecin basic.bin --mem-size 65536`。不确定时先用 `codecin basic.bin --disasm` 看首行的 `mem=` 字段；
 - `.bin` 不再默认写出：不指定 `-o` 时新产物一律是 `.sdgcc`；需要兼容旧工具时显式
   `-o prog.bin` 或 `--compile-only -o prog.bin`。
@@ -307,7 +307,7 @@ codecin basic.bin --disasm
 
 裸段没有内存段表与 SP，首行只有指令数与入口；`#N` 表示立即数，`X29` 表示寄存器。
 
-给出非 `.bin`/非 `UCBC` 的文件时报错并提示先编译：
+给出既不是 `.sdgcc`/`.bin`、也不是 UCBC 的文件时报错并提示先编译（报错文本沿用 `.bin` 示例）：
 
 ```text
 --disasm 需要 .bin (CPUSA 容器) 或 UCBC 字节码; 先用 `codecin src.cin --compile-only -o out.bin` 生成

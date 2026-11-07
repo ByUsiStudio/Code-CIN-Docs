@@ -13,7 +13,7 @@ export default defineConfig({
   lang: 'zh-CN',
   title: 'Code CIN',
   description:
-    'Code CIN —— 简洁的类 C 高级语言与跨平台运行时: CIN/PL/ASM 工具链、UCPU 字节码、Go 原生引擎单路径一致执行。',
+    'Code CIN —— 简洁的类 C 高级语言与跨平台运行时: CIN/PL/ASM 工具链、.sdgcc 编译产物、Go 原生引擎默认执行、cincc 直出机器码。',
 
   // 仓库文档 (非站点页面): 保留在主仓库/子仓库中供开发查阅, 不打进站点
   srcExclude: [
@@ -21,6 +21,7 @@ export default defineConfig({
     'ISA.md',
     'CIN_GUIDE.md',
     'BUILDING.md',
+    'native-backend.md',
     'SUGGESTIONS.md',
     'SUGGESTIONS_NEXT.md',
     'SUGGESTIONS_ROUND3.md'
@@ -31,7 +32,7 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#3b82f6' }],
     ['meta', { name: 'author', content: 'ByUsi Studio' }],
-    ['meta', { name: 'keywords', content: 'Code CIN,CIN 语言,UCPU,虚拟机,汇编器,字节码,ISA,VitePress' }]
+    ['meta', { name: 'keywords', content: 'Code CIN,CIN 语言,UCPU,虚拟机,汇编器,字节码,SDGCC,cincc,ISA,VitePress' }]
   ],
 
   markdown: {
@@ -289,7 +290,7 @@ export default defineConfig({
           text: '开发者文档',
           items: [
             { text: '项目结构', link: '/dev/structure' },
-            { text: '编译 Go 原生库', link: '/dev/build-native' },
+            { text: '编译原生库与 cincc', link: '/dev/build-native' },
             { text: '测试与 CI', link: '/dev/testing' },
             { text: '打包与发布', link: '/dev/packaging' },
             { text: '扩展指令 / 系统调用', link: '/dev/extend' },
