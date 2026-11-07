@@ -1,5 +1,5 @@
 ---
-description: mkn 项目构建工具：mkn.toml 清单、标准目录、生命周期、依赖解析、打包与本地仓库。
+description: mkn 项目构建工具：mkn.toml 清单、标准目录、生命周期、依赖解析、.sdgcc/--native 产物、打包与本地仓库。
 ---
 
 # mkn：项目构建 (Maven 风格)
@@ -27,7 +27,8 @@ demo/
 │   ├── main.cin
 │   └── test/main_test.cin
 ├── target/
-│   ├── demo-0.1.0.bin      # 可执行项目
+│   ├── demo-0.1.0.sdgcc    # 可执行项目 (默认产物)
+│   ├── demo-0.1.0          # mkn build --native (cincc 机器码)
 │   └── demo-0.1.0.mkn      # mkn package
 └── pic_modules/            # 依赖安装目录 (可直接 import)
 ```
@@ -64,7 +65,8 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 |------|------|
 | `mkn new <name>` | 创建标准项目 |
 | `mkn init` | 在当前目录初始化（允许非空目录） |
-| `mkn build` / `mkn compile` | 编译；有 `main` 产出 `.bin`，库项目产出 `.co` |
+| `mkn build` / `mkn compile` | 编译；有 `main` 默认产出 `.sdgcc`，库项目产出 `.co` |
+| `mkn build --native` | 调用 `cincc` 直接产出机器码 (不经 C/字节码; 目前仅 `.cin` 入口) |
 | `mkn run -- <args>` | 编译并运行 |
 | `mkn test` | 运行 `src/test/**/*.cin` 与 `tests/**/*.cin` |
 | `mkn package` | 生成 `target/<name>-<version>.mkn` |
@@ -88,6 +90,19 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 `PIC_OFFLINE=1`，改用本地 `registry.json` / `path` / `git` 依赖。
 
 安装完成后写入 `pic.lock`，记录实际版本与来源。
+
+## 构建产物
+
+| 场景 | 产物 |
+|------|------|
+| 可执行项目 (有 `main`) | `target/<name>-<version>.sdgcc` (CODE 段 = BIN v3) |
+| 库项目 (无 `main`) | `target/<name>-<version>.co` 可重定位对象 |
+| `mkn build --native` | `target/<name>-<version>` x86-64 ELF (需先构建 `cincc`) |
+| `mkn package` | `target/<name>-<version>.mkn` 分发包 |
+
+默认构建会读取 `mkn.toml`，把入口与 `import` 闭包一起编译为多文件 `.sdgcc`。
+`--native` 目前只接受 `.cin` 入口, 且不解析 `mkn.toml` 的依赖闭包, 适合纯计算/文件/网络
+子集的小程序; 需要宿主 GUI/音频/FFI/HTTP 时用默认 `.sdgcc` 产物。
 
 ## 库项目
 
