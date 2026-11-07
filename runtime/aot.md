@@ -49,28 +49,32 @@ codecin program.cin --build-exe              # 省略路径: 输出 <程序名>[
 
 | 选项 | 说明 |
 | --- | --- |
-| `--build-exe [OUT]` | 编译成独立静态可执行文件后**退出**（不执行）；省略 `OUT` 时输出 `<程序名>` + 平台后缀 |
+| `--build-exe [OUT]` | 编译成独立可执行文件后**退出**（不执行）；省略 `OUT` 时输出 `<程序名>` + 平台后缀 |
 | `--build-target OS/ARCH` | 交叉编译目标，默认当前平台（`aot.host_target()`） |
-| `--build-backend auto\|native\|vm` | `auto`（默认）按指令数选择；`native` 强制直接生成机器码；`vm` 强制内嵌字节码 |
+| `--build-backend auto\|c\|native\|vm` | `auto`（默认）优先 C 后端；`c` 强制 C；`native` 强制旧 Go 代码生成；`vm` 强制内嵌字节码 |
+| `--build-static` | C 后端产物静态链接（macOS 目标自动忽略） |
+| `--build-strip` | C 后端产物去掉符号表，减小体积 |
+| `--build-keep-c` | 保留 C 后端生成的 `program.c`（输出到 `<OUT>.c`） |
+| `--build-verify` | 构建后校验 ELF/PE 头部与目标架构 |
 | `--optimize 0-3` | IR 优化：0 关闭 / 1 窥孔 / 2 常量折叠 / 3 不可达代码删除 |
 | `--no-build-cache` | 禁用 AOT 增量构建缓存（含对象/归档链接缓存） |
-| `--build-debug` | 保留符号表/DWARF，不传 `-s -w` |
-| `--build-keep-temp` | 保留 `go build` 的临时包目录，排查失败用 |
+| `--build-debug` | Go 后端保留符号表/DWARF，不传 `-s -w` |
+| `--build-keep-temp` | 保留 Go 构建的临时包目录，排查失败用 |
 | `--mem-size BYTES` | 内存逻辑大小，默认 `1073741824`（1 GiB）；产物按段式只嵌入数据段实际覆盖的范围 |
 
 两点容易踩的细节：
 
 - **输出名与 `-o` 无关**。`--build-exe` 只认自己的可选参数；Windows 目标若输出名不以 `.exe` 结尾，会**自动补 `.exe`**（`hello-aot` → `hello-aot.exe`）。
-- 目标平台列表（`aot.SUPPORTED_TARGETS`）为 `windows/amd64`、`windows/arm64`、`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`；`--build-target` 只校验 `os/arch` 两段非空，其余组合交给 Go 工具链判断。
+- **C 后端目标只有 `windows/amd64`、`linux/amd64`、`linux/arm64`**；`windows/arm64`、`darwin/amd64`、`darwin/arm64` 请显式用 `--build-backend native` 或 `vm`。Go 后端支持全部六种 `os/arch` 组合，`--build-target` 只校验两段非空，其余交给 Go 工具链判断。
 
-成功时的两行日志：
+成功时的两行日志（C 后端）：
 
 ```text
-AOT build: program.cin -> program (静态链接, 目标 windows/amd64, 后端 auto)
+AOT build: program.cin -> program (目标 windows/amd64, 后端 c)
 AOT build 完成: D:\...\program.exe
 ```
 
-失败时打印 `Build Error` 面板并返回退出码 1（未知选项/非法目标、依赖缺失、编译错误、`go build` 失败都走这条路径）。
+失败时打印 `Build Error` 面板并返回退出码 1（未知选项/非法目标、依赖缺失、编译错误、C/Go 编译失败都走这条路径）。
 
 ## 后端选择
 
@@ -78,20 +82,29 @@ AOT build 完成: D:\...\program.exe
 
 | 后端 | 行为 | 适用 |
 | --- | --- | --- |
-| `auto`（默认） | 指令数 **≤ 20000** 用 native，否则 VM | 大多数程序 |
-| `native` | 直接生成 Go 代码并编译成机器码；超过阈值仍强制 native 会提示可能较慢 | 需要原生执行/调试 |
+| `auto`（默认） | C 后端支持程序所用指令时用 `c`，否则按指令数选 Go `native` / `vm` | 大多数程序 |
+| `c` | 指令流 → C 源码 → GCC/Clang/`zig cc`；当前覆盖整数/比较跳转/内存/栈/调用返回/`OUT` 与核心 SYS | 追求小体积、构建快、可读 C 源码 |
+| `native` | 旧 Go 代码生成后端：直接操作 `engine.NativeRuntime`；超过阈值仍强制 native 会提示可能较慢 | 需要 Go 后端语义或 C 不支持的平台 |
 | `vm` | 内嵌 UCBC 字节码，由 Go VM 执行 | 指令数极大或依赖 VM 特有语义 |
+
+C 后端未实现的指令或 SYS 会在运行期以退出码 **70** 明确报错，不会静默产生错误结果；构建前 `cbackend.supports()` 会先做指令/系统调用白名单检查，`auto` 不适用时自动改走 Go 后端。
 
 native 代码生成本身在**超过 800 条指令**时自动切换为基本块模式，把大函数拆成多个 Go 代码块，避免单个 Go 函数过大导致编译极慢。native 后端直接降低整数、控制流、内存、SYS、ARM64/RISC-V、浮点与常见向量指令；无法静态求值的动态控制流/内存操作数会走 `rt.Exec`，复用 VM 语义。
 
 ```bash
-# 强制 native + O3
+# 强制 C + O3 + 静态链接
+codecin prog.cin --build-exe prog-c --build-backend c --optimize 3 --build-static
+
+# 强制 C 并保留生成的 C 源码
+codecin prog.cin --build-exe prog-c --build-backend c --build-keep-c
+
+# 强制 Go native + O3
 codecin prog.cin --build-exe prog-native --build-backend native --optimize 3
 
 # 强制 VM
 codecin prog.cin --build-exe prog-vm --build-backend vm
 
-# 保留符号/DWARF 的调试构建
+# 保留符号/DWARF 的调试构建 (Go 后端)
 codecin prog.cin --build-exe prog-debug --build-debug
 ```
 
