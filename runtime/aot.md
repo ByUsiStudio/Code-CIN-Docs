@@ -1,39 +1,43 @@
 ---
-description: AOT 独立可执行文件：--build-exe 的 native/VM 后端、交叉编译、优化、缓存、调试构建，以及对象/链接/静态库。
+description: AOT 独立可执行文件：--build-exe 的 C/native/VM 后端、交叉编译、优化、缓存、调试构建，以及对象/链接/静态库。
 ---
 
 # AOT 独立可执行文件
 
-`--build-exe` 把程序编译成**静态链接的独立可执行文件**（Windows / Linux / macOS）。产物不依赖 Python、Go 工具链、libc 或任何动态库，可选两种后端：
+`--build-exe` 把程序编译成**独立可执行文件**（Windows / Linux / macOS）。产物不依赖 Python 或 Code CIN 动态库，可选三种后端：
 
-- **native（默认，小程序）**：`codecin/native_codegen.py` 把核心整数/控制流/内存/SYS 指令直接生成 Go 代码，再由 Go 编译器产出 x86-64/ARM64 机器码；
-- **vm（默认，大程序）**：把 UCBC 字节码与初始内存段表内嵌进产物，由内置 Go VM 执行。
+- **c（默认）**：`codecin/cbackend.py` 把每条 UCBC 指令展开为 C 语句（寄存器数组 + 显式标志位 + 扁平内存），交给 GCC/Clang 或 `zig cc` 生成机器码；
+- **native（旧 Go 后端）**：`codecin/native_codegen.py` 把核心整数/控制流/内存/SYS 指令直接生成 Go 代码，再由 Go 编译器产出机器码；
+- **vm**：把 UCBC 字节码与初始内存段表内嵌进产物，由内置 Go VM 执行。
 
-两种后端共享同一套运行时（`codecin/native/engine/native.go`），复杂/动态指令在 native 后端下通过 `rt.Exec` 复用 VM 语义。前端支持 `.cin` / `.asm` / `.pl` / `.bin` / `.co`。
+`auto`（默认）优先 C 后端；C 后端不支持程序所用指令时，回退 Go native 或 VM。
+前端支持 `.cin` / `.asm` / `.pl` / `.sdgcc` / `.bin` / `.co`。
 
-- **运行时不需要 Python**，不需要 Go 工具链，不需要 libc 或任何动态库；
-- **构建强制 `CGO_ENABLED=0`**：纯静态、无 cgo，带 cgo 构建标签的 Go 源文件在 AOT 构建时被排除（对 FFI 的影响见[下文](#静态构建与-ffi)）；
+- **运行时不需要 Python**，不需要 Code CIN 动态库；
+- **C 后端**默认动态链接系统 C 库，`--build-static` 时静态链接（macOS 自动忽略）；
+- **Go native/VM 后端**强制 `CGO_ENABLED=0` 纯静态、无 cgo（对 FFI 的影响见[下文](#静态构建与-ffi)）；
 - `import` 依赖闭包在**编译期展开**并嵌入产物，产物运行时不读取任何 `.cin`；
-- 构建期只需要 Go 工具链 + 仓库里的 Go 源码树。
+- **构建期**：C 后端需要 `gcc`/`clang` 或 `zig`；Go 后端需要 Go 工具链 + 仓库里的 Go 源码树。
 
 ## 前置条件
 
 | 项目 | 要求 |
 | --- | --- |
-| Go 工具链 | 1.26+（`codecin/native/go.mod` 声明 `go 1.26`；实测 1.26.5 可用） |
-| 源码树 | 必须包含 `codecin/native/`（`go.mod`；VM 路径还需要 `aot/stub_main.go.txt` 模板） |
-| 输入 | `.cin` / `.asm` / `.pl` 源文件、`.bin` 字节码、链接后的 `.co` 对象 |
-| 网络 | 不需要（纯本地 `go build`） |
+| C 后端 | 系统 C 编译器（GCC/Clang，Windows 可用 MinGW-w64），或 `zig`（交叉编译时会自动查找 `zig cc`） |
+| Go 后端 | Go 1.26+（`codecin/native/go.mod` 声明 `go 1.26`；实测 1.26.5 可用），且源码树包含 `codecin/native/` |
+| 输入 | `.cin` / `.asm` / `.pl` 源文件、`.sdgcc` / `.bin` 字节码、链接后的 `.co` 对象 |
+| 网络 | 不需要（本地编译） |
 
-::: warning 不适用于已安装的 wheel
+::: warning Go 后端不适用于已安装的 wheel
 
-AOT 是**面向源码检出**的构建期功能。发行 wheel / 独立 CLI 里不含 `codecin/native/` 的 Go 源码，因此会报：
+Go native/VM 后端是**面向源码检出**的构建期功能。发行 wheel / 独立 CLI 里不含 `codecin/native/` 的 Go 源码，因此会报：
 
 ```text
 找不到 Go 模块目录 <...>\codecin\native (AOT 构建需要仓库中的 Go 源码)
 找不到 AOT 模板 <...>\aot\stub_main.go.txt; --build-exe 需要包含 codecin/native/ 的源码树
 ```
 
+C 后端只要系统里有 C 编译器即可，不依赖 Go 源码树。
 :::
 
 ## 基本用法
