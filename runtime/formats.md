@@ -20,12 +20,55 @@ Code CIN 有三条不同的二进制产物线，用途完全不同：
 
 v5.9.0 起默认内存是 **1073741824 字节（1 GiB）**，物理占用按需分配（详见[寄存器与内存模型](/reference/registers-memory)）。如果继续沿用旧版的"整块内存镜像"，一个 hello world 也会写出 1 GiB 的文件——显然不可行。
 
-因此 v5.9.0 把两种格式都改成了**段式**：只保存实际写过的内存页，其余地址空间隐式为零。
+因此 v5.9.0 把内存镜像类格式（BIN/CROM）都改成了**段式**：只保存实际写过的内存页，
+其余地址空间隐式为零；`.sdgcc` 则直接复用段式 BIN v3 作为 `CODE` 段。
 
 | 版本 | 布局 | 状态 |
 | --- | --- | --- |
+| SDGCC **v1/v2** | 固定头部 + 段表 + `CODE`/`META`/`SYMS`/`SRCS` 段 | **当前默认写出格式**（v2 支持按段压缩） |
 | CROM **v4** / BIN **v3** | 头部 + 段表（每段 `addr + len + data`）+ 字节码（仅 `.bin`） | **当前写出格式** |
 | CROM v3 / BIN v2 | 头部 + 整块内存镜像 + 字节码（仅 `.bin`） | **格式仍可读取，不再写出**；BIN v2 还要求 `--mem-size` 与文件头一致 |
+
+## `.sdgcc`：默认编译容器 (v1/v2)
+
+`codecin/sdgcc.py:save_program()` 写出的容器布局（全部小端）：
+
+| 偏移 | 大小 | 字段 | 说明 |
+| --- | --- | --- | --- |
+| 0x00 | 5 | Magic | `'SDGCC'` |
+| 0x05 | 1 | Version | `1`（未压缩）/ `2`（支持按段压缩） |
+| 0x06 | 2 | Flags | bit0 多文件、bit1 符号表、bit2 源码清单、bit3 至少一个压缩段 |
+| 0x08 | 16 | Target | ASCII 目标平台，NUL 填充；`host` = 构建机 |
+| 0x18 | 4 | Section Count | 段数 N（u32） |
+| 0x1C | 24×N | Section Table | 每段：`name[8] + offset u64 + size u64` |
+| — | — | Payload | 各段数据 |
+
+段名与内容：
+
+| 段 | 必需 | 内容 |
+| --- | --- | --- |
+| `CODE` | 是 | 完整 BIN v3 字节流（与 `.bin` 逐字节一致，**永不压缩**） |
+| `META` | 是 | TOML 构建元数据（模式、入口、优化级别、依赖文件等） |
+| `SYMS` | 否 | 符号表 |
+| `SRCS` | 否 | 源码清单 |
+
+- **压缩**：段表 `size` 的最高位（bit63）表示该段 zlib 压缩；其余 63 位为存储长度，
+  段内容前 4 字节为原始长度。`--sdgcc-compress` 只压缩 `META`/`SYMS`/`SRCS`，
+  `CODE` 保持原始 BIN v3，保证只认 BIN 的旧读取器仍可直接消费；
+- **单文件/多文件**：`MODE_SINGLE` / `MODE_MULTI` 由构建方写入，`cvm` 与
+  `mkn` 的多文件产物使用 multi；
+- **读取**：`sdgcc.unwrap()` 先按魔数嗅探；`.sdgcc` 走 `parse()` 取 `CODE` 段，
+  裸 `.bin` 则原样透传，因此文件扩展名不是硬约束。
+
+```bash
+codecin basic.cin --compile-only              # 默认生成 basic.sdgcc
+codecin basic.cin --compile-only -o basic.bin # 显式要求兼容 BIN v3
+codecin basic.cin --compile-only --sdgcc-compress
+codecin basic.sdgcc                           # 直接执行默认产物
+```
+
+`.sdgcc` 的元数据还让“入口、优化级别、目标平台、依赖源码”随产物同行，不再依赖文件名
+或旁挂 JSON；`cvm` 的模块信息与 `mkn` 的目标产物都基于这一容器。
 
 ## `.bin`：CPUSA 容器 (v3)
 
@@ -122,7 +165,8 @@ v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + b
 
 - **有源码**：用当前版本重新编译（推荐）：`codecin basic.cin --compile -o basic_new.bin`；
 - **没有源码**：用旧 BIN 头部声明的内存大小运行：`codecin basic.bin --mem-size 65536`。不确定时先用 `codecin basic.bin --disasm` 看首行的 `mem=` 字段；
-- 旧 `.bin` 不再写出：新保存的 `.bin` 一律是 v3 段式格式。
+- `.bin` 不再默认写出：不指定 `-o` 时新产物一律是 `.sdgcc`；需要兼容旧工具时显式
+  `-o prog.bin` 或 `--compile-only -o prog.bin`。
 
 ## `.crom`：段式内存镜像 (v4)
 
@@ -156,28 +200,25 @@ v2 头部 34 字节：`MAGIC 5B + ver 1B + mem_size u32 + entry u32 + sp u64 + b
 
 ::: tabs
 
-== 编译 .bin
+== 编译 .sdgcc
 
 ```bash
-codecin basic.cin --compile-only -o basic.bin   # 仅编译, 不执行
-codecin basic.cin --compile                     # 编译为 .bin 后继续执行
+codecin basic.cin --compile-only                 # 默认生成 basic.sdgcc
+codecin basic.cin --compile-only -o basic.bin    # 兼容 BIN v3
+codecin basic.cin --compile-only --sdgcc-compress
+codecin basic.cin --compile                      # 编译后继续执行
 ```
 
 ```text
 INFO  CIN compiled: 16 instructions
-INFO  Binary saved to basic.bin (385 bytecode bytes, 2 segments)
-Compiled to basic.bin
+INFO  Compiled to basic.sdgcc
 ```
 
-== 运行 .bin
+== 运行产物
 
 ```bash
-codecin basic.bin                 # 由 Go 原生引擎直接执行
-```
-
-```text
-INFO  Binary loaded: 16 instructions
-Hello, Code CIN!
+codecin basic.sdgcc               # 默认产物, 由 Go 原生引擎直接执行
+codecin basic.bin                 # 兼容 BIN v3
 ```
 
 == 保存 .crom
@@ -201,7 +242,7 @@ codecin basic.asm --crom basic.crom
 
 ::: warning `--save` 的输出路径由源文件名决定
 
-`--save` 写的永远是 `<程序名>.crom`（与源文件同目录），**`-o` 只影响 `.bin` 的输出**。实测 `codecin hello.cin --save -o custom.crom` 仍然生成 `hello.crom`。
+`--save` 写的永远是 `<程序名>.crom`（与源文件同目录），**`-o` 只影响 `.sdgcc` / `.bin` 的输出**。实测 `codecin hello.cin --save -o custom.crom` 仍然生成 `hello.crom`。
 
 :::
 
@@ -213,7 +254,7 @@ codecin basic.asm --crom basic.crom
 | --- | --- | --- |
 | `.pl` / `.asm` | **生效** | 恢复快照 → 再汇编；汇编器的数据段写入会覆盖快照中同一地址的内容 |
 | `.cin` | 不生效 | `codecin/cpu.py` 的 `load_program()` 在 `.cin` 分支直接返回 |
-| `.bin` | 不生效 | `.bin` 分支调用 `load_bin()` 后直接返回 |
+| `.sdgcc` / `.bin` | 不生效 | 程序分支解出 BIN v3 后直接返回 |
 
 对 `.pl` / `.asm` 还有一条**自动探测**规则：未显式给 `--crom` 时，若同目录存在同名的 `<程序名>.crom`，会自动加载它：
 
@@ -223,15 +264,18 @@ INFO  Loaded .crom v4: 2 segments, compressed=True
 
 ::: danger 别把 `.crom` 当可执行产物
 
-`.crom` 只是内存快照，不含入口点、不含程序语义。直接 `codecin hello.crom` 会把文件当汇编源解析，最终以解码错误退出（退出码 1）。要跑程序用 `.bin` 或源码；`.crom` 请与 `--save`/`--crom` 成对使用，并注意它恢复的是**内存内容**，不恢复寄存器、PC 与已执行的宿主副作用。
+`.crom` 只是内存快照，不含入口点、不含程序语义。直接 `codecin hello.crom` 会把文件当汇编源解析，最终以解码错误退出（退出码 1）。要跑程序用 `.sdgcc` / `.bin` 或源码；`.crom` 请与 `--save`/`--crom` 成对使用，并注意它恢复的是**内存内容**，不恢复寄存器、PC 与已执行的宿主副作用。
 
 :::
 
 ## 反汇编查看：`--disasm`
 
-`--disasm` 接受三种输入：CPUSA **v3** 容器（当前 `.bin`）、CPUSA **v2** 遗留容器与**裸 UCBC 段**。它属于"看一眼就退出"的模式，成功退出码 0：
+`--disasm` 接受四种输入：`.sdgcc` 容器（先取 `CODE` 段）、CPUSA **v3** 容器
+（当前 `.bin`）、CPUSA **v2** 遗留容器与**裸 UCBC 段**。它属于"看一眼就退出"的模式，
+成功退出码 0：
 
 ```bash
+codecin basic.sdgcc --disasm
 codecin basic.bin --disasm
 ```
 
@@ -273,13 +317,19 @@ codecin basic.bin --disasm
 
 ## 实现与二进制兼容性
 
-- **`.crom` / `.bin` 的唯一写出方是 Python 侧 `codecin/crom.py`**：压缩用 `zlib.compress(level=6)`，校验和用 `zlib.crc32`（IEEE）。格式是纯数据规范，任何符合本页布局的工具都能读写。
-- **字节码与原生引擎共用**：Python `encode_program()` 产出的 UCBC 段就是原生执行路径的输入（`CPU` 编译后直接把字节码与段表交给 Go 引擎），Go 侧 `decodeBytecode` 会校验 magic、版本、指令条数、`argc` 与操作数完整性——畸形输入被安全拒绝，不会 OOM 或越界 panic。
-- **同构的段式思想贯穿三层**：CROM v4 / BIN v3 的段表、原生 ABI v2 回传的脏内存段、AOT 产物的 `program.segs` 段文件，都是"每段 `addr + len + data`"的同族编码，细节各有差异，见各自页面。
+- **`.sdgcc` 的唯一写出方是 Python 侧 `codecin/sdgcc.py`**, `.crom` / `.bin` 的写出方是
+  `codecin/crom.py`：压缩用 `zlib.compress(level=6)`，校验和用 `zlib.crc32`（IEEE）。
+  格式是纯数据规范，任何符合本页布局的工具都能读写。
+- **字节码与原生引擎共用**：Python `encode_program()` 产出的 UCBC 段就是原生执行路径的输入（`CPU` 编译后直接把字节码与段表交给 Go 引擎），Go 侧 `decodeBytecode` 会校验 magic、版本、指令条数、`argc` 与操作数完整性——畸形输入被安全拒绝，不会 OOM 或越界 panic。`.sdgcc` 装载时仅先解包 `CODE` 段，后续校验与 `.bin` 完全相同。
+- **同构的段式思想贯穿三层**：SDGCC 段表、CROM v4 / BIN v3 的段表、原生 ABI v2 回传的脏内存段、AOT 产物的 `program.segs` 段文件，都是"每段 `addr + len + data`"的同族编码（`.sdgcc` 的段表用 `name + offset + size`），细节各有差异，见各自页面。
 
 ## 限制与版本策略
 
-- **版本号是硬门槛，没有迁移逻辑**：`BIN_VERSION = 3`、`BC_VERSION = 1`、`CROM_VERSION = 4`。载入时版本不符分别报 `Unsupported binary version: <x>`、`Unsupported bytecode version: <x>`、`Unsupported .crom version: <x>`。旧版本（BIN v2 / CROM v3）保留**只读**兼容，不会写出。
+- **版本号是硬门槛，没有迁移逻辑**：`SDGCC_VERSION = 1/2`、`BIN_VERSION = 3`、
+  `BC_VERSION = 1`、`CROM_VERSION = 4`。载入时版本不符分别报
+  `Unsupported .sdgcc version`、`Unsupported binary version: <x>`、
+  `Unsupported bytecode version: <x>`、`Unsupported .crom version: <x>`。
+  旧版本（BIN v2 / CROM v3）保留**只读**兼容，不会写出。
 - **BIN v2 的 `mem_size` 是布局契约**：v2 没有 `heap_base` 字段，当前 `--mem-size` 必须与头部 `mem_size` 完全一致；不一致时在加载阶段报错并提示用 `--mem-size <文件头 mem_size>` 或重新编译。v5.9.0 之前默认 64 KiB，v5.9.0 起默认 1 GiB，因此旧 BIN 不能直接套用新默认布局。
 - **BIN v3 的 `mem_size` 会扩容内存**：`load_bin()` 在头部声明值大于当前 `--mem-size` 时扩容内存，并同步 `config.mem_size`；`SP` / `heap_base` 直接采用头部记录值，加载时会校验两者自洽。
 - **段表是自描述的**：段数、每段长度都在文件里，解析器逐段校验完整性（`段表不完整` / `段数据不完整`），损坏文件被明确拒绝而不是载入半页数据。
@@ -294,8 +344,8 @@ codecin basic.bin --disasm
 
 ## 相关页面
 
-- [执行路径](/guide/execution-paths)——native-only 架构下的单一路径与产物形态
+- [执行路径](/guide/execution-paths)——默认 `.sdgcc` 路径与 `--native` 机器码路径
 - [Go 原生运行时](/runtime/native)——原生引擎如何接收段表并回传脏内存段
-- [AOT 独立可执行文件](/runtime/aot)——native 机器码或内嵌字节码/内存段的静态单文件
+- [AOT 独立可执行文件](/runtime/aot)——C/Go 后端产物与内嵌字节码静态单文件
 - [寄存器与内存模型](/reference/registers-memory)——1 GiB 稀疏分页与内存布局
-- [命令行参考](/guide/cli)——`--compile` / `--save` / `--crom` / `--disasm` 全表
+- [命令行参考](/guide/cli)——`--compile` / `--sdgcc-compress` / `--save` / `--crom` / `--disasm`
