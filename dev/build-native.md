@@ -1,22 +1,25 @@
 ---
-description: "编译 Code CIN 的 Go 原生库: Go 1.26+ 与 cgo 环境要求、三平台构建命令、产物路径、静态链接策略与 CODECIN_STATIC、//go:build 约定、跨平台自检与常量生成脚本。"
+description: "编译 Code CIN 的 Go 原生库与 cincc 编译器: Go 1.26+ 与 cgo 环境要求、三平台构建命令、产物路径、静态链接策略与 CODECIN_STATIC、//go:build 约定、跨平台自检与常量生成脚本。"
 ---
 
 # 编译 Go 原生库
 
-原生库是 Code CIN 的**唯一执行引擎** (v5.9.0 起): 由 Go 编译成 **c-shared 共享库**,
+原生库是 Code CIN 的**默认执行引擎** (v5.9.0 起): 由 Go 编译成 **c-shared 共享库**,
 Python 侧用 ctypes 加载 (`codecin/native.py`), 把整程序字节码一次交给原生 VM 执行。
-没有它程序无法运行 —— 缺库时会抛 `CPUSimulatorError` (红色错误面板 + 退出码 1),
+没有它默认路径无法运行 —— 缺库时会抛 `CPUSimulatorError` (红色错误面板 + 退出码 1),
 错误信息自带本页的重建指引, **不再有解释器回退**。
+
+v7.22.10 的 `--native` / `mkn build --native` 还需要另一个独立产物 **`cincc`**:
+同一份 Go 源码树里的纯 Go 编译器 (`cmd/cincc/`), 不需要 cgo。两者可分别构建。
 
 ## 环境要求
 
 | 组件 | 版本 | 必需 | 说明 |
 |------|------|:----:|------|
-| Go | **1.26+** | 是 | `go.mod` 声明 `go 1.26`; 旧版本无法编译 |
-| C 编译器 | gcc / clang | 是 | cgo 与 `-buildmode=c-shared` 需要 |
+| Go | **1.26+** | 是 | `go.mod` 声明 `go 1.26`; 旧版本无法编译。原生库与 `cincc` 共用 |
+| C 编译器 | gcc / clang | 原生库必需 | cgo 与 `-buildmode=c-shared` 需要; `cincc` 是纯 Go, **不需要** |
 | Python | 3.8+ | 是 | 加载库并运行 (与构建本身无关) |
-| 平台工具 | 见下 | 是 | Linux/Termux: gcc; macOS: Xcode CLT; Windows: MinGW-w64 / TDM-GCC |
+| 平台工具 | 见下 | 原生库必需 | Linux/Termux: gcc; macOS: Xcode CLT; Windows: MinGW-w64 / TDM-GCC |
 
 `codecin/native/go.mod` 全文只有三行, **没有任何第三方依赖**:
 
@@ -148,9 +151,33 @@ Built: ../libcodecin_native.so
 
 ::: warning c-shared 会顺手生成头文件
 `go build -buildmode=c-shared` 会在输出文件旁生成 `codecin_native.h` /
-`libcodecin_native.h`。两个脚本都会自动删除它们; 手动构建时请自己清理, 别提交进仓库
-(`tests/test_no_go_cli.py` 会断言源码树里没有构建产物)。
+`libcodecin_native.h`。两个脚本都会自动删除它们; 手动构建时请自己清理, 别提交进仓库。
 :::
+
+## 构建 cincc 原生编译器
+
+`cincc` 是 `--native` 路径使用的独立编译器, **纯 Go、不需要 cgo**, 也不生成头文件:
+
+```bash
+cd codecin/native
+go build -o cincc ./cmd/cincc
+```
+
+```powershell
+cd codecin\native
+go build -o cincc.exe .\cmd\cincc
+```
+
+产物默认落在 `codecin/native/cincc` (Windows 为 `cincc.exe`)。Python 侧查找顺序为
+`CODECIN_CINCC` → `codecin/native/cincc(.exe)` → `PATH`。验证:
+
+```bash
+./cincc -h
+```
+
+当前稳定目标为 `x86_64-linux`; Python CLI 的 `--build-target linux/amd64` 会映射为
+`cincc -target x86_64-linux`。Windows 上 `codecin --native` 会自动通过 WSL 调用
+`cincc`。
 
 ## 静态链接策略与 `CODECIN_STATIC`
 
@@ -259,7 +286,7 @@ CI 的 `native` 作业会执行同一段检查, 另外还跑:
 
 ```bash
 cd codecin/native
-go build ./...            # 全部包 (Go 侧不含 CLI 入口)
+go build ./...            # 全部包 (含 cmd/cincc 编译器入口)
 go vet ./...
 gofmt -l .                # 必须无输出
 go test ./... -race -count=1
@@ -401,4 +428,4 @@ native version_gen.go up to date.
 - [项目结构](/dev/structure) — Go 侧各包职责与常量单一真源
 - [测试与 CI](/dev/testing) — CI 的 `native` / `integration` 作业
 - [打包与发布](/dev/packaging) — 安装期现场编译与 Release 预编译资产
-- [Go 原生运行时](/runtime/native) — 加载顺序与宿主能力边界
+- [Go 原生运行时](/runtime/native) — 加载顺序、`cincc` 构建与宿主能力边界
