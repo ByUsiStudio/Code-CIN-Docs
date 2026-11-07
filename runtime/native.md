@@ -124,8 +124,8 @@ offset 1324 seg_count   u64
 
 两点加固行为值得记住：Go 侧 `recover()` 把 panic 降级为一条 `status=3`、
 `err="native panic: ..."` 的结果，**绝不让 panic 跨越 CGO 边界**终止宿主进程；
-步数用尽是错误而不是"正常结束"，错误文本为
-`instruction limit reached (N steps)`（`--max-instructions`，默认 `100000000`）。
+默认不限制指令数，只有显式传入已弃用的隐藏参数 `--max-instructions N` 时，步数用尽
+才报 `instruction limit reached (N steps)`。
 
 ## ctypes 加载与候选路径查找顺序
 
@@ -224,6 +224,19 @@ sh codecin/native/build.sh
 macOS 不支持共享库完全静态链接，始终动态。AOT 独立可执行文件则强制
 `CGO_ENABLED=0` 纯静态构建，见 [AOT](/runtime/aot)。
 
+### 构建 cincc 原生编译器
+
+`--native` / `mkn build --native` 需要单独的 `cincc` 可执行文件（纯 Go，无 cgo）：
+
+```bash
+cd codecin/native
+go build -o cincc ./cmd/cincc
+```
+
+产物默认在 `codecin/native/cincc`（Windows 为 `cincc.exe`），也可用
+`CODECIN_CINCC` 指向任意位置。`cincc -h` 查看 `-o` / `-target` / `-v` 参数；
+当前稳定目标为 `x86_64-linux`（`--build-target linux/amd64`）。
+
 ### 验证命令
 
 ```bash
@@ -243,8 +256,8 @@ codecin --build-info
 就是答案：
 
 ```text
-  native           : 可用: codecin-native 6.0.0 (Go)
-  native version   : codecin-native 6.0.0 (Go)
+  native           : 可用: codecin-native 7.22.10 (Go)
+  native version   : codecin-native 7.22.10 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
 ```
@@ -266,7 +279,11 @@ codecin --build-info --json
 ## 宿主能力
 
 音频、画布、文件、进程、Termux、网络与 FFI 相关 SYS 调用全部在 Go 引擎侧实现，
-与整程序执行同一路径：
+与默认 `.sdgcc` 整程序执行同一路径：
+
+> `--native` 的 `cincc` 产物只实现其中一个子集（控制台、字符串/数组/struct、
+> 文件/目录、时间/随机/休眠、TCP/UDP 等）；GUI/音频/画布、HTTP/DNS、FFI 尚未实现。
+> 需要完整宿主能力时请用默认 `.sdgcc` 路径。
 
 | SYS 区段 | 能力 | Go 侧实现 |
 | --- | --- | --- |
@@ -324,8 +341,8 @@ Go 侧的操作码/操作数类型/SYS 常量由 `codecin/native/engine/isa_gen.
 
 ## 相关页面
 
-- [执行路径](/guide/execution-paths)——native-only 单引擎的执行流程
-- [编译 Go 原生库](/dev/build-native)——构建脚本、静态链接开关与 CI 校验细节
-- [二进制格式](/runtime/formats)——CROM v4 / BIN v3 段式持久化
+- [执行路径](/guide/execution-paths)——默认 `.sdgcc` 路径与 `--native` 机器码路径
+- [编译 Go 原生库](/dev/build-native)——构建脚本、cincc、静态链接开关与 CI 校验细节
+- [二进制格式](/runtime/formats)——`.sdgcc` / BIN v3 / CROM v4 段式持久化
 - [宿主能力](/language/host-abilities)——SYS 调用的语言侧用法
 - [常见问题 (FAQ)](/guide/faq)
