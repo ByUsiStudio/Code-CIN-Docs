@@ -5,7 +5,8 @@ description: Code CIN 示例程序集：高级语言、struct/数组/标准库�
 # 示例程序集
 
 下面的示例都可以直接运行, 输出为实机运行结果 (使用 `--log-level ERROR` 过滤日志行)。
-把文件存成对应后缀, 用 `codecin <文件>` 或 `codecin <文件>` 运行即可。
+把文件存成对应后缀, 用 `codecin <文件> [程序参数]` 运行即可; 默认产物为 `.sdgcc`,
+部分纯语言示例 (如 `control_flow.cin`) 也可用 `codecin <文件> --native` 交给 `cincc` 直出机器码。
 
 ## 1. Hello World
 
@@ -367,6 +368,6 @@ codecin hello.cin --build-exe app --build-target linux/amd64 --build-static
 | `examples/modules_demo.cin` | `import` 与内置标准库 |
 | `examples/stdlib_demo.cin` | 多库联动 (断言式演示) |
 | `examples/system_interaction.cin` | 文件、进程、环境变量、主机信息 |
-| `examples/terminal_cache_demo.cin` | v6.3.1 终端缓存 + 实时输出 (type-ahead 提前输入、原地刷新动画、`key_flush`, 真实终端效果最佳) |
+| `examples/terminal_cache_demo.cin` | 7.22.10 终端缓存 + 实时输出 (type-ahead 提前输入、原地刷新动画、`key_flush`, 真实终端效果最佳) |
 | `examples/asm_constants.asm` | `.equ` 常量与表达式立即数 |
 | `test_asm.asm` | 汇编端到端 (循环、`SYS`、数据段、间接寻址) |
