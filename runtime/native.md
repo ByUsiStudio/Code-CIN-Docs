@@ -1,14 +1,16 @@
 ---
-description: Code CIN 的 Go 原生运行时：ABI v2 导出符号、ctypes 加载顺序、请求/响应缓冲布局、宿主能力边界与失败语义。
+description: Code CIN 的 Go 原生运行时与 Go 原生编译器 cincc：ABI v2、ctypes 加载、请求/响应布局、宿主能力边界与 .sdgcc/机器码两条主线。
 ---
 
 # Go 原生运行时
 
 Go 原生运行时是 Code CIN 的**语言实现核心**：CIN 编译器、字节码 VM、CROM 编解码、
 AOT 运行时与全部宿主能力都实现为纯 Go 代码，编译成一个 `c-shared` 共享库，由
-Python 侧用 `ctypes` 载入。v5.9.0 起项目是 **native-only 单引擎架构**——纯 Python
-解释器与 JIT 已移除，原生库不是"可选加速"，而是唯一的执行引擎。本页说明它的架构
-定位、导出符号、加载顺序与失败语义。
+Python 侧用 `ctypes` 载入。v5.9.0 起项目是 **native-only**——纯 Python 解释器与 JIT
+已移除，原生库不是"可选加速"，而是默认执行引擎。v7.22.10 另有 Go 编译器
+**`cincc`** (`codecin/native/cmd/cincc/`) 把 CIN 直接编译为目标机器码
+(`--native`)，属于独立的第二条主线。本页说明两者的架构定位、导出符号、加载顺序、
+宿主能力与失败语义。
 
 ## 架构定位：Go 是语言实现，Python 只是 CLI 外壳
 
@@ -16,38 +18,36 @@ Python 侧用 `ctypes` 载入。v5.9.0 起项目是 **native-only 单引擎架�
 | --- | --- | --- |
 | CLI 外壳 | `codecin/cli.py`、`cpu.py` | 参数解析、日志、退出码、编排 |
 | 前端（Python） | `codecin/cin.py`、`codecin/assembler.py` | CIN / PL / ASM 源码 → UCBC 字节码 |
+| 产物封装 | `codecin/sdgcc.py` | `.sdgcc` 容器（CODE 段 = BIN v3） |
 | IR 优化 | `codecin/optimizer.py` | `-O0..3` 窥孔/常量折叠/不可达代码删除 |
-| native 代码生成 | `codecin/native_codegen.py` | 指令流 → 直接调用 `NativeRuntime` 的 Go 源码 |
+| AOT 代码生成 | `codecin/codegen.py`、`native_codegen.py` | C 后端 / 旧 Go native 后端 |
 | 对象/链接 | `codecin/object.py` | `.co` 对象、重定位、`.colib` 归档、GC |
 | 语言实现核心（Go） | `codecin/native/compiler/`、`codecin/native/engine/` | CIN 编译器、字节码 VM、CROM 编解码、宿主能力 |
+| 原生编译器（Go） | `codecin/native/mc/`、`codecin/native/cmd/cincc/` | CIN → x86-64/AArch64 指令选择、寄存器分配、ELF 写出 |
 | AOT 运行时（Go） | `codecin/native/aot/`、`codecin/native/engine/native.go` | 独立可执行文件内嵌的 VM 入口 / native 指令原语 |
 | ABI 桥 | `codecin/native.py` | `ctypes` 载入共享库、请求编解码、结果解析 |
 
-**Go 侧不提供任何 CLI**。`codecin/native/` 下唯一允许的 `package main` 是 cgo 的
-c-shared 库入口 `codecin/native/main.go`，它只导出 C ABI 符号并提供一个空的
-`main()`；`tests/test_no_go_cli.py` 与 CI 都会断言"Go 源码树里没有第二个
-`package main`"。唯一的命令行入口是 Python 侧的 `codecin`（pip 安装后的 console
-script）。AOT（`--build-exe`）产出的是**用户程序的产物**，它自带 Go VM 或 native
-运行时，但不是工具链 CLI。
+::: warning Go 侧只有编译器命令，没有第二套用户 CLI
+`codecin/native/` 下有两个 `package main`: c-shared 库入口 `main.go`, 以及
+**编译器命令** `cmd/cincc/`。`cincc` 只把 CIN 编译为机器码, 不提供运行/日志/调试
+命令; 用户入口仍是 Python 侧的 `codecin`。AOT (`--build-exe`) 产出的是**用户程序**,
+自带 Go VM 或 native 运行时, 也不是工具链 CLI。
+:::
 
-### Native AOT 代码生成
+### AOT 代码生成
 
-AOT 默认 `auto` 后端：指令数 **≤ 20000** 走 native，否则走 VM。native 路径：
+AOT 默认 `auto` 后端: 优先 **C 后端** (`codecin/codegen.py` → 系统 C 编译器),
+不支持时回退旧 Go native 或 VM 后端。C 后端把指令流生成为 C 源码再静态编译;
+旧 Go native 后端则把 IR 转成 Go 源码, 每条核心指令直接调用
+`engine.NativeRuntime` 的方法 (`rt.Mov` / `rt.Add` / `rt.Load` / `rt.B` …)。
 
-1. `codecin/native_codegen.py` 把 IR 转成 Go 源码，每条核心指令直接调用
-   `engine.NativeRuntime` 的方法（`rt.Mov` / `rt.Add` / `rt.Load` / `rt.B` …）；
-2. Go 编译器把生成的源码编译成目标平台的 x86-64 / ARM64 机器码；
-3. 超过 **800 条指令**自动切换基本块模式，把大函数拆成多个 Go 代码块；
-4. 复杂/动态指令（动态 CALL/JMP、无法静态求值的内存操作数等）通过
-   `rt.Exec` 复用 VM 语义，因此不需要为每条指令手写机器码。
-
-`engine/native.go` 的 `NativeRuntime` 与字节码 VM 共享寄存器、内存、栈、SYS 与
-宿主能力实现；两种后端在同一程序上的输出保持一致（回归测试覆盖）。
+`--native` 是另一条路径: `cincc` 直接做指令选择与 ELF 写出, 不经过 C, 也不经过
+UCBC 字节码; 详见 [执行路径](/guide/execution-paths#路径-b-native-机器码执行)。
 
 ### 一次原生执行的数据流
 
 ```text
-program.cin ──codecin/cin.py──► UCBC 字节码 + 初始内存段 (稀疏分页快照)
+program.cin ──codecin/cin.py──► UCBC 字节码 + 初始内存段 ──► .sdgcc
    ──native.encode_program()──► v2 请求缓冲
         │
         ▼
