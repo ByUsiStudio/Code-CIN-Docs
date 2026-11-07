@@ -172,30 +172,33 @@ codecin hello.cin --build-exe hello-aot
 ```
 
 ```text
-AOT build: hello.cin -> hello-aot (静态链接, 目标 windows/amd64, 后端 auto)
+AOT build: hello.cin -> hello-aot (目标 windows/amd64, 后端 c)
 AOT build 完成: D:\...\hello-aot.exe
 
 Hello, Code CIN!
 2 + 3 = 5
 ```
 
-产物实测 **约 3.4–6.6 MiB**（native 后端更小，VM 后端含字节码/VM；随程序、后端与平台浮动）。
+C 后端产物实测通常**几百 KB**；Go native/VM 后端为 **约 3.4–6.6 MiB**（随程序、后端与平台浮动）。
 
 == 交叉编译 Linux
 
 ```bash
-codecin hello.cin --build-exe hello-linux --build-target linux/amd64
+# C 后端交叉编译依赖 zig cc
+codecin hello.cin --build-exe hello-linux --build-target linux/amd64 --build-static
 ```
 
-产物是 ELF，**无 `PT_INTERP`**：不依赖 glibc，可拷到任意同架构 Linux（含 Alpine/musl）直接运行。
+`--build-static` 时产物是**无 `PT_INTERP` 的 ELF**，不依赖 glibc，可拷到任意同架构 Linux
+（含 Alpine/musl）直接运行；不加静态链接则依赖目标机 C 库。
 
 == 交叉编译 macOS
 
 ```bash
-codecin hello.cin --build-exe hello-mac --build-target darwin/arm64
+codecin hello.cin --build-exe hello-mac --build-target darwin/arm64 --build-backend native
 ```
 
-产物是 Mach-O；Go 交叉编译不需要 macOS 本机。
+C 后端不支持 macOS 目标, 必须显式选 Go native/VM 后端。产物是 Mach-O；Go 交叉编译
+不需要 macOS 本机。
 
 == 带依赖库的程序
 
@@ -205,7 +208,7 @@ codecin prog.cin --build-exe prog --mem-size 1048576
 
 ```text
 依赖库 1 个 (编译期嵌入产物): stat.cin
-AOT build: prog.cin -> prog (静态链接, 目标 windows/amd64, 后端 auto)
+AOT build: prog.cin -> prog (目标 windows/amd64, 后端 c)
 AOT build 完成: D:\...\prog.exe
 ```
 
@@ -216,14 +219,14 @@ AOT build 完成: D:\...\prog.exe
 `codecin/aot.py:build_program()` 的顺序（每一步失败都给出明确错误，不留半成品）：
 
 1. **程序文件存在性**：不存在报 `找不到程序文件: <path>`；
-2. **依赖完整性检查**：CIN 用 `collect_imported_files()` 展开 `import` 闭包，缺失/循环引用报 `依赖检查失败: ...`，缺失文件报 `依赖库缺失: <列表>`——不必等 `go build` 才失败；
-3. **编译/装载**：CIN 走 `CINCompiler().compile()`，ASM/PL 走汇编器，`.bin` 走 `crom.load_bin`，`.co` 走对象读取；失败报 `编译失败: ...`；
+2. **依赖完整性检查**：CIN 用 `collect_imported_files()` 展开 `import` 闭包，缺失/循环引用报 `依赖检查失败: ...`，缺失文件报 `依赖库缺失: <列表>`——不必等编译器才失败；
+3. **编译/装载**：CIN 走 `CINCompiler().compile()`，ASM/PL 走汇编器，`.sdgcc` / `.bin` 走 `crom.load_bin`（`.sdgcc` 先取 `CODE` 段），`.co` 走对象读取；失败报 `编译失败: ...`；
 4. **优化**：`--optimize > 0` 时先跑 IR 优化器（窥孔/常量折叠/不可达代码删除）；
-5. **后端选择**：`auto` 按指令数选择 native/VM；VM 路径调用 `encode_program()` 生成 UCBC 段；native 路径调用 `generate_go_source()` 生成直接操作 `NativeRuntime` 的 Go 源文件；
+5. **后端选择**：`auto` 先问 `cbackend.supports()`；C 可用则 `codegen` 生成 C 源码并调用 GCC/Clang/`zig cc`；否则按指令数选 Go native 或 VM。`--build-backend c` 不支持时直接报错，不静默回退；
 6. **生成初始内存段表**：默认 1 GiB（`--mem-size` 覆盖，下限 256）；不再预填整个地址空间的零块，只为数据段实际覆盖的范围分配内容；数据段写入落在声明大小之外时**直接报错**（见下文「数据段越界与 `--mem-size`」）；
-7. **清扫陈旧残留**：建新目录之前先调 `aot.sweep_stale_build_dirs()`，删掉 `codecin/native/` 下**超过 6 小时**的 `.aotbuild-*` / `.aotprobe-*` 残留（清理是尽力而为，失败绝不影响本次构建）；
-8. **生成临时包**：VM 路径写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.segs`；native 路径写入生成好的 `main.go`；
-9. **交叉编译**：强制 `CGO_ENABLED=0`（纯静态、无 cgo）+ `GOOS`/`GOARCH` 执行
+7. **清扫陈旧残留**：建新目录之前先调 `aot.sweep_stale_build_dirs()`，删掉 `codecin/native/` 下**超过 6 小时**的 `.aotbuild-*` / `.aotprobe-*` 残留（仅 Go 后端；清理是尽力而为，失败绝不影响本次构建）；
+8. **C 后端**：调用 C 编译器（或 `zig cc`，交叉编译时自带目标 libc），按 `-O0..3`、`--build-static`、`--build-strip` 生成产物；`--build-keep-c` 时把生成的 `program.c` 复制到 `<OUT>.c`；
+9. **Go 后端**：生成临时包——VM 路径写入 `main.go`（来自 `codecin/native/aot/stub_main.go.txt`）、`program.ucbc`、`program.segs`；native 路径写入生成好的 `main.go`；强制 `CGO_ENABLED=0`（纯静态、无 cgo）+ `GOOS`/`GOARCH` 执行
 
    ```text
    go build -trimpath -tags netgo,osusergo -ldflags "-s -w" -o <输出> ./.aotbuild-xxxx
@@ -263,11 +266,12 @@ func main() {
 
 `run(rt)` 内部就是逐条核心指令对应的 `rt.Mov` / `rt.Add` / `rt.Load` / `rt.B` 等原语调用；动态/复杂指令通过 `rt.Exec` 复用 VM。
 
-### 临时构建目录的生命周期
+### 临时构建目录的生命周期 (仅 Go 后端)
 
-`go build` 需要一个真实的包目录，所以每次构建都会在 `codecin/native/` 下建一个
+`go build` 需要一个真实的包目录，所以每次 **Go 后端**构建都会在 `codecin/native/` 下建一个
 `.aotbuild-<随机十六进制>/`（`tempfile.mkdtemp` 的 0700 权限在受限环境里会被拒绝写入，
-因此用 `os.makedirs`）。这些目录的生命周期规则如下：
+因此用 `os.makedirs`）。C 后端使用系统临时目录 `.aotc-*`，编译结束即删；C 源码仅在
+`--build-keep-c` 时保留到 `<OUT>.c`。这些 Go 目录的生命周期规则如下：
 
 | 阶段 | 行为 |
 | --- | --- |
@@ -306,15 +310,15 @@ AOT: 残留临时目录清理失败: D:\...\codecin\native\.aotbuild-1a2b3c4d5e6
 
 | 行为 | 说明 |
 | --- | --- |
-| 启动 | **VM 后端**从 PC 0 执行内嵌字节码（CIN 首条是 bootstrap `CALL main; HALT`）；**native 后端**直接进入生成的 `run(rt)` |
+| 启动 | **C 后端**从生成的 C 入口进入同一套指令语义；**VM 后端**从 PC 0 执行内嵌字节码（CIN 首条是 bootstrap `CALL main; HALT`）；**native 后端**直接进入生成的 `run(rt)` |
 | 初始状态 | `SP = 内存大小 - 8`（栈从内存末尾向下增长），堆基址 = 内存大小 / 2；默认 1 GiB 下即 `SP = 0x3ffffff8`、堆基址 `0x20000000` |
-| 步数上限 | VM 产物固定 `100000000`；native 产物使用构建时传入的步数上限 |
-| 内存 | 由运行时按 `mem_size` 动态分配（OS 懒提交），实际物理占用只有写过的页 |
+| 步数上限 | 默认不限制；仅构建时显式传入已弃用的隐藏参数 `--max-instructions` 才生效 |
+| 内存 | 由运行时按 `mem_size` 分配（OS 懒提交），实际物理占用只有写过的页 |
 | stdout | 打印程序输出（`OUT` / `println` 等） |
 | stdin | **只在被重定向（管道/文件）时读取**；交互式终端下不会挂起等待 EOF |
-| FFI | 不可用：静态构建无 cgo，`dlopen` 系列调用返回运行时报错（见[下节](#静态构建与-ffi)） |
+| FFI | 不可用：Go AOT 静态构建无 cgo；C 后端 SYS 白名单不含 140–144。相关调用返回运行时报错 |
 | 正常结束 | 退出码 **0** |
-| 运行期错误 | 消息写 **stderr**，退出码 **1** |
+| 运行期错误 | 消息写 **stderr**，退出码 **1**；C 后端未实现指令/SYS 为 **70** |
 
 运行期错误的实测形态（程序先打印了 `before`，随后除零）：
 
@@ -330,36 +334,31 @@ $ echo $?
 
 ## 静态链接与体积
 
-| 环节 | 做法 | 效果 |
+| 后端 | 做法 | 效果 |
 | --- | --- | --- |
-| 静态链接 | `CGO_ENABLED=0`（AOT 构建强制设置，不依赖环境） | 不链接 libc/任何动态库 |
-| 纯 Go DNS/用户库 | `-tags netgo,osusergo` | 不依赖 glibc 的 NSS/getaddrinfo |
-| 路径与符号 | 默认 `-trimpath -ldflags "-s -w"`；`--build-debug` 时保留符号/DWARF | 默认缩小体积，调试构建保留可诊断信息 |
-| 体积 | 单个静态二进制 | 实测约 3.4–6.6 MiB（native/VM 不同，含 Go 运行时与引擎） |
+| C（默认） | GCC/Clang/`zig cc`；默认动态链接系统 C 库，`--build-static` 加 `-static` | 体积小、构建快；静态模式下不依赖目标机 libc |
+| Go native/VM | `CGO_ENABLED=0`（构建时强制，不依赖环境）+ `-tags netgo,osusergo` + `-trimpath -ldflags "-s -w"` | 纯静态，不链接 libc/任何动态库 |
+| 体积 | C 后端通常几百 KB；Go 后端实测约 3.4–6.6 MiB（含 Go 运行时与引擎） | — |
 
-`tests/test_aot.py` 会把产物按 ELF 解析并断言**不存在 `PT_INTERP` 段**——这是"Linux 产物不依赖 glibc"的机器可验证形式。
+`tests/test_aot.py` 会把 **Go 静态产物**按 ELF 解析并断言**不存在 `PT_INTERP` 段**——
+这是"Linux 产物不依赖 glibc"的机器可验证形式；C 后端是否静态由 `--build-static` 决定。
 
 ## 静态构建与 FFI
 
-AOT 构建把 `CGO_ENABLED` 固定为 `0`，`go build` 因此只编译**无 cgo** 的 Go 源文件。原生引擎里带 cgo 构建标签的实现会被排除：
+FFI 在所有 AOT 形态下都不可用，但原因不同：
 
-| 源文件 | 构建标签 | AOT 构建下的命运 |
+| 后端 | 原因 | 运行期表现 |
 | --- | --- | --- |
-| `codecin/native/engine/ffi_windows.go` | `windows && cgo` | 被排除 |
-| `codecin/native/engine/ffi_unix.go` | `!windows && cgo` | 被排除 |
-| `codecin/native/engine/ffi_nocgo.go` | `!cgo` | **参与编译**（桩实现） |
+| Go native / VM | 构建把 `CGO_ENABLED` 固定为 `0`，`ffi_windows.go` / `ffi_unix.go` 被排除，改用 `ffi_nocgo.go` 桩 | `FFI unavailable: built without cgo (static AOT build); use the dynamic-library runtime for ffi_*` |
+| C | `cbackend.SUPPORTED_SYS` 白名单不含 140–144 | 未实现 SYS，按 C 后端约定以退出码 70 报错 |
 
-`ffi_nocgo.go` 提供的桩让引擎包在无 cgo 下照常编译，但 FFI 系统调用（`dlopen` / `dlsym` / `ffi_call` / `dlclose`，功能号 140–144）在运行时返回明确错误：
-
-```text
-FFI unavailable: built without cgo (static AOT build); use the dynamic-library runtime for ffi_*
-```
-
-也就是说：**AOT 产物调用 FFI 会得到运行时报错，而不是构建期链接失败**。其余能力（VM、网络、音频、画布、键盘）全部走纯 Go 实现，不受影响。需要 FFI 的程序请用动态库原生路径运行（`codecin program.cin`），或把 AOT 产物视为"无 FFI"的分发形态并在文档里注明。
+也就是说：**AOT 产物调用 FFI 会得到运行时报错，而不是构建期链接失败**。其余能力（网络、音频、画布、键盘）在 Go 后端产物里走纯 Go 实现；C 后端只覆盖其 SYS 白名单内的能力（见 [C 后端能力](#后端选择)）。需要 FFI 的程序请用动态库原生路径运行（`codecin program.cin`）。
 
 ::: tip 网络与 FFI 的取舍
 
-`HTTPREQ` / `TCPDIAL` 等网络系统调用由 Go 标准库实现，在 AOT 产物里完全可用（这正是 `-tags netgo,osusergo` 的意义）；被静态构建关掉的只有依赖 cgo 的动态库加载。
+`HTTPREQ` / `TCPDIAL` 等网络系统调用由 Go 标准库实现，在 **Go 后端** AOT 产物里完全可用
+（这正是 `-tags netgo,osusergo` 的意义）；C 后端覆盖 HTTP/TCP/UDP/DNS 的 SYS 白名单，
+但被关掉的只有依赖 C 动态库加载的 FFI。
 
 :::
 
@@ -404,13 +403,13 @@ GOCACHE=/tmp/gocache codecin prog.cin --build-exe prog
 
 :::
 
-::: details 想看 `go build` 到底在做什么
+::: details 想看 Go 后端 `go build` 到底在做什么
 
 ```bash
-codecin prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
+codecin prog.cin --build-exe prog --build-backend native --build-keep-temp --log-level DEBUG
 ```
 
-`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`（VM 路径还包含 `program.ucbc` 与 `program.segs`）；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。
+`--build-keep-temp` 会保留 `codecin/native/.aotbuild-<rand>/`，里面有生成的 `main.go`（VM 路径还包含 `program.ucbc` 与 `program.segs`）；可以手动在该目录里复现编译命令。DEBUG 级日志会打印完整 `go build` 命令行与 `GOOS`/`GOARCH`/`CGO_ENABLED`。`.aotbuild-*` 以 `.` 开头，Go 工具链会忽略它，因此不影响 `go build ./...`。**保留目录不是永久的**：超过 6 小时后会被下一次 AOT 构建清扫，要长期留存请拷到仓库外。C 后端想看生成源码用 `--build-keep-c`。
 
 :::
 
@@ -426,29 +425,29 @@ codecin prog.cin --build-exe prog --build-keep-temp --log-level DEBUG
 
 ::: details 交叉编译很慢
 
-首次为目标平台构建需要重新编译 Go 标准库，1–2 分钟属正常（`tests/test_aot.py` 也因此默认只跑本机构建，交叉编译用例需 `CODECIN_AOT_TESTS=1` 才启用）。
+Go 后端首次为目标平台构建需要重新编译 Go 标准库，1–2 分钟属正常（`tests/test_aot.py` 也因此默认只跑本机构建，交叉编译用例需 `CODECIN_AOT_TESTS=1` 才启用）；C 后端交叉编译通常快得多。
 
 :::
 
 ## 与其它路径的关系
 
-| 对比 | `.bin` | AOT 产物 |
-| --- | --- | --- |
-| 运行需要 | Python + codecin-native 动态库 | 什么都不需要 |
-| 输入形态 | 字节码 + 内存段表 | 静态单文件（native 机器码或内嵌字节码） |
-| 适用 | 开发期反复运行、反汇编检查 | 分发用户程序 |
-| 体积 | 几十 KB 级 | 约 3.4–6.6 MiB（后端/平台不同） |
+| 对比 | `.sdgcc` | AOT 产物 | `--native` (cincc) |
+| --- | --- | --- | --- |
+| 运行需要 | Python + codecin-native 动态库 | 无 (独立可执行文件) | 无 (机器码) |
+| 输入形态 | UCBC 字节码容器 | C/Go 编译产物或内嵌字节码 | cincc 直出机器码 |
+| 适用 | 开发期反复运行、反汇编检查 | 分发用户程序、完整宿主能力 | 分发子集程序、追求不经字节码 |
+| 体积 | 几十 KB 级 (含元数据/源码清单) | C 后端几百 KB；Go 后端约 3.4–6.6 MiB | 几十 KB 级 |
 
-产物里的引擎与动态库原生路径共享同一套 Go 运行时（`codecin/native/engine` 的
-寄存器、内存、栈、SYS 与宿主能力），因此文件/进程/音频/画布/Termux/网络在 AOT
+Go 后端产物里的引擎与动态库原生路径共享同一套 Go 运行时（`codecin/native/engine`
+的寄存器、内存、栈、SYS 与宿主能力），因此文件/进程/音频/画布/Termux/网络在 AOT
 产物里同样可用，且不依赖 Python——唯一例外是无 cgo 下的 FFI（见[上节](#静态构建与-ffi)）。
-native 后端由 `engine.NativeRuntime` 直接执行指令原语，VM 后端由 `engine.Run`
-执行内嵌 UCBC；执行语义见 [执行路径](/guide/execution-paths)。
+C 后端是独立实现的 C 运行时, 只覆盖其 SYS 白名单; `cincc` 又是另一套独立后端,
+覆盖更小的子集。执行语义见 [执行路径](/guide/execution-paths)。
 
 ## 相关页面
 
-- [二进制格式](/runtime/formats)——VM 后端内嵌的 UCBC 字节码与内存段表格式
-- [Go 原生运行时](/runtime/native)——被内嵌的 Go 引擎、`NativeRuntime` 与宿主能力
+- [二进制格式](/runtime/formats)——VM 后端内嵌的 UCBC 字节码、`.sdgcc` 与内存段表格式
+- [Go 原生运行时](/runtime/native)——被内嵌的 Go 引擎、`cincc` 与宿主能力
 - [Python 嵌入 API](/reference/python-api)——`codecin.aot.build_program()` 与 `codecin.object` 的编程接口
 - [命令行参考](/guide/cli)——`--build-exe` / `--build-target` / `--build-backend` / `--emit-object` / `--link`
 - [常见问题 (FAQ)](/guide/faq)
