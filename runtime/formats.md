@@ -1,17 +1,20 @@
 ---
-description: Code CIN 的两种二进制格式：.bin（CPUSA v3 容器 + UCBC 字节码）与 .crom v4 段式内存镜像的字段、命令、兼容性与限制。
+description: Code CIN 的二进制格式：.sdgcc 默认编译容器、.bin（CPUSA v3 + UCBC 字节码）与 .crom v4 段式内存镜像的字段、命令、兼容性与限制。
 ---
 
 # 二进制格式
 
-Code CIN 有两条不同的二进制产物线，用途完全不同：
+Code CIN 有三条不同的二进制产物线，用途完全不同：
 
 | 格式 | 是什么 | 谁产生 | 能否直接运行 |
 | --- | --- | --- | --- |
-| `.bin` | **程序**：CPUSA 容器 + UCBC 字节码 + 初始内存段表 | `--compile` / `--compile-only` | 可以：`codecin prog.bin` |
+| `.sdgcc` | **默认程序产物**：`SDGCC` 容器，`CODE` 段是完整 BIN v3，另带元数据/符号/源码清单 | `--compile` / `--compile-only` | 可以：`codecin prog.sdgcc` |
+| `.bin` | **兼容程序产物**：CPUSA 容器 + UCBC 字节码 + 初始内存段表 | `--compile` / `--compile-only` 或 `-o prog.bin` | 可以：`codecin prog.bin` |
 | `.crom` | **内存快照**：某个时刻已分配页的段式快照（v4，可 zlib 压缩） | `--save` | **不可以**：它要配合 `.pl`/`.asm` 用 `--crom` 载入 |
 
-两者魔数、版本号、头部布局都不一样，**互不通用**：把 `.crom` 当程序喂进去会失败，反之亦然。本页给出两种格式的准确字段、命令与限制。
+这些格式魔数、版本号、头部布局都不一样，**互不通用**：把 `.crom` 当程序喂进去会失败，
+把 `.sdgcc` 当内存镜像同样不行。`.sdgcc` 的 `CODE` 段与 `.bin` 逐字节一致，因此
+`.bin` 仍可作为合法输入被 `sdgcc.unwrap()` 原样透传。
 
 ## 为什么是段式格式
 
