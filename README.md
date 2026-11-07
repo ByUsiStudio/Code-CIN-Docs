@@ -16,19 +16,23 @@
 [Code CIN](https://github.com/ByUsiStudio/Code-CIN) (`pip install codecin`) 是一门
 语法近似 C/Go 的高级语言 (CIN) 及其工具链。v5.9.0 起 **native-only**: 全部程序由
 Go 原生引擎统一执行, 纯 Python 解释器与 JIT 已整体删除, 无解释器回退。
+v7.22.10 的默认编译产物是 **`.sdgcc`** (CODE 段 = BIN v3), 并提供 **`cincc`**
+原生编译主线 (`--native`) 直出目标机器码。
 
-- **单执行路径**: Python 侧负责编译/装载 (`.cin/.asm/.pl/.bin/.crom`), 通过
+- **默认执行路径**: Python 侧负责编译/装载 (`.cin/.asm/.pl/.sdgcc/.bin/.crom`), 通过
   ABI v2 (`codecin_run_v2`) 一次调用回传寄存器/向量/NZCV/脏内存段/输出;
+- **原生机器码路径**: `codecin foo.cin --native` 调用 Go 编译器 `cincc`, 直接生成
+  x86-64 ELF (不经 C、不经 UCBC 字节码); `--native-out` 只产出二进制;
 - **FFI 与网络**: `dlopen` / `dlsym` / `ffi_call` / `ffi_callf` / `lib_close`
   (标准库 `lib/ffi.cin`), `http_req` / `http_code` / `tcp_*` / `udp_*` /
   `dns_lookup` (标准库 `lib/net.cin`);
 - **1 GiB 稀疏内存**: 默认 1073741824 字节, 4 KiB 分页按需提交, 大数组无需调整
   `--mem-size`; 堆基址 = `mem_size//2`, 栈顶 = `(mem_size-8) & ~0x7`;
-- **持久化**: 段式 CROM v4 / BIN v3 (只存已分配页), 旧版可读不可写;
+- **持久化**: 段式 CROM v4 / `.sdgcc` (BIN v3 CODE 段), 旧版 `.bin` 可读不可写;
 - **GUI / 音频 / 键盘**: 窗口 (Win32/X11)、2D 画布、WAV 播放、非阻塞键盘轮询等
-  宿主能力, 全部由原生引擎实现;
-- **AOT / 对象链接**: `--build-exe` 产出静态单文件 (`CGO_ENABLED=0`), 支持
-  native/VM 后端、`-O0..3`、交叉编译、构建缓存与 `--build-debug`;
+  宿主能力, 全部由原生引擎实现 (`cincc` 产物暂不支持这些能力);
+- **AOT / 对象链接**: `--build-exe` 产出静态单文件 (`CGO_ENABLED=0`), 默认 C 后端,
+  可选 Go native/VM 后端、`-O0..3`、交叉编译、构建缓存与 `--build-debug`;
   `--emit-object` / `--link` / `--emit-archive` 支持 CIN/ASM/PL 独立编译、
   `.colib` 静态库与链接期 GC。
 
@@ -43,11 +47,16 @@ powershell -ExecutionPolicy Bypass -File codecin\native\build.ps1   # Windows
 sh codecin/native/build.sh                                          # Linux / macOS / Termux
 
 # 2) 运行
-codecin basic.cin                                # 编译并由原生引擎执行
+codecin basic.cin                                # 编译为 .sdgcc 并由原生引擎执行
 codecin --build-info                             # 版本 / 平台 / 原生库状态
-codecin basic.cin --compile-only -o basic.bin    # 仅编译为 UCBC 字节码
-codecin basic.cin --build-exe basic              # AOT 独立可执行文件
+codecin basic.cin --compile-only -o basic.sdgcc  # 仅编译为 .sdgcc 产物
+codecin basic.cin --build-exe basic              # AOT 独立可执行文件 (默认 C 后端)
+codecin basic.cin --native                       # cincc 直出 x86-64 ELF 并运行
 ```
+
+> 使用 `--native` / `mkn build --native` 时, `cincc` 需预先构建:
+> `cd codecin/native && go build -o cincc ./cmd/cincc`, 或用 `CODECIN_CINCC`
+> 指向已有编译器。Windows 会自动经 WSL 调用。
 
 > 原生库缺失或版本不匹配时, 程序启动即抛 `CPUSimulatorError` 并附重建指引。
 > `pip install codecin` 从 sdist 安装时会在用户机器上现场编译原生库。
@@ -80,12 +89,12 @@ docs/
 ├── language/               # CIN 语言: 词法/类型/运算符/控制流/函数/struct/数组/字符串/内建/宿主能力/模块
 ├── asm/                    # 汇编: 总览、语法参考、指令语义参考
 ├── stdlib/                 # 内置标准库总览与逐函数参考
-├── runtime/                # Go 原生运行时、二进制格式、AOT
+├── runtime/                # Go 原生运行时、.sdgcc/.bin/.crom 格式、AOT
 ├── tools/                  # 日志与错误输出、性能分析、内存与运行时开关
 ├── reference/              # 指令集编码表、寄存器与内存模型、Python API、更新日志
-├── dev/                    # 项目结构、编译原生库、测试与 CI、打包、扩展、贡献
+├── dev/                    # 项目结构、编译原生库/cincc、测试与 CI、打包、扩展、贡献
 ├── README.md               # 本文件 (不打进站点)
-└── ISA.md / CIN_GUIDE.md / BUILDING.md / SUGGESTIONS*.md
+└── ISA.md / CIN_GUIDE.md / BUILDING.md / native-backend.md / SUGGESTIONS*.md
                             # 主仓库的开发用文档, 由 config.mts 的 srcExclude 排除, 不作为站点页面
 ```
 

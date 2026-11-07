@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Code CIN
   text: 简洁的类 C 语言与原生运行时
-  tagline: CIN / PL / ASM 工具链 · UCPU 字节码 · Go 原生引擎单路径整程序执行 · 内置 2D 画布与联网音频
+  tagline: CIN / PL / ASM 工具链 · .sdgcc 编译产物 · Go 原生引擎整程序执行 · cincc 直出机器码
   image:
     src: /logo.svg
     alt: Code CIN
@@ -28,7 +28,7 @@ features:
     details: 从安装与第一个程序讲到函数、数组、字符串、struct、模块、调试与六个综合项目, 每段代码都实机验证过输出。
   - icon: 🧩
     title: 三语言一条工具链
-    details: CIN 高级语言、PL 关键字风格汇编、ASM 汇编, 统一编译/汇编为 UCBC 字节码, 共享同一套 ISA 与 VM。
+    details: CIN 高级语言、PL 关键字风格汇编、ASM 汇编, 默认统一编译为 .sdgcc 产物 (CODE 段为 BIN v3), 共享同一套 ISA 与 VM; 另提供 cincc 直出机器码的原生编译主线。
   - icon: ⚡
     title: Go 原生引擎单路径执行
     details: Python 前端编译装载后, 经 ABI v2 (codecin_run_v2) 一次调用把整程序交给 Go 原生引擎执行, 回传寄存器/向量/标志/脏内存段与输出; 默认 1 GiB 稀疏内存。
@@ -42,8 +42,8 @@ features:
     title: 可分析、可核对
     details: rich 超详细日志与彩色错误面板、--disasm 反汇编、指令级性能统计、--build-info 核对原生库与包版本。
   - icon: 🚀
-    title: AOT 独立可执行文件
-    details: --build-exe 把 CIN/ASM/PL/BIN/CO 编译成静态单文件, 产物不需要 Python、Go 工具链、libc 或动态库; auto/native/VM 后端、交叉编译、-O0..3、构建缓存与调试构建。
+    title: 两种原生产物
+    details: --build-exe 用 C 后端或 Go 后端产出静态单文件; --native 调用 Go 编译器 cincc 直出 x86-64 ELF (不经 C、不经字节码)。
   - icon: 🧱
     title: 独立编译与链接
     details: --emit-object 生成可重定位对象, --link 合并 CIN/ASM/PL 对象与 .colib 静态库, 支持 extern 函数/全局、数据重定位、链接期优化与 --gc-sections。
@@ -109,10 +109,18 @@ msg: ASCIZ "Hello, Code CIN!"
 
 :::
 
-三种写法最终都编译成 UCBC 字节码, 由 **Go 原生引擎**通过 ABI v2 一次调用执行整程序:
+默认路径下, 三种写法最终都编译成 **`.sdgcc`** 产物 (内部 `CODE` 段与 BIN v3 逐字节一致),
+由 **Go 原生引擎**通过 ABI v2 一次调用执行整程序:
 
 ```bash
 codecin hello.cin
+```
+
+v7.22.10 起还可走 **`cincc` 原生机器码主线** (不经 C、不经 UCBC 字节码):
+
+```bash
+codecin hello.cin --native        # 编译并运行 (x86-64 ELF; Windows 自动经 WSL)
+codecin hello.cin --native-out hi # 只产出二进制
 ```
 
 ## 文档地图
@@ -124,7 +132,7 @@ codecin hello.cin
 | CIN 语言 | 词法、类型、变量、运算符、控制流、函数、struct、数组、字符串、内建、宿主能力、模块 | [语言总览](/language/) |
 | 汇编 / ISA | 汇编语法 (ASM 与 PL 两种风格)、112 条指令语义、指令编码表 | [汇编总览](/asm/) |
 | 标准库 | 41 个内置库的逐函数参考 | [标准库总览](/stdlib/) |
-| 运行时 | Go 原生运行时、执行路径、`.bin`/`.crom` 格式、AOT 独立可执行文件 | [Go 原生运行时](/runtime/native) |
+| 运行时 | Go 原生运行时、执行路径、`.sdgcc`/`.bin`/`.crom` 格式、AOT 与 cincc 原生产物 | [Go 原生运行时](/runtime/native) |
 | 工具 | 日志与错误输出、性能分析、内存与运行时开关 | [日志与错误输出](/tools/logging) |
 | 参考 | 指令编码表、寄存器与内存模型、Python 嵌入 API、更新日志 | [寄存器与内存模型](/reference/registers-memory) |
 | 开发者 | 项目结构、编译原生库、测试与 CI、打包发布、扩展指令、贡献指南 | [项目结构](/dev/structure) |
@@ -133,8 +141,9 @@ codecin hello.cin
 
 | 项目 | 信息 |
 |------|------|
-| 当前版本 | 以 `codecin --version` 为准 |
-| 语言实现 | Go 侧是唯一核心 (CIN 编译器 / 字节码 VM / CROM / AOT 运行时), **Go 侧不提供 CLI** |
+| 当前版本 | `7.22.10` (以 `codecin --version` 为准) |
+| 编译主线 | 默认 Python 前端 → `.sdgcc` → Go 原生引擎; `--native` → Go 编译器 `cincc` → 目标机器码 |
+| 语言实现 | Go 侧是核心 (CIN 编译器 / 字节码 VM / CROM / AOT / `cincc`), 用户命令行入口仍是 Python `codecin` |
 | 唯一命令行入口 | `codecin <程序> [选项]` 或安装后的 `codecin <程序> [选项]` |
 | 依赖 | Python 3.8+ 与 `rich` (唯一第三方运行时依赖); Go 1.26+ 仅用于编译原生库/AOT |
 | 代码仓库 | [ByUsiStudio/Code-CIN](https://github.com/ByUsiStudio/Code-CIN) |

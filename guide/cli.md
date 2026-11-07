@@ -1,5 +1,5 @@
 ---
-description: Code CIN 命令行完整参考：位置参数与程序参数直传、版本与构建信息、日志、性能资源、编译与 CROM、对象/链接/静态库、AOT 构建、退出码与环境变量。
+description: Code CIN 命令行完整参考：位置参数与程序参数直传、版本与构建信息、日志、性能资源、.sdgcc 编译、对象/链接/静态库、cincc 原生编译、AOT 构建、退出码与环境变量。
 ---
 
 # 命令行参考
@@ -10,18 +10,20 @@ description: Code CIN 命令行完整参考：位置参数与程序参数直传�
 
 ```text
 Usage:
-  codecin <program.[cin|pl|asm|bin]> [options] [program-args...]
+  codecin <program.[cin|pl|asm|sdgcc|bin]> [options] [program-args...]
   codecin <program...> -- <args 传给 CIN 程序>
 
 Supported formats:
-  .cin   CIN 高级语言 (函数/struct/数组/浮点/字符串)
-  .pl    Code CIN 汇编语言 (PL 关键字风格)
-  .asm   Code CIN 汇编
-  .bin   UCBC 字节码 (由 --compile 生成)
+  .cin    CIN 高级语言 (函数/struct/数组/浮点/字符串)
+  .pl     Code CIN 汇编语言 (PL 关键字风格)
+  .asm    Code CIN 汇编
+  .sdgcc  默认编译产物: UCBC 字节码容器 (CODE 段 = BIN v3)
+  .bin    UCBC 字节码 (兼容格式, 由 --compile 生成)
 
 AOT/link inputs:
   .co     可重定位对象 (--emit-object)
   .colib  静态库归档 (--emit-archive)
+  .crom   内存镜像 (--crom / --save)
 ```
 
 ```bash
@@ -30,9 +32,10 @@ codecin --version       # 打印当前版本
 codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障用)
 ```
 
-v5.9.0 起为 **native-only 单引擎**：程序统一由 Go 原生库执行，原生库缺失会直接报错
+v5.9.0 起为 **native-only**：程序统一由 Go 原生库执行，原生库缺失会直接报错
 并提示重建（无解释器回退），构建原生库是运行前的必要步骤（见
-[编译 Go 原生库](/dev/build-native)）。
+[编译 Go 原生库](/dev/build-native)）。v7.22.10 起默认产物为 `.sdgcc`，并新增
+`--native` / `--native-out` 的 `cincc` 机器码编译路径。
 
 ## 版本与构建信息
 
@@ -48,15 +51,15 @@ v5.9.0 起为 **native-only 单引擎**：程序统一由 Go 原生库执行，�
 先看这里, 不必再手工比对 `codecin --version` 与原生库自报串:
 
 ```text
-Code CIN 构建信息 (build info) - 6.0.0
-  version          : 6.0.0
-  version_info     : (6, 0, 0)
+Code CIN 构建信息 (build info) - 7.22.10
+  version          : 7.22.10
+  version_info     : (7, 22, 10)
   python           : 3.14.6 (CPython)
   platform         : win32/AMD64
   system           : Windows
   machine          : AMD64
-  native           : 可用: codecin-native 6.0.0 (Go)
-  native version   : codecin-native 6.0.0 (Go)
+  native           : 可用: codecin-native 7.22.10 (Go)
+  native version   : codecin-native 7.22.10 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
   package path     : D:\...\codecin
@@ -100,7 +103,7 @@ Code CIN 内置标准库清单
 
 | 参数 | 说明 |
 |------|------|
-| `program` | 程序源文件或字节码: `.cin` / `.pl` / `.asm` / `.bin`。省略时打印错误并返回 1 |
+| `program` | 程序源文件或编译产物: `.cin` / `.pl` / `.asm` / `.sdgcc` / `.bin`。省略时打印错误并返回 1 |
 
 `program` 是**可选**位置参数, 只有真正要运行程序时才需要它: `--help` / `--version` /
 `--build-info` 都在读取位置参数之前就退出, 所以 `codecin --build-info` 不带任何程序文件
@@ -139,18 +142,19 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 | 选项 | 默认 | 说明 |
 |------|------|------|
 | `--mem-size <BYTES>` | `1073741824` (1 GiB) | 虚拟机内存大小 (最小 256, 上限 1 TiB)。4 KiB 稀疏分页按需提交, 只有真正写入的部分占物理内存, **大数组/大缓冲不需要再调它** (默认即可 `int a[1000000]`) |
-| `--max-instructions <N>` | `100000000` | 指令数上限 (防死循环; 最小 1), 超限报 `instruction limit reached (N steps)` |
+| `--max-instructions <N>` | 不限制 | **已弃用**, 仅作为隐藏参数保留以兼容旧脚本; 默认不限制指令数 |
 
 ## 编译与 CROM
 
 | 选项 | 默认 | 说明 |
 |------|------|------|
-| `--compile` | 关闭 | 编译为 `.bin` 字节码后继续执行 |
-| `--compile-only` | 关闭 | 只编译为 `.bin`, 不执行 |
-| `-o, --output <FILE>` | `<程序名>.bin` | 指定输出文件 (`--save` 的 `.crom` 路径固定为 `<程序名>.crom`, 不受此项影响) |
-| `--crom <FILE>` | 无 | 加载指定 `.crom` 内存镜像 (仅对 `.pl` / `.asm` 生效; `.cin` / `.bin` 分支会忽略它, 并会自动探测同目录同名的 `<程序名>.crom`) |
+| `--compile` | 关闭 | 编译为 `.sdgcc` 产物后继续执行 |
+| `--compile-only` | 关闭 | 只编译为 `.sdgcc`, 不执行 |
+| `-o, --output <FILE>` | `<程序名>.sdgcc` | 指定输出文件 (可为 `.sdgcc` / `.bin`; `--save` 的 `.crom` 路径固定为 `<程序名>.crom`, 不受此项影响) |
+| `--crom <FILE>` | 无 | 加载指定 `.crom` 内存镜像 (仅对 `.pl` / `.asm` 生效; `.cin` / `.sdgcc` / `.bin` 分支会忽略它, 并会自动探测同目录同名的 `<程序名>.crom`) |
 | `--save` | 关闭 | 执行后保存 `<程序名>.crom` 内存镜像 (CROM v4 段式, 只存已分配页) |
 | `--no-compress` | 压缩开启 | `.crom` 不压缩 (默认 zlib) |
+| `--sdgcc-compress` | 关闭 | `.sdgcc` 的 META/SYMS/SRCS 段启用 zlib 压缩 (容器版本升为 2, CODE 段不压缩) |
 | `--optimize <0-3>` | `0` | 优化级别 (越界自动裁剪到 0–3) |
 | `--strict` | 关闭 | 严格汇编模式 |
 
@@ -160,7 +164,7 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 |------|------|------|
 | `--seed <N>` | 随机 | 随机种子, 保证 `rand()` 序列确定 |
 | `--bounds-check` | 关闭 | CIN 数组越界检查 (编译期注入字节码, 与原生路径兼容) |
-| `--disasm` | 关闭 | 反汇编 `.bin` 为文本清单后退出 (支持 BIN v3 / 旧 v2 头) |
+| `--disasm` | 关闭 | 反汇编 `.sdgcc` / `.bin` 为文本清单后退出 (支持 BIN v3 / 旧 v2 头) |
 
 ## 对象、链接与静态库
 
@@ -186,18 +190,57 @@ codecin --link main.co --link lib.colib -o app
 
 CIN 库文件用 `extern function` / `extern int` 声明跨对象符号；无 `main` 的文件作为函数库对象。详见 [模块与标准库](/language/modules#独立编译与链接)。
 
+## 原生机器码构建 (cincc)
+
+v7.22.10 新增的 `--native` 路径由 Go 编译器 `cincc` 直接生成机器码, **不经过 C,
+也不经过 UCBC 字节码**。它不参与默认的 `.sdgcc` / Go 引擎流程。
+
+| 选项 | 说明 |
+|------|------|
+| `--native` | 用 `cincc` 编译当前 `.cin` 源文件为设备本机可执行文件并运行; Windows 下自动改用 WSL 执行 |
+| `--native-out <OUT>` | 同 `--native`, 但只构建不运行, 产物写到 `OUT` |
+| `--build-target linux/amd64` | 传给 `cincc -target x86_64-linux`; 当前仅接受这一目标, 其它值会报 `cincc 暂不支持目标` |
+
+```bash
+codecin hello.cin --native          # 编译并运行
+codecin hello.cin --native-out hi   # 只产出 hi
+codecin hello.cin --native --build-target linux/amd64
+```
+
+`cincc` 的查找顺序为 `CODECIN_CINCC` 环境变量 → `codecin/native/cincc(.exe)` →
+`PATH`; 未找到时会提示先构建:
+
+```bash
+cd codecin/native && go build -o cincc ./cmd/cincc
+```
+
+::: warning 原生路径的能力子集
+当前支持: 控制台输出、字符串、数组/struct/全局变量、分支/循环、函数与参数、
+多文件 `import`、`malloc`、`time` / `rand` / `sleep`、文件/目录、`cwd` / `chdir` /
+`os_name` / `temp_dir`、TCP/UDP。
+
+尚未实现: GUI/画布/音频、HTTP/HTTPS/DNS、FFI、Windows PE 目标、完整 AArch64 后端。
+`--native` 也不使用 Python 侧的 `--seed` / `--sandbox` / `--bounds-check` / `--save`
+等运行期配置。
+:::
+
 ## AOT 构建
 
 | 选项 | 说明 |
 |------|------|
-| `--build-exe [OUT]` | 把 CIN/ASM/PL/BIN/CO 编译成独立静态可执行文件后退出; 省略路径时输出到 `<程序名>[.exe]` |
-| `--build-target <OS/ARCH>` | 交叉编译目标: `windows/amd64`、`windows/arm64`、`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64` |
-| `--build-backend auto\|native\|vm` | `auto` 按指令数选择 (≤20000 native, 否则 VM)；`native` 强制直接生成机器码；`vm` 强制内嵌字节码 |
+| `--build-exe [OUT]` | 把 CIN/ASM/PL/BIN/SDGCC/CO 编译成独立静态可执行文件后退出; 省略路径时输出到 `<程序名>[.exe]` |
+| `--build-target <OS/ARCH>` | AOT 交叉编译目标: `windows/amd64`、`windows/arm64`、`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64` |
+| `--build-backend auto\|c\|native\|vm` | `auto` 优先 C 后端, 不支持时回退 Go/VM (默认); `c` 生成 C 并由 GCC/Clang 编译; `native` 旧 Go 代码生成后端; `vm` 内嵌字节码 |
+| `--build-static` | C 后端产物静态链接 (macOS 目标自动忽略) |
+| `--build-strip` | C 后端产物去掉符号表 (体积更小) |
+| `--build-keep-c` | 保留 C 后端生成的 `program.c` |
+| `--build-verify` | 构建后校验 ELF/PE 头部与目标架构是否一致 |
 | `--no-build-cache` | 禁用 AOT 增量构建缓存 (含对象/归档链接缓存) |
 | `--build-debug` | 保留符号表/DWARF，不传 `-s -w` |
-| `--build-keep-temp` | 保留 `go build` 临时目录, 便于排查构建失败 |
+| `--build-keep-temp` | 保留构建临时目录, 便于排查失败 |
 
-AOT 构建强制 `CGO_ENABLED=0` 纯静态链接，产物独立运行；输入支持 `.cin/.asm/.pl/.bin/.co`。详见 [AOT 独立可执行文件](/runtime/aot)。
+AOT 默认使用 C 后端, Go native/VM 后端仍强制 `CGO_ENABLED=0` 纯静态链接；产物独立运行。
+输入支持 `.cin/.asm/.pl/.sdgcc/.bin/.co`。详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 常用组合
 
@@ -209,6 +252,7 @@ AOT 构建强制 `CGO_ENABLED=0` 纯静态链接，产物独立运行；输入�
 codecin prog.cin --log-level ERROR          # 干净输出
 codecin prog.cin --strict --log-level DEBUG # 严格汇编 + DEBUG 日志
 codecin prog.cin arg1 arg2                  # 程序参数直传
+codecin prog.cin --native                   # cincc 机器码路径
 ```
 
 == 汇编 / ISA 调试
@@ -222,17 +266,17 @@ codecin prog.asm --crom prog.crom           # 带内存镜像执行
 == 构建与产物
 
 ```bash
-codecin prog.cin --compile-only -o prog.bin # 只编译
-codecin prog.cin --compile                  # 编译并执行
-codecin prog.cin --save --no-compress       # 未压缩内存镜像
-codecin prog.cin --build-exe prog           # AOT 单文件
+codecin prog.cin --compile-only -o prog.sdgcc # 只编译默认产物
+codecin prog.cin --compile                    # 编译并执行
+codecin prog.cin --save --no-compress         # 未压缩内存镜像
+codecin prog.cin --build-exe prog             # AOT 单文件 (默认 C 后端)
+codecin prog.cin --native-out prog-linux      # cincc 机器码
 codecin --link main.cin --link lib.cin -o app  # 源文件直接独立编译链接
 ```
 
 == 受控运行
 
 ```bash
-codecin prog.cin --max-instructions 1000000 # 防死循环
 codecin prog.cin --seed 42                  # 确定性随机
 codecin prog.cin --bounds-check             # 数组越界检查
 codecin prog.cin --sandbox                  # 禁宿主能力
@@ -244,8 +288,8 @@ codecin prog.cin --sandbox                  # 禁宿主能力
 
 | 退出码 | 含义 |
 |--------|------|
-| `0` | 正常结束 (`HALT` / 程序自然结束), 或 `--help` / `--version` / `--build-info` / `--compile-only` / `--build-exe` 成功 |
-| `1` | 加载/汇编/编译/运行错误, 或 AOT 构建失败 (错误以 rich 红色面板打印) |
+| `0` | 正常结束 (`HALT` / 程序自然结束), 或 `--help` / `--version` / `--build-info` / `--compile-only` / `--build-exe` / `--native-out` 成功 |
+| `1` | 加载/汇编/编译/运行错误, 或 AOT / cincc 构建失败 (错误以 rich 红色面板打印) |
 | `2` | 参数错误 (未知选项、非法枚举值等, 由 argparse 输出 usage) |
 
 ```text
@@ -258,6 +302,7 @@ codecin prog.cin --sandbox                  # 禁宿主能力
 
 | 变量 | 作用 |
 |------|------|
+| `CODECIN_CINCC` | 显式指定 `cincc` 编译器路径 (优先于 `codecin/native/cincc` 与 `PATH`) |
 | `CODECIN_NATIVE_LIB` | 显式指定原生库路径 (优先于自动查找) |
 | `CODECIN_SKIP_NATIVE=1` | 安装时跳过原生库编译 |
 | `CODECIN_NO_GO=1` | 安装时跳过 Go 原生构建 |
