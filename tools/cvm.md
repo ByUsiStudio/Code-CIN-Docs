@@ -62,6 +62,10 @@ cvm build src/main.cin --single     # 只编译入口, 不展开 import 闭包
 - 含 `mkn.toml` 的项目会先调用 `mkn build`（自动解析依赖）；
 - 库项目（无 `main`）不能构建 `.cvm`，请用 `mkn package` 分发源码/对象。
 
+编译选项：`--release`、`--optimize 0..3`、`--mem-size <字节>`、`--bounds-check`。
+`--main` 覆盖清单里的入口名，`--module-version` 写入模块版本（默认取自
+`mkn.toml`，没有则 `0.0.0`）。`cvm --version` 打印 cvm 自身版本。
+
 ## 运行
 
 ```bash
@@ -70,8 +74,9 @@ cvm run hello.cvm -- arg1 arg2
 cvm run hello                       # 从模块路径解析
 ```
 
-可用 `--mem-size`、`--sandbox`、`--log-level` 控制运行时
-（`--max-instructions` 已弃用，仅作为隐藏参数保留）。
+可用 `--mem-size`、`--sandbox`、`--log-level` 控制运行时。`--log-level` 取
+`DEBUG`、`INFO`、`WARNING`、`ERROR`、`CRITICAL`，默认 `ERROR`。
+`--max-instructions` 已弃用，仅作为隐藏参数保留，默认不限制指令数。
 
 ## 校验与查看
 
@@ -79,6 +84,9 @@ cvm run hello                       # 从模块路径解析
 cvm verify hello.cvm     # 校验清单、校验和、字节码 magic/版本
 cvm inspect hello.cvm    # 查看模块清单
 cvm inspect hello.cvm --json
+cvm sdgcc info hello.cvm # 查看容器版本、目标平台与段表
+cvm sdgcc info hello.cvm --json
+cvm sdgcc dump hello.cvm -o hello.parts  # 导出各段, 默认写到 <file>.parts
 ```
 
 模块中任一字节被篡改，`verify`/`run` 都会失败。
@@ -94,7 +102,9 @@ cvm inspect hello.cvm --json
 cvm install hello.cvm     # 安装到 $CVM_HOME/modules/hello/<version>.cvm
 cvm which hello           # 打印解析到的路径
 cvm list                  # 列出模块路径中的模块
+cvm list --json
 cvm env                   # 引擎、ABI、平台、模块路径
+cvm env --json
 ```
 
 ## 与 JVM 的差异

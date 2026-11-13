@@ -63,19 +63,29 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 
 | 命令 | 说明 |
 |------|------|
-| `mkn new <name>` | 创建标准项目 |
+| `mkn new <name>` | 创建标准项目（`--dir`、`--version`、`--description`、`--force`） |
 | `mkn init` | 在当前目录初始化（允许非空目录） |
 | `mkn build` / `mkn compile` | 编译；有 `main` 默认产出 `.sdgcc`，库项目产出 `.co` |
 | `mkn build --native` | 调用 `cincc` 直接产出机器码 (不经 C/字节码; 目前仅 `.cin` 入口) |
 | `mkn run -- <args>` | 编译并运行 |
-| `mkn test` | 运行 `src/test/**/*.cin` 与 `tests/**/*.cin` |
+| `mkn test` | 运行 `src/test/**/*.cin` 与 `tests/**/*.cin`；`--filter` 按路径子串筛选 |
 | `mkn package` | 生成 `target/<name>-<version>.mkn` |
 | `mkn install` | 安装到 `$MKN_HOME/repository/<name>/<version>` |
-| `mkn deploy --repo <git-url>` | 安装后调用 `pic publish` |
-| `mkn add <name> --version ...` | 添加依赖并解析 |
-| `mkn tree` | 打印传递依赖树 |
+| `mkn deploy --repo <git-url>` | 安装后调用 `pic publish`；`--push` 推送标签 |
+| `mkn add <name> --version ...` | 添加依赖并解析；也支持 `--local-path`、`--git`、`--tag`、`--rev`、`--no-resolve` |
+| `mkn tree` | 打印传递依赖树；`--depth N` 限制层数 |
 | `mkn verify` | 校验清单、入口与依赖 |
+| `mkn doctor` | 检查 Go 工具链、cincc、原生库与网络等环境项 |
 | `mkn clean [--deps]` | 删除 `target/`（可选 `pic_modules/`） |
+
+构建相关命令共用以下选项：
+
+- `--path <dir>` / `--manifest <mkn.toml>`：项目目录或显式清单；
+- `-o` / `--output`：产物路径，可显式写成 `.bin`、`.co`；
+- `--release`：优化级别至少为 2；
+- `--optimize {0,1,2,3}`、`--mem-size <字节>`、`--bounds-check`；
+- `--no-deps`：跳过依赖解析；
+- `--clean`：构建前清理 `target/`；`--package`：构建后同时打包。
 
 ## 依赖解析顺序
 

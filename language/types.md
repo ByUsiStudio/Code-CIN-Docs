@@ -92,7 +92,7 @@ println("num = " + (true + true))   // num = 2
 | 数值运算（加减乘、比较、下标） | `1` | `0` |
 | 条件（`if` / `while` / `?:` / `&&` / `\|\|`） | 真 | 假 |
 | 赋值给 `int` / `float` | `1` / `1.0` | `0` / `0.0` |
-| 把 `int` 赋给 `bool` | 非零 → `true` | `0` → `false` |
+| 把 `int` 赋给 `bool` | 槽内值不变，非零即真 | `0` 即假 |
 
 ## 字符串
 
@@ -344,8 +344,8 @@ function main() -> int {
 | 转换 | 行为 |
 |------|------|
 | `float` → `int`（赋值 `int i = f`，或函数返回值/参数） | **向零截断**：`2.7` → `2`，`-2.7` → `-2` |
-| `int` → `bool` | 非零为 `true`，零为 `false`（无指令开销） |
-| `bool` → `int` / `float` | `true` → `1` / `1.0` |
+| `int` → `bool` | 槽内值不变，条件判断按非零 / 零取真假（无指令开销） |
+| `bool` → `int` / `float` | 不归一化，保留槽内原值；转 `float` 时走 `ITOF`（`true` 字面量才是 `1` / `1.0`） |
 | `int` / `bool` → `float` | `ITOF` 提升 |
 | `float` → `string` | 需要显式内建 `float_to_str(f)`（拼接/打印时会自动字符串化） |
 
@@ -359,10 +359,10 @@ function conversions() -> int {
     int q = -7 / 2              // -3  (浮点除 -3.5 再截断)
     int m = -7 % 2              // -1  (整除取模, 仅整数)
 
-    bool t = 5                  // true
+    bool t = 5                  // true (槽内仍是 5)
     bool f = 0                  // false
-    int ti = t                  // 1
-    float tf = t                // 1.0
+    int ti = t                  // 5   (bool -> int 不归一化)
+    float tf = t                // 5.0
 
     println("ia=" + int_to_str(ia) + " ib=" + int_to_str(ib)
             + " q=" + int_to_str(q) + " m=" + int_to_str(m))
@@ -374,7 +374,7 @@ function conversions() -> int {
 
 ```text
 ia=-2 ib=2 q=-3 m=-1
-t=true ti=1 tf=1
+t=true ti=5 tf=5
 ```
 
 ### 除法与取模对照

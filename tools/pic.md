@@ -37,8 +37,9 @@ pic login --email you@example.com --password '***'
 pic login --email you@example.com --password '***' --code 123456
 ```
 
-首次运行 `pic` 的其他命令时，若 `auth.json` 不存在，也会自动进入登录流程
-（`login`/`logout`/`doctor` 除外）。离线开发/测试：
+首次运行 `pic` 的其他命令时，若 `auth.json` 不存在，也会自动进入登录流程。
+`login`、`logout`、`doctor`、`search`、`versions`、`info`、`modules`、`registry`
+以及全局 `--offline` 不触发登录。离线开发/测试：
 
 ```bash
 pic --offline ...
@@ -75,8 +76,18 @@ tag = "v2.1.0"
 ## 发布 (详细输出)
 
 ```bash
-pic publish --repo <git-url> --name <name> [--version 1.2.0] [--push]
+pic publish [--manifest pic.toml] --repo <git-url> --name <name> \
+  [--version 1.2.0] [--tag v1.2.0] [--push] [--no-tag] \
+  [--allow-dirty] [-o dist/hello-1.2.0.cinpkg]
 ```
+
+发布前通常需要带上的三个参数：
+
+- `--no-tag`：多个包共用同一个 Git 仓库时跳过 `v<version>` 标签，避免标签冲突；
+  版本改用当前 commit 记录。
+- `--allow-dirty`：工作区有未提交改动时仍允许发布；不带该参数会直接拒绝。
+- `-o` / `--output`：自定义 `.cinpkg` 归档路径，默认写入
+  `dist/<name>-<version>.cinpkg`。
 
 输出示例：
 
@@ -115,6 +126,25 @@ pic publish hello@1.0.0
 3. 创建并推送标签（`--no-tag` 改用 commit 记录）；
 4. 向 `package.codecin.org.cn` 提交元数据；
 5. 上传 `.cinpkg` 制品（服务端校验 SHA-256）。
+
+### 批量发布内置库
+
+`codecin/lib` 下的 41 个内置库可以一次发布，脚本位于
+`script/publish_stdlib_packages.py`：
+
+```bash
+python script/publish_stdlib_packages.py --build       # 先重建 .cinpkg 再发布
+python script/publish_stdlib_packages.py               # 只发布已构建的包
+python script/publish_stdlib_packages.py --only array,sort
+python script/publish_stdlib_packages.py --dry-run     # 只打印发布参数
+python script/publish_stdlib_packages.py --offline     # 只登记本地 registry.json
+python script/publish_stdlib_packages.py --require-clean
+```
+
+脚本对每个包调用 `pic publish`，并统一带 `--no-tag` 与 `--allow-dirty`：内置库
+共用同一个 Git 仓库，逐包创建版本标签会冲突，而改动常常还在工作区里。需要严格
+检查工作区时加 `--require-clean`；单个包失败不会中断后续包，结束时打印汇总并以
+非零退出码报告失败数。
 
 ## 安装
 
@@ -305,6 +335,11 @@ offline = false
 ## 其他命令
 
 ```bash
+pic login [--no-browser] [--email ...] [--password ...] [--code ...]
+pic logout
+pic whoami [--json]
+pic init [name] [--path .] [--version 0.1.0] [--entry src/<name>.cin] [--repo <url>]
+pic build [--manifest pic.toml] [-o out.cinpkg]
 pic list [--project] [--json]
 pic show hello
 pic freeze [--project]
@@ -320,6 +355,7 @@ pic use hello 1.0.0
 pic admin [--no-browser] [--print-token]
 pic registry list
 pic registry add <name> <git-url>   # 本地回退登记
+pic registry remove <name>
 pic doctor
 ```
 
