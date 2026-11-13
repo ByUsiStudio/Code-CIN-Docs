@@ -1,5 +1,7 @@
 # Code CIN 原生后端现状（交接文档）
 
+> 后续更新目标见 [roadmap.md](roadmap.md)。
+
 ## 1. 架构
 
 ```
