@@ -4,10 +4,12 @@ description: "Code CIN 仓库结构: Python 包各模块职责、Go 原生库与
 
 # 项目结构
 
-仓库 `UCPU` (项目 Code CIN / 包 codecin) 由三部分组成: **Python 包** `codecin/`
+仓库 `CodeCIN` (项目 Code CIN / 包 codecin) 由三部分组成: **Python 包** `codecin/`
 (CLI 外壳 + 编译/装载编排 + 结果回写)、**Go 原生库/编译器** `codecin/native/`
 (语言实现核心: CIN 编译器、字节码 VM、CROM、AOT 运行时、`cincc` 原生编译器)、
-以及 **`docs/` 官方文档站** (VitePress, 同时是独立仓库 Code-CIN-Docs, 以 git submodule 内嵌)。
+以及 **`docs/` 官方文档站** (VitePress, 独立仓库 Code-CIN-Docs)。根仓库的
+`.gitmodules` 仍保留 `docs` 子模块条目，但工作副本里的 `docs/` 是独立检出，CI
+不再递归检出子模块。
 
 v5.9.0 起 Code CIN 为 **native-only 架构**: 纯 Python 解释器与 JIT 已整体删除,
 默认路径统一由 Go 原生引擎执行 (ABI v2, 整程序一次调用)。v7.22.10 另有
