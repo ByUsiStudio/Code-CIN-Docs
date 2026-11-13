@@ -4,7 +4,7 @@ description: "Code CIN 性能分析与计时: time_us()/time_ns() 程序内打�
 
 # 性能分析与计时
 
-v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。Python 侧不再逐指令记账，旧版的逐指令统计报告选项已随解释器一并移除——性能测量改用**程序内计时**。
+v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。Python 侧不再逐指令记账，旧版的逐指令统计报告选项已随解释器一并移除。性能测量改用**程序内计时**。
 
 - 内存模型与 `--mem-size` 见 [/tools/memory-cache](/tools/memory-cache)；
 - 日志级别与错误面板见 [/tools/logging](/tools/logging)；
@@ -48,13 +48,13 @@ codecin bench.cin --max-instructions 10000000
 
 ## 确认运行环境：--build-info
 
-性能结论只在"确实跑在 Go 原生引擎上"时才有意义。发布/部署前先做一次环境自检：
+性能结论只在确实跑在 Go 原生引擎上时才有意义。发布或部署前先做一次环境自检：
 
 ```bash
 codecin --build-info
 ```
 
-它打印版本号、平台与原生库加载状态等环境信息（由 `codecin/version.py` 的 `build_info()` 生成，永不抛异常）。若动态库缺失或 ABI 不匹配，运行程序会直接抛 `CPUSimulatorError` 并附重建指引（`codecin/native/build.ps1` / `build.sh`）——v5.9.0 起没有解释器回退，构建方法见 [/dev/build-native](/dev/build-native)。
+它打印版本号、平台与原生库加载状态等环境信息（由 `codecin/version.py` 的 `build_info()` 生成，永不抛异常）。若动态库缺失或 ABI 不匹配，运行程序会直接抛 `CPUSimulatorError` 并附重建指引（`codecin/native/build.ps1` / `build.sh`）。v5.9.0 起没有解释器回退，构建方法见 [/dev/build-native](/dev/build-native)。
 
 ## 引擎侧只有 steps 一项计数
 

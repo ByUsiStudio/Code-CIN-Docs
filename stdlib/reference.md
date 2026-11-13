@@ -1195,8 +1195,8 @@ import "gui.cin"
 | 函数名 | 签名 | 返回值 | 说明与边界行为 |
 | --- | --- | --- | --- |
 | `g_rgb` | `g_rgb(int r, int g, int b)` | `int` | 打包 RGB 为 `0xRRGGBB`；每个分量只取低 8 位（`& 255`） |
-| `g_new` | `g_new(int w, int h)` | `void` | 新建白色画布 `w × h`，等价于内建 `canvas(w, h)` |
-| `g_clear` | `g_clear(int w, int h, int rgb)` | `void` | 新建画布并整体填充为 `rgb` |
+| `g_new` | `g_new(int w, int h, string title)` | `int` | 打开 `w × h` 窗口；成功返回 0，无显示服务或平台不支持返回 -1（尺寸自动钳制到 1..4096）。成功后画布内建直接画进窗口 |
+| `g_clear` | `g_clear(int rgb)` | `int` | 用 `rgb` 清空当前窗口，没有窗口时按最近一次 `g_new` 尺寸重建画布；成功返回 0，无窗口返回 -1 |
 | `g_rect_outline` | `g_rect_outline(int x, int y, int w, int h, int rgb)` | `void` | 画线宽 1 的矩形边框（四条 `draw_line`，不填充） |
 | `g_bar_chart` | `g_bar_chart(int[] values, int n, int w, int h)` | `void` | 柱状图：先清成白底，按最大值自动缩放，柱子深蓝 `(60,120,200)`，最后补黑边框；`n <= 0` 时只留白底 |
 | `g_grid` | `g_grid(int w, int h, int step)` | `void` | 浅灰 `(200,200,200)` 网格；`step <= 0` 会死循环，务必传正数 |
@@ -1215,7 +1215,7 @@ import "gui.cin"
 | `g_mouse_middle` | `g_mouse_middle()` | `int` | 中键是否按住 (需窗口打开): 1 是 / 0 否 |
 | `g_vkb_show` | `g_vkb_show()` | `int` | 弹出屏幕/触摸键盘: 0 成功 / -1 不可用 (Windows: TabTip/输入体验; Linux: onboard/matchbox-keyboard/xvkbd; macOS: 辅助功能键盘) |
 | `g_vkb_hide` | `g_vkb_hide()` | `int` | 收起屏幕/触摸键盘: 0 成功 / -1 不可用 |
-| `g_text` | `g_text(int x, int y, string s, int rgb)` | `void` | 只使用画布内建 (set_color / fill_rect / fill_circle / draw_line / draw_text), 不调用 canvas() —— 窗口打开时直接画进窗口后备缓冲, 画完需 g_update() 呈现。 在 (x, y) 画文本 (内置 5x7 点阵字库, 小写按大写绘制), 颜色 rgb |
+| `g_text` | `g_text(int x, int y, string s, int rgb)` | `void` | 窗口安全的文本助手：在 (x, y) 画文本（内置 5x7 点阵字库，小写按大写绘制），不调用 `canvas()`，画完需 `g_update()` 呈现 |
 | `g_line` | `g_line(int x0, int y0, int x1, int y1, int rgb)` | `void` | 直线 (x0,y0) -> (x1,y1), 颜色 rgb |
 | `g_circle` | `g_circle(int cx, int cy, int r, int rgb)` | `void` | 实心圆: 圆心 (cx, cy), 半径 r, 颜色 rgb |
 | `g_rect` | `g_rect(int x, int y, int w, int h, int rgb)` | `void` | 实心矩形 (左上角 x,y; 宽 w 高 h), 颜色 rgb |

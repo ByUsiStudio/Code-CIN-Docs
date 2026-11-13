@@ -17,8 +17,8 @@ description: "Code CIN 内存模型与运行时开关: 1 GiB 稀疏分页原理�
 v5.9.0 起内存默认 **1 GiB**，但采用**稀疏分页、按需提交**，大地址空间并不等于大占用：
 
 - Python 侧 `FastMemory` 用一张**页字典**管理内存：页大小固定 4 KiB（`PAGE_BITS = 12`），只有被**写入**过的页才真正分配 `bytearray`；读未写过的地址直接返回 0，不分配内存。
-- `resident_bytes` 属性只统计**已分配页**的实际字节数（页数 × 4 KiB）——1 GiB 逻辑空间跑个小程序，常驻内存往往只有几 KB。
-- Go 引擎侧配合 `make([]byte, memSize)`（由 OS 懒提交物理页）+ **脏页位图**：整程序执行结束只把位图标记的脏页**合并成内存段**（段式）回传，Python 侧再写回稀疏内存（引擎回传粒度是引擎自己的脏页段，与 Python 侧 4 KiB 页无关）。
+- `resident_bytes` 属性只统计**已分配页**的实际字节数（页数 × 4 KiB）。1 GiB 逻辑空间跑个小程序，常驻内存往往只有几 KB。
+- Go 引擎侧配合 `make([]byte, memSize)`（由 OS 懒提交物理页）+ **脏页位图**：脏页粒度是 64 KiB（`dirtyPageShift = 16`），整程序执行结束只把位图标记的脏页**合并成内存段**（段式）回传，Python 侧再写回稀疏内存。引擎的 64 KiB 脏页与 Python 侧 4 KiB 页是两套粒度。
 
 因此大数组、大缓冲不再需要手动扩容：默认配置即可 `int a[1000000]`。
 
@@ -76,7 +76,7 @@ or smaller local arrays
 |------|----------|
 | `Stack overflow (collides with heap)` | `PUSH` 时 `SP` 低于栈警戒线 |
 | `Stack underflow` | 栈顶之上 `POP` |
-| `Address 0x… out of bounds (memory size 0x…, access width N) (negative address: stack overflow or bad pointer?)` | 地址越界，且地址 ≥ 2^63（按位模 2^64 后为负）——典型成因是栈溢出或野指针 |
+| `Address 0x… out of bounds (memory size 0x…, access width N) (negative address: stack overflow or bad pointer?)` | 地址越界，且地址 ≥ 2^63（按位模 2^64 后为负）。典型成因是栈溢出或野指针 |
 | `Heap exhausted: need N bytes, free M bytes (heap 0x…-0x…). Try --mem-size (default 1073741824) or reduce allocations` | 堆分配撞上栈（字符串拼接/字符串操作有同款变体文案） |
 
 ::: tip 排查方向
@@ -135,7 +135,7 @@ codecin dice.cin --seed 12345
 codecin untrusted.cin --sandbox
 ```
 
-`--sandbox` 下只放行 **ALLOCFRAME / TIMEUS / TIMENS** 三个核心系统调用（帧分配与计时）与音频以下的纯计算类内建；文件、网络、FFI、画布、GUI、键盘、Termux 等宿主能力一律拦截，报：
+`--sandbox` 下只放行 **ALLOCFRAME / TIMEUS / TIMENS** 三个核心系统调用（帧分配与计时），以及 `AUDIOPLAY`（SYS 39）以下的纯计算类内建；音频、文件、网络、FFI、画布、GUI、键盘、Termux 等宿主能力一律拦截，报：
 
 ```text
 Host capability disabled in sandbox mode (SYS N: NAME)
@@ -166,5 +166,5 @@ codecin arrays.cin --bounds-check
 
 - **`--mem-size` 改大后程序行为变了？** 堆基址与栈顶都随内存大小移动，程序若硬编码了地址（内嵌 CPU 指令/绝对地址访存）需要同步调整。
 - **1 GiB 内存会不会吃光机器？** 不会：稀疏分页只让真实写入的页占物理内存，`resident_bytes` 可以验证。
-- **`--bounds-check` 让程序变慢？** 这是预期代价：每次定长数组下标多一次比较与分支；原生路径不受影响，只是指令数变多。
+- **`--bounds-check` 让程序变慢？** 这是预期代价：每次定长数组下标多一次比较与分支；原生路径同样会带上这些检查，只是指令数变多。
 - **栈溢出 / 栈下溢**：分别对应 `Stack overflow: frame needs …` / `Stack overflow (collides with heap)` 与 `Stack underflow`，前者通常是递归过深或局部大数组，后者通常是 `RET`/`POP` 多于 `PUSH`。

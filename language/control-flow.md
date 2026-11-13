@@ -5,7 +5,7 @@ description: "CIN 控制流：if/else、while、for 与范围 for、do-while、b
 # 控制流
 
 CIN 的控制流与 C 基本一致: 条件必须写在圆括号里, 代码块用 `{}`; 单语句体可以省略花括号。
-语句以换行结尾, 因此**块内的换行不会被忽略**。
+语句以换行结尾, 行尾是运算符时才续行。
 
 ## if / else
 
@@ -134,9 +134,8 @@ switch (tier) {
 实测输出:
 
 ```text
-level: top
+level: high
 ```
-
 规则:
 
 - 选择表达式与 `case` 常量必须是**整数**; `case` 支持常量表达式 (`case 2+3`)、字符字面量 (`case 'A'`)
@@ -225,7 +224,7 @@ sum=20 d=4 pass
 | `Empty case range: lo..hi` | `case` 范围写反 (`lo > hi`) | 保证 `lo <= hi` |
 | `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 用定长数组或下标循环 |
 | `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
-| 死循环 | `--max-instructions` 上限内未退出 | 检查循环条件; 上限默认 1 亿 |
+| 死循环 | 循环条件永远成立 | 检查循环条件; 调试时可临时用 `break` 或 `--max-instructions` 限制步数 |
 | `do-while` 少执行一次 | 条件写在体前 (写成了 `while`) | 确认使用 `do { } while (...)` |
 
 ## 相关页面
