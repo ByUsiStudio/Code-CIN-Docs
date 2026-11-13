@@ -1255,7 +1255,7 @@ import "hash.cin"
 | `hash_combine` | `hash_combine(int h1, int h2)` | `int` | 组合两个哈希值，**不可交换**；用于把多个字段揉成一个哈希 |
 | `hash_bucket` | `hash_bucket(int h, int buckets)` | `int` | 映射到 `[0, buckets)`；`buckets <= 0` 返回 0，负数取模结果也归一到非负 |
 | `hash_string_bucket` | `hash_string_bucket(string s, int buckets)` | `int` | 字符串 → 桶下标，即 `hash_bucket(hash_fnv1a(s), buckets)` |
-| `hash_crc32` | `hash_crc32(string s)` | `int` | 全部按 64 位整数槽运算并显式掩码, 结果不依赖溢出行为; 纯函数, 无全局状态。 CRC-32 (IEEE 802.3, 反射多项式 0xEDB88320, 初值/异或值均为 0xFFFFFFFF) 返回无符号 32 位结果 (0..0xFFFFFFFF); 空串返回 0 |
+| `hash_crc32` | `hash_crc32(string s)` | `int` | CRC-32（IEEE 802.3，反射多项式 `0xEDB88320`，初值与异或值均为 `0xFFFFFFFF`），返回无符号 32 位结果（0..0xFFFFFFFF）；空串返回 0 |
 | `hash_adler32` | `hash_adler32(string s)` | `int` | Adler-32 (mod 65521): 低 16 位为 a (字节和 + 1), 高 16 位为 b (前缀和); 空串返回 1 (a = 1, b = 0) |
 | `hash_mix64` | `hash_mix64(int x)` | `int` | 64 位雪崩混合 (MurmurHash3 fmix64 风格): 打散低位规律性输入, 与 hash_int (splitmix64 风格) 使用不同常量, 两者可互补使用 |
 | `hash_bytes_bucket` | `hash_bytes_bucket(string s, int buckets)` | `int` | 字节串 -> 桶下标: 先做 64 位 FNV-1a (初值 0x9E3779B97F4A7C15), 再做 hash_mix64 雪崩, 最后映射到 [0, buckets); buckets <= 0 返回 0。 与 hash_string_bucket 的区别: 多一步雪崩混合, 低位分布更均匀。 |
@@ -1417,7 +1417,7 @@ import "json.cin"
 | `j_float` | `j_float(string json, string key)` | `float` | 取浮点字段，支持可选负号与小数；无法解析为 `0.0`，不解析指数形式 |
 | `j_has` | `j_has(string json, string key)` | `int` | 是否包含 `"key"` 字面量，`1`/`0`；只看引号包裹的键名，不做语法校验 |
 | `j_bool` | `j_bool(string json, string key)` | `int` | 取布尔字段：值为 `true` 或 `1` 时返回 1，其余（含 `false`、缺失）返回 0 |
-| `j_escape` | `j_escape(string s)` | `string` | 生成函数只做字符串拼装, 不校验输入结构; 数组函数按扁平/含嵌套的 文本扫描, 能正确跳过字符串内的逗号与嵌套的 [] {}。 所有长度都是字节语义; 拼接会产生不回收的堆块。 JSON 字符串转义 (不含外层引号): " \ 与控制字符 (0..31) 转义, 其中 8/9/10/12/13 用 \b \t \n \f \r, 其余控制字符用 \u00XX (小写十六进制)。 >= 32 的字节原样保留 (UTF-8 多字节字符可安全通过) |
+| `j_escape` | `j_escape(string s)` | `string` | JSON 字符串转义（不含外层引号）：`"` 与 `\` 转义，控制字符 8/9/10/12/13 用 `\b \t \n \f \r`，其余 0..31 用 `\u00XX`；>= 32 的字节原样保留，UTF-8 多字节字符可直接通过 |
 | `j_obj` | `j_obj(string key, string value)` | `string` | 单成员 JSON 对象 (字符串值): j_obj("k", "a\"b") -> "{\"k\":\"a\\\"b\"}" |
 | `j_obj_raw` | `j_obj_raw(string key, string raw)` | `string` | 单成员 JSON 对象 (原始值): raw 必须是合法 JSON 片段 (数字/true/false/null/数组/对象) j_obj_raw("n", "42") -> "{\"n\":42}" |
 | `j_num` | `j_num(int v)` | `string` | 整数 -> JSON 数字字面量 (十进制; 负数带 '-') |
@@ -1714,10 +1714,9 @@ import "path.cin"
 | `path_common_prefix` | `path_common_prefix(string a, string b)` | `string` | 最长公共**分段**前缀 (不把 `"foo"` 与 `"foobar"` 当公共前缀); `"/a/b/c"` 与 `"/a/b/d"` 得 `"/a/b"`; 一侧绝对一侧相对返回 `""` (即使分段相同); 盘符路径保留盘符段 (`"C:/a"`), 只有 POSIX 根形式才补前导 `/`; 根 `"/"` 没有分段, 与 `"/a"` 得 `""`; 无公共分段返回 `""` |
 | `path_within` | `path_within(string parent, string child)` | `int` | `child` 是否在 `parent` 之内, 按分段边界比较 (因此 `"/a/b"` **不**包含 `"/a/bc"`); 相等也算在内; `""` 作为 parent 返回 `0`; `"/"` 包含一切绝对路径, 但不包含相对路径; `"a/"` 与 `"a\b"` 视为 `a` 之下; 大小写敏感 |
 | `path_change_ext` | `path_change_ext(string p, string newext)` | `string` | 替换 / 补上最后一段的扩展名; `newext` 带点或不带点都行 (`"md"` 与 `".md"` 等价); `newext` 为空串则删除扩展名; 没有扩展名时补上; `""` / `"."` / `".."` 以及以分隔符结尾的目录形式 (`"/a/b/"`) 原样返回; 目录部分原样保留 (只丢掉尾随分隔符) |
-| `path_parts_into` | `path_parts_into(string p)` | `int` | 把路径切成段写入全局数组 path_parts_buf，返回段数（上限 PATH_MAX_PARTS，超出丢弃）；连续分隔符与尾随分隔符不产生空段，缓冲区末尾补空串 |
-| `path_is_abs` | `path_is_abs(string p)` | `int` | 以下函数全部为纯字符串实现, 不访问文件系统, 也不会让本库失去“纯 CIN”分类。 是否POSIX 根绝对路径: 只看首字节是否为 '/' (或 '\'), 盘符形式 "C:\a" 返回 0。 与 path_is_absolute 的差别: 后者也认盘符, 本函数更严格 (适合拼 URL/Unix 路径) |
+| `path_is_abs` | `path_is_abs(string p)` | `int` | 是否 POSIX 风格的绝对路径：首字节是 '/' 或 '\' 返回 1，盘符形式 `"C:\a"` 返回 0；只看字符串，不检查路径是否存在 |
 | `path_join3` | `path_join3(string a, string b, string c)` | `string` | 三段拼接: path_join3(a, b, c) 等价 path_str_join(path_str_join(a, b), c) 任一段为空按 path_str_join 规则跳过; c 为绝对路径时忽略 a/b |
-| `path_stem_full` | `path_stem_full(string p)` | `string` | 去掉扩展名后的完整路径 (目录部分保留): "a/b/c.txt" -> "a/b/c"; "a/b" -> "a/b"; "/a.txt" -> "/a"; "" -> "" "." / ".." 等特殊基名不做扩展名处理, 目录形式 "a/b/" -> "a/b" |
+| `path_stem_full` | `path_stem_full(string p)` | `string` | 去掉扩展名后的完整路径（目录部分保留）：`"a/b/c.txt"` -> `"a/b/c"`；`""`、`"."`、`".."` 与目录形式 `"a/b/"` 按规则原样或去尾处理 |
 
 `path_parts_into(string p)` 是本库内部使用的分段辅助函数 (把分段写入全局
 `path_parts_buf` 并返回段数), 上表未列出; 常规使用请用 `path_split_count` /
@@ -2222,7 +2221,7 @@ import "text.cin"
 | `txt_title` | `txt_title(string s)` | `string` | 每个单词首个字节大写、其余小写；**单词 = 连续的 ASCII 字母/数字**，其余都是分隔符。因此 `"abc3def"` 为 `"Abc3def"`（与 Python `str.title` 的 `"Abc3Def"` 不同），`"it's"` 为 `"It'S"` |
 | `txt_word_count` | `txt_word_count(string s)` | `int` | 空白分隔的单词个数；连续空白算一个，忽略首尾，全空白为 0；空白 = 空格 / `\t` / `\n` / `\r`，非 ASCII 字节算词内字节 |
 | `txt_swap_case` | `txt_swap_case(string s)` | `string` | ASCII 大小写互换（`a`↔`A`），非 ASCII 字节原样保留；`""` 返回 `""` |
-| `txt_lines` | `txt_lines(string s)` | `int` | 行以单个 '\n' 分隔; '\r' 只在 txt_line 返回时从行尾去掉。 所有长度仍是字节语义 (UTF-8 汉字算 3 字节)。 行数: 空串为 0; 尾随 '\n' 只结束当前行, 不额外产生空行。 txt_lines("a") == 1, txt_lines("a\n") == 1, txt_lines("a\n\n") == 2, txt_lines("\n") == 1 |
+| `txt_lines` | `txt_lines(string s)` | `int` | 行数：以单个 '\n' 分隔，空串返回 0；尾随 '\n' 只结束当前行，不额外产生空行；'\r' 不影响计数（`txt_line` 会去掉行尾单个 '\r'） |
 | `txt_line` | `txt_line(string s, int idx)` | `string` | 第 idx 行 (0 起, 不含行尾 '\n'; 行尾的单个 '\r' 会去掉); 越界或为负返回 "" |
 | `txt_truncate` | `txt_truncate(string s, int max_bytes)` | `string` | 截断到最多 max_bytes 字节; 超长时保留前 max_bytes - 3 字节并追加 "..."。 max_bytes <= 0 返回 ""; max_bytes <= 3 时不加省略号, 直接取前 max_bytes 字节。 字节截断可能把 UTF-8 多字节字符切开 (需要整字符请用 txt_slice) |
 | `txt_slug` | `txt_slug(string s)` | `string` | 简化成 slug: ASCII 字母转小写, 连续的非字母数字字节折叠成一个 '-', 去掉首尾 '-'。只保留 ASCII 字母/数字, 其余字节 (含 UTF-8 中文) 都当分隔符。 txt_slug("Hello, World!") == "hello-world"; txt_slug(" --A__b ") == "a-b" |
@@ -2321,7 +2320,7 @@ import "token.cin"
 | `tok_last` | `tok_last(string s, string delim)` | `string` | 最后一个 token（可能是空 token，如 `tok_last("a,b,", ",")` 为 `""`）；空串返回 `""`；`delim` 为空串时返回整个 `s` |
 | `tok_word_count` | `tok_word_count(string s)` | `int` | 空白分隔的单词个数；连续空白算一个分隔符，忽略首尾空白，全空白/空串为 0；空白 = 空格 / `\t` / `\n` / `\r` |
 | `tok_word_get` | `tok_word_get(string s, int idx)` | `string` | 第 `idx` 个空白分隔单词（新堆块）；**连续空白算一个分隔**、忽略首尾空白、不产生空词；`idx` 越界或为负返回 `""` |
-| `tok_slice` | `tok_slice(string s, string delim, int start, int end)` | `string` | 下列函数沿用本库的切分语义 (保留空 token, delim 按整串匹配)。 把 [start, end) 号 token 用 delim 重新拼回 (保留空 token 与原始顺序)。 start < 0 视为 0; end > tok_count 时收紧到 tok_count; end <= start 返回 ""。 注意: 逐段拼接会分配多个堆块, 单次调用请保持区间较小 |
+| `tok_slice` | `tok_slice(string s, string delim, int start, int end)` | `string` | 把第 `[start, end)` 号 token 用 `delim` 重新拼回（保留空 token 与原顺序）；`start < 0` 视为 0，`end > tok_count` 收紧到 `tok_count`，`end <= start` 返回 `""`；逐段拼接会产生多个堆块，区间不宜过大 |
 | `tok_join` | `tok_join(string[] parts, int n, string delim)` | `string` | 用 delim 拼接 string[] 的前 n 个元素; n <= 0 返回 "" |
 | `tok_is_quoted` | `tok_is_quoted(string t)` | `int` | token 是否被一对双引号包住 (长度 >= 2 且首尾都是 '"') |
 | `tok_unescape` | `tok_unescape(string t)` | `string` | 反转义: 若整串被一对 '"' 包住先剥掉一层; 然后 \\ -> \, \" -> ", \n -> 换行, \t -> 制表, \r -> 回车, "" -> " (CSV 风格), 其余 \x 原样保留 x (丢弃反斜杠)。 未加引号的输入同样做反转义; 空串返回 "" |
@@ -2494,8 +2493,8 @@ import "validate.cin"
 | `val_clamp_int` | `val_clamp_int(int v, int lo, int hi)` | `int` | 限幅到 `[lo, hi]`；`lo > hi` 时原样返回 `v`（与 `i_clamp` 的取舍不同） |
 | `val_parse_int` | `val_parse_int(string s, int fallback)` | `int` | 安全解析：`val_is_int` 不通过时返回 `fallback`，否则 `atoi(s)` |
 | `val_is_hex_color` | `val_is_hex_color(string s)` | `int` | 是否 3 位或 6 位十六进制颜色，可带 `#`：`"#ABC"` / `"A1B2C3"` 通过，`"#AB"` / `"#XYZ"` 不通过 |
-| `val_is_email` | `val_is_email(string s)` | `int` | 全部为ASCII 简化校验: 只认 ASCII 字符, 不做 IDN / 国际化域名, 也不做 DNS 真实存在性检查; 长度按字节 (strlen) 计算。 邮箱: local@domain; 恰好一个 '@'; local 长度 1..64, 允许 A-Za-z0-9 与 . _ - +; domain 长度 1..253、至少含一个 '.', 每个标签非空且只含 A-Za-z0-9 与 '-', 标签首尾不能是 '-' |
-| `val_is_url` | `val_is_url(string s)` | `int` | URL: scheme "://" authority [path] [?query] [#fragment] * scheme 首字符必须是字母, 其余为 A-Za-z0-9 或 + - .; * 整体不得含空格或控制/非 ASCII 字节 (只允许 33..126 的可打印 ASCII); * scheme 之后到 '/' '?' '#' 之前必须有非空 authority。 不做逐段合法性检查 (如端口范围、百分号转义完整性)。 |
+| `val_is_email` | `val_is_email(string s)` | `int` | 简化 ASCII 邮箱校验：恰好一个 '@'，local 1..64 字节（字母数字与 `. _ - +`），domain 1..253 字节、至少一个 '.'，标签非空且首尾不能是 '-'；总长 1..254，不做 DNS 检查 |
+| `val_is_url` | `val_is_url(string s)` | `int` | 简化 URL 校验：必须含 `://`，scheme 首字符为字母、其余为字母数字或 `+ - .`；整串只允许可打印 ASCII（33..126）；`://` 之后到 `/ ? #` 之前必须有非空 authority；不校验端口范围与百分号转义 |
 | `val_is_ipv4` | `val_is_ipv4(string s)` | `int` | IPv4 点分十进制: 恰好 4 段, 每段 0..255 的十进制数字; 不接受前导 0 的多位数字 ("01"), 不接受空段与尾随 '.' |
 | `val_is_date` | `val_is_date(string s)` | `int` | 日期 "YYYY-MM-DD" (公历, 年份 0001..9999), 含闰年判断: 能被 4 整除且不能被 100 整除, 或能被 400 整除的年份二月有 29 天 |
 | `val_is_uuid` | `val_is_uuid(string s)` | `int` | UUID: 36 字节, 连字符固定在第 8/13/18/23 位 (4-4-4-4-12 十六进制分组), 其余必须是十六进制字符 |

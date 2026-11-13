@@ -18,17 +18,17 @@ v5.9.0 起 Code CIN 为 **native-only 架构**: 纯 Python 解释器与 JIT 已�
 ## 顶层目录树
 
 ```text
-UCPU/
-├── cpu.py                    # 唯一 CLI 入口 (转发到 codecin.cli: main)
+CodeCIN/
+├── cli.py                    # 唯一 CLI 入口 (转发到 codecin.cli: main)
 ├── codecin/                  # Python 主包
-│   ├── lib/                  # 内置标准库 pic 包 (pic.toml + src/<name>.cin)
+│   ├── lib/                  # 41 个内置标准库 pic 包 (pic.toml + src/<name>.cin)
 │   ├── native/               # Go 原生库源码 (module codecin-native)
 │   └── ...
 ├── tests/                    # pytest 套件 (test_*.py + helpers/conftest)
-├── script/                   # 代码生成、版本脚本、安装脚本
+├── script/                   # 代码生成、版本、内置库同步/批量发布、安装脚本
 ├── examples/                 # 示例程序 (.cin / .asm)
 ├── misc/                     # 编辑器支持 (vim 语法/文件类型检测)
-├── docs/                     # 官方文档站 (VitePress, 独立 git 仓库)
+├── docs/                     # 官方文档站 (VitePress, 独立仓库 Code-CIN-Docs)
 ├── .github/workflows/        # CI 与 Release 工作流
 ├── basic.cin                 # CIN 综合示例 (回归基准)
 ├── test_asm.asm              # 汇编测试样例
@@ -36,8 +36,9 @@ UCPU/
 ├── setup.py                  # BuildPyWithNative 构建钩子 (现场编译原生库)
 ├── MANIFEST.in               # sdist 清单
 ├── build.sh / build.bat      # PyPI 发布脚本 (只发 sdist)
+├── build_whl.sh / build_whl.bat  # 构建 py3-none-any wheel
 ├── requirements.txt          # 运行时依赖 (rich)
-├── requirements-dev.txt      # 开发依赖 (pytest / pytest-cov / ruff)
+├── requirements-dev.txt      # 开发依赖 (pytest / pytest-cov / ruff / PyYAML)
 ├── CHANGELOG.md / LICENSE / README.md
 └── .editorconfig / .gitattributes / .gitignore
 ```
@@ -50,7 +51,15 @@ UCPU/
 | `cli.py` | 命令行入口: `build_parser()` (argparse) → `Config` → 加载 → 运行; 唯一参数表来源 |
 | `config.py` | `Config` dataclass: 全部运行配置字段 + `validate()` 夹取 (内存默认 1 GiB) |
 | `cpu.py` | CPU 编排 (native-only): 编译/装载 (`.cin`/`.asm`/`.pl`/`.sdgcc`/`.bin`/`.crom`) → 一次调用 Go 引擎 → 回写寄存器/内存/统计 |
-| `isa.py` | 指令集定义: `Opcode`、`Syscall` (0–157)、`Cond`、`Constants`、`KIND_*`、`BC_MAGIC` |
+| `cvm.py` | `cvm` 命令: `.cvm` 模块构建/校验/运行、模块路径与 `sdgcc info/dump` |
+| `mkn.py` | `mkn` 命令: 项目清单、构建生命周期、依赖解析、`.sdgcc`/`.co`/cincc 产物与打包 |
+| `pic.py` | `pic` 命令: 登录、发布、安装、版本管理、模块与本地注册表 |
+| `pic_api.py` / `pic_registry.py` / `pic_login.py` | pic 的中央 API、本地注册表与 Cdifit 登录实现 |
+| `packaging/` | 工具链共享基础设施: 归档 (`archive.py`)、清单/版本 (`model.py`)、包规格 (`spec.py`)、安装存储 (`store.py`)、TOML (`toml.py`)、Git (`vcs.py`) |
+| `toolchain.py` | AOT 工具链发现 (GCC 家族与交叉编译, `CODECIN_CC` / `CODECIN_GCC_HOME`) |
+| `toolkit.py` | 工具链 CLI 共享小工具 (`configure_stdio` 等, 仅标准库) |
+| `nativegen.py` | 旧 AST→C 后端, 仅保留给 `--build-backend` 的 C 路径与历史测试 |
+| `isa.py` | 指令集定义: `Opcode`、`Syscall` (0–159)、`Cond`、`Constants`、`KIND_*`、`BC_MAGIC` |
 | `assembler.py` | ASM / PL 汇编器: `.equ` 常量、表达式、数据段、标签、内存操作数 |
 | `cin.py` | CIN 高级语言编译器: 词法/语法/代码生成、import 展开、`HOST_BUILTINS` 表 |
 | `memory.py` | `FastMemory` 稀疏分页内存 (4 KiB 页按需分配, `resident_bytes` 只算已触碰页) 与逐字节保护表 |
@@ -189,7 +198,11 @@ codecin/native/
 | `test_sdgcc.py` | `.sdgcc` 容器读写: 头部/段表/压缩/兼容 BIN v3 |
 | `test_cbackend.py` | C 后端: 指令展开、目标映射、编译与运行 |
 | `test_bin_compat.py` | BIN v3 / 旧 v2 只读兼容 |
-| `test_no_go_cli.py` | Go 侧入口约定: c-shared 库入口 + `cmd/cincc` 编译器, 无用户 CLI |
+| `test_no_go_cli.py` | Go 侧入口约定: 白名单目前只列 `main.go`, 出现其它 `package main` 即失败 |
+| `test_object_link.py` | `.co` 可重定位对象、`.colib` 归档与链接 |
+| `test_toolchain.py` / `test_nativegen.py` / `test_native_codegen.py` | AOT 工具链发现与旧 AST→C 后端 |
+| `test_v620_cvm.py` / `test_v620_mkn.py` / `test_v620_pic*.py` / `test_v640_pic_import.py` | cvm、mkn、pic 与分块导入回归 |
+| `test_paths_consistency.py` / `test_issue_regress.py` / `test_p0_fixes.py` | 路径约定与历史问题回归 |
 | `test_aot.py` | AOT 产物可独立运行、交叉编译、静态链接 (无 `PT_INTERP`)、目标解析 |
 | `test_packaging.py` | 打包设计门禁: package-data / MANIFEST / 只发 sdist / `BuildPyWithNative` |
 | `test_version.py` | 版本设施: pyproject dynamic / Go `BuildVersion` / semver / `--version` / `--build-info`; `build_info()` 绝不抛异常; `bump_version.py` 全链路; `CHANGELOG.md` 必须含当前版本小节 |
@@ -199,8 +212,10 @@ codecin/native/
 
 | 路径 | 说明 |
 |------|------|
-| `script/gen_isa_docs.py` | 由 `isa.py` 生成仓库指令表 `docs/ISA.md` 与站点页 `docs/reference/isa.md`; `--check` 校验 |
+| `script/gen_isa_docs.py` | 由 `isa.py` 生成文档仓库的 `ISA.md` 与站点页 `reference/isa.md`; `--check` 校验 |
 | `script/gen_native_isa.py` | 由 `isa.py` 生成 `engine/isa_gen.go`、`compiler/syscalls.go`、`engine/version_gen.go`; `--check` 校验 |
+| `script/sync_stdlib_packages.py` | 按版本与源文件头重生成 41 个内置库的 `pic.toml`; `--check` 校验, `--build` 构建 `.cinpkg` |
+| `script/publish_stdlib_packages.py` | 批量调用 `pic publish` 发布内置库: `--build`、`--offline`、`--only`、`--dry-run`、`--require-clean` |
 | `script/bump_version.py` | 一条命令提版本: 校验 → 改 `__init__.py` → 重生成 `version_gen.go` → 插入 CHANGELOG 骨架 |
 | `script/install_termux.sh` | Termux (Android) 安装辅助脚本 |
 | `examples/*.cin` | `control_flow` / `literals_types` / `modules_demo` / `stdlib_demo` / `bitwise_builtins` / `system_interaction` |
@@ -221,6 +236,9 @@ codecin/native/
 
 `tests/test_no_go_cli.py` 与 CI 的 `native` 作业检查 `package main` 白名单, 并断言
 `main.go` 仍包含 `#include <stdlib.h>`; `cmd/cincc` 不导出 C ABI, 也不是用户 CLI。
+目前两者的白名单都只列 `main.go`, 因此源码树里存在 `cmd/cincc/main.go` 时该用例会
+失败; 要放行编译器入口, 需要同时修改 `tests/test_no_go_cli.py` 与 CI 的 `native`
+作业 (这两处不在文档仓库)。
 
 ### 2. 常量单一真源: `isa.py` → Go
 
@@ -244,9 +262,9 @@ codecin/native/
 |------|--------|
 | CIN 编译器双语对齐 (Python `cin.py` 与 Go `compiler/`) | `tests/test_compiler_errors.py`、`tests/test_switch_semantics.py`、`tests/test_literals_and_bom.py` |
 | 版本号只是 `codecin/__init__.py` 一个数 | `tests/test_version.py`、Release 工作流的 `version-check` 作业 |
-| PyPI 包不含预编译原生库 | `tests/test_packaging.py`、CI `dist` 作业 |
-| 内置标准库必须随包分发 | `pyproject.toml` package-data + `MANIFEST.in`、CI `dist` 作业断言 `codecin/lib/*/src/*.cin` |
-| 指令集文档与 `isa.py` 一致 | `script/gen_isa_docs.py --check`、`script/gen_native_isa.py --check` |
+| PyPI 包不含预编译原生库 | `tests/test_packaging.py`、`build_whl.sh` |
+| 内置标准库必须随包分发 | `pyproject.toml` package-data + `MANIFEST.in`、`tests/test_packaging.py` |
+| 指令集文档与 `isa.py` 一致 | 文档仓库中的 `script/gen_isa_docs.py --check`、本仓库 `script/gen_native_isa.py --check` |
 
 ## 改一处要同步哪些文件
 

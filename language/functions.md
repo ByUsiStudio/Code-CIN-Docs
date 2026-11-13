@@ -347,8 +347,10 @@ function main() -> int {
 }
 ```
 
-> 全局变量只能使用**常量**初始化表达式：`int g = 1 + 2` 合法，`int g = abs(-3)` 会报
-> `Non-constant global initializer: call`。需要调用函数请放进 `main` 或某个函数里。
+> 全局变量只能用**单一常量**初始化：字面量、`const` 常量、`enum` 成员，或它们前面的
+> 一元 `-` / `~`。`int g = 1 + 2` 会报 `Non-constant global initializer: binop`，
+> `int g = abs(-3)` 会报 `Non-constant global initializer: call`。需要计算请放进
+> `main` 或某个函数里。
 
 ## 完整示例：多函数程序
 
