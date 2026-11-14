@@ -27,6 +27,32 @@ ERROR    Execution error: Host capability disabled in sandbox mode (SYS 147: TCP
 
 其余语言功能 (含全部纯 CIN 标准库) 不发起宿主 SYS 调用, 在 `--sandbox` 下也可正常运行。
 
+## 通用系统调用 (syscall)
+
+内置函数没有覆盖某个已实现的宿主能力时, 可用 `syscall()` 按 **ISA SYS 号**直接调用。
+它**不做任何平台封装或参数适配**: 是否可调用、参数语义与返回值由用户按目标平台自行处理。
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `syscall(nr, a0, a1, a2, a3, a4)` | int | 调用 SYS `nr`; 最多 5 个参数 (落在 `x0..x4`), 返回 64 位槽 |
+| `syscall_str(nr, ...)` | string | 同上, 但返回值按新堆字符串指针使用 |
+
+- `nr` 支持常量或运行期表达式 (例如 `int nr = 91; syscall(nr)`)。
+- 功能号与参数顺序见 `codecin/isa.py` 的 `Syscall` 枚举, 以及 [汇编 / ISA](/asm/instructions) 的 SYS 说明。
+- 返回数值/句柄的功能号用 `syscall`; 返回字符串指针的用 `syscall_str`。
+- `--sandbox` 的宿主 SYS 拦截规则不变; 动态功能号依赖运行期分派: 默认 Go 引擎可用,
+  `--native` (cincc 机器码后端) 与 C AOT 后端会明确报错。
+
+```cin
+function main() -> int {
+    int nr = 91                        // TIMEMS: Unix 时间戳 (毫秒)
+    println(int_to_str(syscall(nr)))
+    string os = syscall_str(63)        // OSNAME: "windows" / "darwin" / "linux" ...
+    println(os)
+    return 0
+}
+```
+
 ## 2D 绘图画布
 
 CIN 内置一个跨平台的 2D 画布 (Go 标准库实现, 可导出 PNG)。同一时刻存在一个“当前画布”

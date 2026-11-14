@@ -17,6 +17,25 @@
 
 ---
 
+## 0.1 8.0.x 本轮能力补强（2026-11 已实现）
+
+| 能力 | 用法 | 行为 |
+|---|---|---|
+| 通用系统调用 | `syscall(nr, a0..a4)` / `syscall_str(nr, ...)` | 运行期按 **ISA SYS 号**直接分派宿主能力, 不做平台封装; 平台差异与参数适配完全交给用户源码 |
+| 相对路径通配导入 | `import "./src/*.cin"` | 按路径排序展开并去重, 仅收录 `.cin`; 多文件项目不必逐条维护 import |
+| 平台专用源码 | `foo_win.cin` / `foo_linux.cin` / `foo_macos.cin` / `foo_android.cin` | 导入 `foo.cin` 时优先选当前平台文件, 缺失则回退 `foo.cin`; `CIN_TARGET_PLATFORM` 可覆盖 |
+
+边界与约定:
+
+- `syscall()` 依赖运行期分派, 默认 Go 引擎（含沙箱/VM）可用;
+  `--native`（cincc 机器码后端）与 C AOT 后端会明确报错, 不静默降级。
+- 平台后缀按**编译期平台**选择: Windows → `win`, Linux → `linux`,
+  macOS → `macos`, Android/Termux → `android`（Termux 优先于 linux）。
+- 通配支持 `*` / `?`; `*` 展开时排除其它平台专用文件, 当前平台专用文件
+  优先于同名基础文件, 结果按路径排序。
+
+---
+
 ## 1. 现状基线（7.22.10）
 
 **已完成**
@@ -186,6 +205,9 @@
 
 ### 8.x
 
+- [x] 通用系统调用 `syscall()` / `syscall_str()`（运行期 SYS 号分派）
+- [x] 相对路径 `*` 通配导入
+- [x] `foo_(win|linux|macos|android).cin` 平台专用源码
 - [ ] GUI / 音频 / 画布
 - [ ] arm32 / riscv64 后端
 - [ ] 依赖缓存

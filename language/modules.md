@@ -12,6 +12,8 @@ CIN 用 `import` 引入其它 `.cin` 文件。解析规则只有两条, 且 `imp
 | 写法 | 解析到 |
 |------|--------|
 | `import "./util.cin"`、`import "../shared/x.cin"` | **相对当前 `.cin` 文件**所在目录 (可带子目录) |
+| `import "./src/*.cin"` | **相对通配**: 按路径排序展开并去重, 只收录 `.cin` |
+| `import "./foo.cin"` | 相对文件; 若存在 `foo_<当前平台>.cin` 优先使用, 否则回退 `foo.cin` |
 | `import "math"`、`import "math.cin"`、`import "lib/math.cin"` | **codecin 内置标准库** `codecin/lib/<name>/src/` (随 pip 包分发) |
 | `import "rich"`、`import "rich/util.cin"` | 已安装的 **pic 包入口 / 包内文件** |
 | `import "rich:*"`、`import "rich:table"` | pic 包的**分块导入** (全部公开模块 / 指定模块) |
@@ -54,6 +56,45 @@ indexof(world)=6
 contains(bana)=1
 ends_with(.txt)=1 count(aa in aaa)=1
 repeat(ab,3)=ababab
+```
+
+## 相对通配与平台专用源码
+
+多文件项目可以直接用通配导入, 不必逐条写 `import`:
+
+```cin
+import "./src/*.cin"          // 展开 src/ 下所有 .cin (排序 + 去重)
+import "./platform/io.cin"    // 平台专用: 自动选 io_<平台>.cin
+```
+
+平台专用文件命名固定为 `<文件名>_(win|linux|macos|android).cin`:
+
+| 平台 | 文件名示例 | 识别条件 |
+|---|---|---|
+| Windows | `io_win.cin` | `sys.platform` 以 `win` 开头 |
+| Linux | `io_linux.cin` | `sys.platform` 以 `linux` 开头 |
+| macOS | `io_macos.cin` | `sys.platform == 'darwin'` |
+| Android | `io_android.cin` | Termux / `sys.platform` 含 `android` |
+
+规则:
+
+- 导入 `io.cin` 时, 若同目录存在当前平台的 `io_<平台>.cin`, **优先使用平台专用文件**;
+  不存在则回退 `io.cin`;
+- 通配 `*` 展开时, **其它平台**的 `_win/_linux/_macos/_android` 文件被排除;
+  当前平台专用文件优先于同名基础文件 (按去掉平台后缀后的路径去重);
+- 结果按路径排序, 保证多次编译展开顺序稳定; 支持 `*` 与 `?` (不支持 `**` 递归);
+- 平台在**编译期**确定, 可用环境变量 `CIN_TARGET_PLATFORM` 覆盖
+  (`win` / `linux` / `macos` / `android`), 便于交叉构建与测试;
+- Android/Termux 同时满足 Linux 条件, 这里优先判为 `android`。
+
+```cin
+// main.cin — 当前平台若为 Windows, 这里的 io() 来自 io_win.cin
+import "./platform/io.cin"
+
+function main() -> int {
+    io_open()          // 各平台实现同一个函数签名即可
+    return 0
+}
 ```
 
 ## 包含规则
