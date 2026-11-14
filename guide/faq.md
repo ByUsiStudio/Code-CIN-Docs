@@ -8,8 +8,8 @@ description: Code CIN 常见问题与故障排查：安装、原生库、语言�
 
 ### `pip install codecin` 装完没有原生库, 正常吗?
 
-安装可以完成 (发行包是 sdist, 安装阶段会用**本机 Go 工具链**现场编译原生库, 没有
-Go/cgo 时会跳过编译并打印提示), 但**原生库是运行必需组件**: 没有它运行程序会直接抛
+安装可以完成 (发行包是 sdist, 安装阶段会用本机 Go 工具链现场编译原生库, 没有
+Go/cgo 时会跳过编译并打印提示), 但原生库是运行必需组件: 没有它运行程序会直接抛
 `CPUSimulatorError` 并附重建指引, 不再有解释器回退。
 
 补齐办法: 装好 Go 1.26+ 与 C 编译器后重装; 从 Release 下载对应平台的预编译库放进
@@ -30,8 +30,8 @@ python -c "from codecin import native; print(native.get_engine())"
 console script 的目录不在 `PATH` 里。三种替代写法:
 
 ```bash
-python -m codecin.cli prog.cin     # 模块方式
-codecin prog.cin             # 源码树方式
+python -m codecin.cli prog.cin     # 模块方式, 无需安装入口
+pip install -e .                   # 源码树: 装上 codecin 命令后直接用
 python -c "from codecin.cli import main; raise SystemExit(main(['prog.cin']))"
 ```
 
@@ -45,7 +45,7 @@ Termux:API 应用 + `pkg install termux-api` 后可用 `termux_*` 宿主能力�
 
 ### 为什么 `1 / 2` 得到 `0.5` 而不是 `0`?
 
-CIN 的 `/` **恒为浮点除法**。需要整数除法时用内建 `idiv(a, b)` (向零截断):
+CIN 的 `/` 恒为浮点除法。需要整数除法时用内建 `idiv(a, b)` (向零截断):
 
 ```cin
 int q = idiv(17, 5)      // 3
@@ -65,25 +65,30 @@ codecin prog.cin --bounds-check
 
 ### 递归报 `Stack overflow` 怎么办?
 
-默认内存已是 **1 GiB** (4 KiB 稀疏分页、按需提交), 常规深度的递归直接可用。
+默认内存已是 1 GiB (4 KiB 稀疏分页、按需提交), 常规深度的递归直接可用。
 确有特殊需求时再调大 `--mem-size`; `--max-instructions` 已弃用且默认不限制,
 长循环不再有 1 亿步的硬上限。
 
 ### `input()` 读不到我输入的内容?
 
-`input()` 目前是空实现: 两个编译器都把它编译成常量 `0`, 无论输入什么都得到 `0`
-(仓库 `docs/SUGGESTIONS_NEXT.md` §1.4 已记录)。替代方案: 汇编 `IN` 指令、读文件
-(`file_read` / `io_*`), 或直接在源码里赋值。见
+`input()` 读取 stdin 的一行并解析为整数, 解析失败返回 0。管道/重定向输入由 CLI 预读:
+
+```bash
+echo 42 | codecin prog.cin --log-level ERROR
+```
+
+交互式终端下由 Go 引擎按行阻塞读取。汇编里的 `IN` 指令行为相同; 需要字符串输入时用
+`file_read` / `io_*` 或 `input_str()`。见
 [内建函数 · input()](/language/builtins)。
 
 ### 未初始化的 `string` / struct 字符串字段为什么打印出别的文字?
 
 实测: 未初始化的字符串槽是未清零的指针, 可能指向相邻的字符串字面量, 于是打印出
-“别人的文本”。**声明时就写 `string s = ""`**, struct 的字符串字段同理, 声明后立刻赋值。
+别人的文本。声明时就写 `string s = ""`, struct 的字符串字段同理, 声明后立刻赋值。
 
 ### struct 数组、嵌套 struct、局部二维数组字面量能用吗?
 
-这三项目前**不可靠** (实测):
+这三项目前不可靠 (实测):
 
 | 写法 | 表现 | 规避 |
 |------|------|------|
@@ -100,7 +105,7 @@ codecin prog.cin --bounds-check
 
 ### 可以取地址 / 解引用吗?
 
-不可以。`*` 只是乘法、`&` 只是位与; “引用语义”只通过数组与 struct 传参隐式获得。
+不可以。`*` 只是乘法、`&` 只是位与; 引用语义只通过数组与 struct 传参隐式获得。
 见 [限制与常见错误](/language/errors)。
 
 ### `switch` 的 `case` 会自动跳出吗?
@@ -112,13 +117,14 @@ codecin prog.cin --bounds-check
 
 ### 我的程序到底是怎么执行的?
 
-v7.22.10 有**两条**执行路径:
+8.0.0 有两条执行路径:
 
-- **默认**: Python 侧完成编译与装载后, 通过 ABI v2 的 `codecin_run_v2` 把整程序一次
+- 默认: Python 侧完成编译与装载后, 通过 ABI v2 的 `codecin_run_v2` 把整程序一次
   调用交给 Go 原生引擎执行, 再回传寄存器/向量/NZCV/脏内存段与输出。纯 Python 解释器
-  与 JIT 已移除, `--no-native`、`--jit`、`--debug`、`--step`、`--profile`、`--mmu`、
-  `--debug-server`、`--stats` 等选项也随之删除;
-- **原生机器码**: `--native` 调用 Go 编译器 `cincc` 直出 x86-64 ELF, 不经 C 也不经
+  与 JIT 已移除, `--no-native`、`--jit`、`--step`、`--profile`、`--mmu`、
+  `--debug-server`、`--stats` 等选项也随之删除; `--debug` 保留, 等价于强制
+  `--log-level DEBUG` 并在退出时打印 CPU 现场;
+- 原生机器码: `--native` 调用 Go 编译器 `cincc` 直出 x86-64 ELF, 不经 C 也不经
   字节码; `--native-out` 只构建不运行。
 
 详见 [执行路径](/guide/execution-paths)。
@@ -131,7 +137,8 @@ v7.22.10 有**两条**执行路径:
 cd codecin/native && go build -o cincc ./cmd/cincc
 ```
 
-或用 `CODECIN_CINCC` 指向已有编译器。当前只支持 `linux/amd64` (`x86_64-linux`);
+或用 `CODECIN_CINCC` 指向已有编译器。CLI 的 `--build-target` 只支持 `linux/amd64`
+(`x86_64-linux`); cincc 自身还接受 `aarch64-linux` 与 `x86_64-windows`。
 Windows 下 Python 会自动经 WSL 调用。`--native` 只覆盖语言子集, 缺 GUI/音频/HTTP/DNS/FFI,
 需要这些能力请用默认 `.sdgcc` 路径。
 
@@ -144,13 +151,14 @@ Release 下载预编译库放进包目录。构建后用 `codecin --build-info` 
 
 ### 大数组/大缓冲需要调 `--mem-size` 吗?
 
-一般不需要。默认内存已是 **1 GiB**, 采用 4 KiB 稀疏分页、按需提交, 只有实际写入的
+一般不需要。默认内存已是 1 GiB, 采用 4 KiB 稀疏分页、按需提交, 只有实际写入的
 页才会占用真实内存。确有特殊需求时仍可用 `--mem-size` 调整。
 
 ### `--sandbox` 会限制哪些能力?
 
-沙箱模式下仅放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS` 三个宿主调用, 其余宿主 SYS
-(文件/进程/画布/音频/FFI/网络/Termux 等) 一律报
+引擎拦截编号 ≥ 39 的宿主能力系统调用, 只白名单 `ALLOCFRAME`(137) / `TIMEUS`(138) /
+`TIMENS`(139); 编号 < 39 的打印、输入、字符串、转换、内存分配等内建不受影响。
+文件/进程/画布/音频/FFI/网络/Termux 等宿主调用报
 `Host capability disabled in sandbox mode`。
 
 ## 调试与日志
@@ -172,22 +180,22 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 ### 怎么定位运行期崩溃的位置?
 
 运行期错误会以 rich 彩色错误面板打印出错位置与寄存器现场; 需要更完整的上下文时,
-用上一条的 `--log-level DEBUG --log-file` 落盘日志排查。
+用 `--debug` (强制 DEBUG 并打印 CPU 现场) 或 `--log-level DEBUG --log-file` 落盘日志排查。
 
 排查内存越界类问题可以加 `--bounds-check`, 让越界在发生时立即报错而不是静默读写。
-(旧版 `--debug` / `--step` 交互式调试已随解释器一并移除。)
 
 ### `Ctrl+C` 中断会怎样?
 
-终端收到 `KeyboardInterrupt` 后打印 `User interrupt` 并结束本次执行
-(内存镜像若开了 `--save` 会尽量保存)。
+终端收到 `KeyboardInterrupt` 后结束本次执行, 不打印额外提示, 也不再执行收尾逻辑,
+因此这次运行不会保存 `--save` 的 `.crom`。需要保留内存镜像时请在程序正常结束前
+用 `--save` 跑完。
 
 ## 宿主能力
 
 ### 程序里能调用动态库 / 访问网络吗?
 
-可以。v5.9.0 新增两组宿主 SYS: **FFI 动态库调用** (SYS 140-144: `dlopen` / `dlsym` /
-`ffi_call` / `ffi_callf` / `lib_close`, 标准库 `lib/ffi.cin`) 与**完整网络**
+可以。v5.9.0 新增两组宿主 SYS: FFI 动态库调用 (SYS 140-144: `dlopen` / `dlsym` /
+`ffi_call` / `ffi_callf` / `lib_close`, 标准库 `lib/ffi.cin`) 与完整网络
 (SYS 145-157: `http_req` / `http_code`、`tcp_*`、`udp_*`、`dns_lookup`, 标准库
 `lib/net.cin`)。注意 `--sandbox` 会拦截这些调用。详见
 [宿主能力](/language/host-abilities)。
@@ -201,7 +209,8 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 ### `exec` / `file_write` 安全吗?
 
 它们是真实的宿主调用, 具备当前进程的文件与进程权限。运行不可信程序时用
-`--sandbox` 限制宿主访问 (仅放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS`)。
+`--sandbox` 限制宿主访问 (编号 ≥ 39 的宿主调用被拦截, 仅白名单 ALLOCFRAME /
+TIMEUS / TIMENS)。
 
 ## 产物与交付
 
@@ -214,7 +223,7 @@ codecin prog.cin --log-level DEBUG --log-file codecin.log
 | 用途 | 分发的默认程序产物, 可直接运行 | 兼容旧工具/旧产物, 可直接运行 | 保存/恢复内存状态 |
 | 通用性 | 只有 VM 能执行 | 只有 VM 能执行 | 不能当可执行文件用; `--crom` 仅在 `.pl` / `.asm` 路径生效 |
 
-`.sdgcc` 的 `CODE` 段与 BIN v3 逐字节一致; v5.9.0 起为段式 **BIN v3 / CROM v4**,
+`.sdgcc` 的 `CODE` 段与 BIN v3 逐字节一致; v5.9.0 起为段式 BIN v3 / CROM v4,
 只保存实际使用的内存页; 旧 BIN v2 / CROM v3 产物仍可读取。注意 BIN v2 的格式可读
 不等于内存布局兼容: v2 没有 `heap_base`, 当前 `--mem-size` 必须与文件头 `mem_size`
 一致, 否则加载阶段会报错并提示 `--mem-size <文件头 mem_size>` 或重新编译。细节见
@@ -230,7 +239,7 @@ codecin prog.cin --build-exe prog-mac --build-target darwin/arm64 --build-backen
 
 AOT 产物运行时不需要 Python、Go 工具链或 Code CIN 动态库。默认 `auto` 优先 C 后端,
 需系统 GCC/Clang 或 `zig`; C 后端默认动态链接系统 C 库, `--build-static` 时静态链接。
-Go native/VM 后端只支持源码树 (不适用于已安装的 wheel)。CIN/ASM/PL 也可用
+Go native/VM 后端需要 Go 工具链 (源码随包分发在 `codecin/native/`)。CIN/ASM/PL 也可用
 `--emit-object` + `--link` 独立编译链接。见 [AOT](/runtime/aot)。
 
 如果只想要不经 C/字节码的机器码, 用 `--native-out` (需先构建 `cincc`)。

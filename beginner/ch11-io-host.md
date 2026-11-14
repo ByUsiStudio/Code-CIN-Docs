@@ -367,15 +367,13 @@ function main() -> int {
 }
 ```
 
-运行后当前目录会出现 `picture.png`。也可以在 `gui.cin` 里用图表函数直接画柱状图:
+运行后当前目录会出现 `picture.png`。也可以在 `gui.cin` 里用离屏图表函数直接画柱状图:
 
 ```cin
 import "gui.cin"
 
 function main() -> int {
     int vals[4] = {30, 70, 50, 90}
-    g_new(320, 200)
-    g_clear(320, 200, g_rgb(255, 255, 255))
     g_bar_chart(vals, 4, 320, 200)
     int rc = g_save("chart.png")
     println("g_save = " + rc)
@@ -388,6 +386,22 @@ g_save = 0
 ```
 
 `g_line_chart` / `g_grid` / `g_rect_outline` 可以画折线图、网格与边框。
+窗口打开后也能用的绘图助手有 `g_rect` / `g_line` / `g_circle` / `g_text`, 例如:
+
+```cin
+import "gui.cin"
+
+function main() -> int {
+    canvas(200, 120)
+    g_clear(g_rgb(255, 255, 255))
+    g_rect(20, 20, 120, 60, g_rgb(60, 120, 200))
+    return g_save("rect.png")
+}
+```
+
+要开交互窗口, 用 `g_new(w, h, title)` (三个参数), 成功后用 `g_update` 上屏、
+`g_closed` 检查是否被关闭。窗口期间不要调用 `canvas()` 或上面的离屏图表函数,
+否则会切走窗口使用的画布。
 
 ## 11.10 音频与 Termux / Android (了解即可)
 
@@ -417,6 +431,23 @@ function main() -> int {
     }
     return 0
 }
+```
+
+`termux.cin` 把这些宿主函数又包了一层, 提供 `tx_notify` / `tx_toast` /
+`tx_battery_level` / `tx_share` 等更好记的名字。`tx_share(path)` 调系统分享面板
+分享文件, 非 Android 环境返回 `-1`:
+
+```cin
+import "termux.cin"
+
+function main() -> int {
+    println("share = " + tx_share("/sdcard/note.txt"))   // 非 Android: -1
+    return 0
+}
+```
+
+```text
+share = -1
 ```
 
 完整清单见 [宿主能力](/language/host-abilities)。
@@ -488,12 +519,16 @@ function main() -> int {
 - 文件: `file_write` / `file_append` / `file_read` / `file_exists` / `file_size` / `mkdir`;
   路径与管理: `path_join` / `path_basename` / `path_dirname` / `path_abs` / `file_copy` /
   `file_move` / `dir_remove` / `is_dir` / `file_mtime` / `temp_dir` / `chdir`;
-- `io.cin` 提供按行与分段的文本处理 (`io_line_count` / `io_get_line` / `io_split_get`);
+- `io.cin` 提供按行与分段的文本处理 (`io_line_count` / `io_get_line` / `io_split_get`),
+  以及 `io_copy` / `io_is_dir` / `io_tmpdir` 等文件包装;
 - 系统信息: `os_name` / `hostname` / `username` / `cwd` / `home_dir` / `time_ms` /
   `cpu_count` / `arch_name` / `mem_info` / `is_android`; 环境变量 `getenv` / `setenv`;
-- 网络与编码: `http_get` / `http_post` / `download`、`sha256` / `base64_encode` / `base64_decode`;
+- 网络与编码: `http_get` / `http_post` / `download`、`http_code` / `http_status_text`、
+  `sha256` / `base64_encode` / `base64_decode`;
 - 桌面: `clipboard_get` / `clipboard_set` / `notify` / `open_url`;
-- 画布: `canvas` + `set_color` + 形状函数 + `save_png`; `gui.cin` 提供图表封装;
+- 画布: `canvas` + `set_color` + 形状函数 + `save_png`; `gui.cin` 提供图表封装,
+  `g_rect` 等助手在窗口打开时也能用;
+- 安卓: 原生 `termux_*` 函数, 以及 `termux.cin` 的 `tx_*` 封装 (含 `tx_share`);
 - 键盘: `key_hit` / `get_key` / `key_flush` 非阻塞轮询, 需真实终端; `key.cin` 提供 `K_*` 常量与 `key_wait`;
 - 权限是真实的 (含文件与网络), 谨慎运行来路不明的程序。
 

@@ -159,7 +159,7 @@ string s = "Code CIN"
 int c = s[0]              // 67 ('C')
 ```
 
-字符串不可原地修改, `s[i] = 65` 是非法左值 —— 详见 [字符串](/language/strings)。
+字符串不可原地修改, `s[i] = 65` 是非法左值，详见 [字符串](/language/strings)。
 
 ## 常见错误
 
@@ -174,8 +174,8 @@ int c = s[0]              // 67 ('C')
 
 ## 相关页面
 
-- [类型系统](/language/types) — 值语义与指针形式
-- [变量与作用域](/language/variables) — 数组字面量与全局数组
-- [struct](/language/structs) — 数组字段与嵌套
-- [标准库参考](/stdlib/reference) — `array` / `sort` / `matrix` 等库的全部函数
-- [内存与缓存](/tools/memory-cache) — 内存布局与 `--bounds-check`
+- [类型系统](/language/types)：值语义与指针形式
+- [变量与作用域](/language/variables)：数组字面量与全局数组
+- [struct](/language/structs)：数组字段与嵌套
+- [标准库参考](/stdlib/reference)：`array` / `sort` / `matrix` 等库的全部函数
+- [内存与缓存](/tools/memory-cache)：内存布局与 `--bounds-check`

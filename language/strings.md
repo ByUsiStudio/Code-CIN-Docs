@@ -96,7 +96,7 @@ int i = s[5]                    // 67  ('C')
 - 没有越界检查, `i` 必须落在 `0..strlen(s)` 之内。
 
 ::: danger 字符串里不能有字节 0
-`string` 是 **NUL 结尾**的, 所以**字节 0 无法表示**——字面量里的 `\x00` 会被当成
+`string` 是 **NUL 结尾**的, 所以**字节 0 无法表示**：字面量里的 `\x00` 会被当成
 字符串结束, 后面的一切**静默丢弃**:
 
 ```cin
@@ -122,7 +122,7 @@ println(int_to_str(strlen("\xFF")))           // 1  (非 0 字节没问题)
 | `strcpy(s)` | string | 复制为新堆块 |
 | `substr(s, start, len)` | string | 子串 (新堆块; 越界自动裁剪) |
 | `indexof(hay, needle)` | int | 首次出现位置, 未找到为 `-1` |
-| `upper(s)` / `lower(s)` | string | ASCII 大小写转换 (新堆块) |
+| `upper(s)` / `lower(s)` | string | Unicode 大小写转换 (Go `strings.ToUpper/ToLower`, 新堆块) |
 | `trim(s)` / `ltrim(s)` / `rtrim(s)` | string | 去首尾 / 前导 / 尾部空白 (新堆块) |
 | `atoi(s)` | int | 字符串 → 十进制整数 (忽略前导空白, 失败为 `0`) |
 | `int_to_str(n)` / `itoa(n)` | string | 整数 → 十进制字符串 |
@@ -176,7 +176,7 @@ function main() -> int {
 
 ## 相关页面
 
-- [内建函数](/language/builtins) — 字符串与转换内建全表
-- [运算符](/language/operators) — `+` 拼接与自动字符串化规则
-- [标准库参考](/stdlib/reference) — `str` / `conv` / `validate` 库
-- [数组](/language/arrays) — `s[i]` 与数组下标的区别
+- [内建函数](/language/builtins)：字符串与转换内建全表
+- [运算符](/language/operators)：`+` 拼接与自动字符串化规则
+- [标准库参考](/stdlib/reference)：`str` / `conv` / `validate` 库
+- [数组](/language/arrays)：`s[i]` 与数组下标的区别

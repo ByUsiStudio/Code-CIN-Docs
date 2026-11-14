@@ -85,6 +85,7 @@ codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin)
 Code CIN 内置标准库清单
 
   模块             类别      说明
+  -------------  ------  ----
   cstd.cin       兼容层     C 语言兼容层 (cstd)
   cppstd.cin     兼容层     C++ 标准库 (STL) 兼容层 (cppstd)
   gostd.cin      兼容层     Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]

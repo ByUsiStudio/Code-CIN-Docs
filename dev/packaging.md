@@ -30,7 +30,7 @@ version = { attr = "codecin.__version__" }
 
 ## 提版本: `script/bump_version.py`
 
-不要手工改版本号 —— 一条命令走完"单一真源 → Go 常量 → CHANGELOG"链路:
+不要手工改版本号。一条命令走完"单一真源 → Go 常量 → CHANGELOG"链路:
 
 ```bash
 python script/bump_version.py --dry-run 5.7.0   # 只打印将要做的改动, 不写任何文件
@@ -56,7 +56,7 @@ python script/bump_version.py 5.7.0             # 真正落盘
 
 ::: warning CHANGELOG 是测试门禁, 不是可选项
 `tests/test_version.py` 断言 `CHANGELOG.md` 里存在 `[<当前版本>]` 小节。也就是说
-"改了 `__version__` 但没写更新日志"会直接让测试失败 —— 这正是 `bump_version.py` 顺手
+"改了 `__version__` 但没写更新日志"会直接让测试失败。这正是 `bump_version.py` 顺手
 插入骨架的原因 (内容仍需人工补齐)。同时脚本**拒绝重复插入**已存在的 `[x.y.z]` 小节。
 :::
 
@@ -100,7 +100,7 @@ build.bat                # Windows
 
 ::: warning wheel 会绕过安装期编译
 原生库**不打进 PyPI 包**: 它由 `setup.py` 在安装阶段用**用户机器的 Go 工具链**编译。
-v5.9.0 起程序执行**完全依赖原生库**（没有解释器回退）—— 如果同时发布 wheel, `pip` 会
+v5.9.0 起程序执行**完全依赖原生库**（没有解释器回退）。如果同时发布 wheel, `pip` 会
 优先装 wheel 而不执行构建, 用户拿到的包根本跑不了程序, 所以发布脚本刻意只上传 `.tar.gz`。
 :::
 
@@ -138,17 +138,21 @@ BuildPyWithNative.run()
 |------|------|----------|
 | `codecin/lib/<name>/src/*.cin` | 41 个内置标准库 pic 包 (**必须进包**) | `package-data` + `MANIFEST.in` |
 | `codecin/native/**` | Go 源码 / `go.mod` / 构建脚本 (安装时要编译) | `MANIFEST.in` |
-| `docs/**/*.md` | 文档 (仓库文档 + 文档站页面) | `MANIFEST.in` (`prune docs/node_modules`、`prune docs/.vitepress`) |
 | `examples/**`、`script/*.py`、`misc/**` | 示例、工具脚本、编辑器配置 | `MANIFEST.in` |
-| `*.dll` / `*.so` / `*.dylib` | **刻意不入包** | `tests/test_packaging.py` 断言拦截 |
+| `*.dll` / `*.so` / `*.dylib` | **刻意不入包** | `MANIFEST.in` 的 `global-exclude` 与 `tests/test_packaging.py` 断言拦截 |
+
+文档站是独立仓库 Code-CIN-Docs, 本仓库不再有 `docs/`, `MANIFEST.in` 也不收文档内容,
+避免本地残留文档检出里的 `node_modules/*.md` 被误打进 sdist。
 
 ```ini
 # MANIFEST.in (节选)
+include README.md CHANGELOG.md LICENSE
+include pyproject.toml setup.py
 recursive-include codecin/lib *.cin *.toml
 recursive-include codecin/native *.go *.txt go.mod go.sum build.sh build.ps1
-recursive-include docs *.md
-prune docs/node_modules
-prune docs/.vitepress
+prune codecin/native/.gocache
+global-exclude *.dll *.so *.dylib
+recursive-include misc *
 recursive-include examples *.cin *.asm *.pl
 recursive-include script *.py
 ```
@@ -173,11 +177,12 @@ AOT 构建在 `codecin/native/` 下留下的 `.aotbuild-*` / `.aotprobe-*` 临�
 
 ## CI 与 Release 的打包断言
 
-`.github/workflows/ci.yml` 的 `dist` 作业 (用 `CODECIN_SKIP_NATIVE=1` 构建) 会:
+`.github/workflows/ci.yml` 的 `dist` 作业已整段注释停用。相同的构建与断言保留在
+`.github/workflows/release.yml` 的 `python-dist` 作业 (`CODECIN_SKIP_NATIVE=1`):
 
 1. 断言 wheel 与 sdist 里各有 **≥ 19 个** `codecin/lib/*/src/*.cin`;
 2. 断言两份产物里**没有任何** `.so` / `.dll` / `.dylib`;
-3. 在临时 venv 里 `pip install` wheel, 真跑一个使用内置标准库的程序。
+3. 上传 `python-dist` artifact。安装 wheel 后跑内置库冒烟程序的步骤目前也注释停用。
 
 `.github/workflows/release.yml` 另外为**五种平台组合**构建 c-shared 原生库并作为资产上传:
 
@@ -192,21 +197,47 @@ AOT 构建在 `codecin/native/` 下留下的 `.aotbuild-*` / `.aotprobe-*` 临�
 每个库构建完都会用 `go version -m <库>` 读取真实 `GOOS`/`GOARCH` 并**断言与资产名一致**,
 避免把错架构的库发出去。`windows/arm64` 暂未纳入 (runner 仍为 preview)。
 
+## 内置标准库批量发布
+
+41 个内置库共用同一个 Git 仓库。版本号变化或 `codecin/lib/<name>/src/` 改动后,
+先用同步脚本重生成 `pic.toml`, 再批量 `pic publish`:
+
+```bash
+python script/sync_stdlib_packages.py --build
+python script/publish_stdlib_packages.py --dry-run
+python script/publish_stdlib_packages.py
+```
+
+同步脚本会按 `__version__` 重写每个库的 `pic.toml`; `--build` 同时构建 `.cinpkg`,
+`--check` 只校验不写文件。批量发布脚本的选项:
+
+| 选项 | 作用 |
+|------|------|
+| `--build` | 先运行 `sync_stdlib_packages.py --build`, 把内置库同步到当前版本 |
+| `--offline` | 在 `pic publish` 前加 `--offline`, 只写本地索引 |
+| `--only <name>` | 只处理指定包, 可重复传入 |
+| `--dry-run` | 打印将要执行的 `pic publish` 命令, 不发布 |
+| `--require-clean` | 工作区有未提交改动时拒绝发布; 默认会带 `--allow-dirty` |
+
+每个包都会带 `--no-tag`, 避免多个包争用同一个 `v<version>` 标签。单个包失败不会
+中断后续包, 脚本结束时打印汇总并以非零退出码报告失败数。
+
 ## 发布检查清单
 
 - [ ] 已用 `python script/bump_version.py x.y.z` 提版本 (先 `--dry-run` 预演), `__version__`
       等于目标 tag (`vX.Y.Z`), 且 `engine/version_gen.go` 已重新生成
 - [ ] `CHANGELOG.md` 已记录该版本 (`tests/test_version.py` 会校验小节存在, release 工作流会校验 tag)
-- [ ] 本地回归全绿: `python -m pytest`、`ruff check codecin cpu.py script tests`
-- [ ] 指令集同步: `python script/gen_isa_docs.py --check` 与
-      `python script/gen_native_isa.py --check`
-- [ ] 文档站构建通过 (`cd docs && npm run docs:build`)
+- [ ] 本地回归全绿: `python -m pytest`、`ruff check codecin cpu.py script tests registry`
+- [ ] 生成物同步: `python script/gen_native_isa.py --check` 与
+      `python script/sync_stdlib_packages.py --check`
+- [ ] 文档站构建通过 (`cd docs && npm run docs:build`), 文档校验在文档仓库执行
 - [ ] `sh build.sh` (或 `build.bat`) 只上传 `dist/*.tar.gz`
+- [ ] 内置库已用 `publish_stdlib_packages.py --dry-run` 预演并批量发布
 - [ ] Release 资产齐备 (五平台组合), 且架构断言通过
 
 ## 相关页面
 
-- [项目结构](/dev/structure) — 包与目录布局
-- [编译 Go 原生库](/dev/build-native) — 构建脚本与静态链接
-- [测试与 CI](/dev/testing) — 本地复现 CI 的命令
-- [安装 Code CIN](/guide/installation) — 安装期行为与预编译库
+- [项目结构](/dev/structure): 包与目录布局
+- [编译 Go 原生库](/dev/build-native): 构建脚本与静态链接
+- [测试与 CI](/dev/testing): 本地复现 CI 的命令
+- [安装 Code CIN](/guide/installation): 安装期行为与预编译库

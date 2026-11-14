@@ -46,6 +46,13 @@ function main() -> int {         // 5) 入口
 | `T[]` 指针数组 | 空指针 | 用于参数/返回 |
 | enum 类型名 | 同 `int` (`0`) | `enum Color { RED, GREEN = 5, BLUE }` |
 
+常量用 `const` 声明, 之后再赋值会编译失败, 也可以用来指定固长数组的长度:
+
+```cin
+const int N = 5
+int a[N]
+```
+
 转换: 整数→浮点自动; 浮点→整数**截断**; `to_int` / `to_float` 显式转换; `atoi` / `int_to_str` / `float_to_str` / `bool_to_str`。
 
 enum 成员是**编译期整数常量** (只读, 可用于表达式与 `case`):
@@ -114,7 +121,7 @@ function no_return(int a) -> void {     // -> void 可省略
 }
 ```
 
-- 参数按值; 数组 (`int[]`) 与 struct 数组是引用, 函数内改动能被外面看到;
+- 参数按值; 数组 (`int[]` 或 `T[n]`) 是引用, 函数内改动能被外面看到; struct 按值传递;
 - 只能返回一个值 → 需要多个结果时传入结果数组;
 - 递归要有出口; 深递归用 `--mem-size` 扩容。
 
@@ -183,8 +190,7 @@ s.score = 92
 println(s.score)
 ```
 
-- 单个 struct 变量可靠; **struct 数组 (表格数据) 与嵌套 struct 字段当前不可靠** ——
-  表格用并行数组, 多段数据用多个独立 struct 变量;
+- struct 数组与嵌套 struct 字段都可以直接读写;
 - struct 传参是**值语义**; 想改到外面就返回新 struct 或传数组。
 
 ## 已知限制 (避坑清单)

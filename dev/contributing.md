@@ -12,13 +12,13 @@ description: "为 Code CIN 贡献代码与文档：开发环境、代码规范�
 ```bash
 git clone https://github.com/ByUsiStudio/Code-CIN.git
 cd Code-CIN
-git submodule update --init --recursive     # 拉取 docs 文档站子仓库
+# 文档站是独立仓库 Code-CIN-Docs; 需要改文档时单独 clone 到 docs/, 主仓库 CI 不检出子模块
 
 python -m venv .venv                        # 可选, 但推荐
 .venv\Scripts\activate                      # Windows
 source .venv/bin/activate                   # Linux / macOS
 
-pip install -r requirements-dev.txt         # rich + pytest + pytest-cov + ruff
+pip install -r requirements-dev.txt         # rich + pytest + pytest-cov + ruff + PyYAML
 python -m pytest                            # 基线回归应全绿
 ```
 

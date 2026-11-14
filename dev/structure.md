@@ -8,7 +8,7 @@ description: "Code CIN 仓库结构: Python 包各模块职责、Go 原生库与
 (CLI 外壳 + 编译/装载编排 + 结果回写)、**Go 原生库/编译器** `codecin/native/`
 (语言实现核心: CIN 编译器、字节码 VM、CROM、AOT 运行时、`cincc` 原生编译器)、
 以及 **`docs/` 官方文档站** (VitePress, 独立仓库 Code-CIN-Docs)。根仓库的
-`.gitmodules` 仍保留 `docs` 子模块条目，但工作副本里的 `docs/` 是独立检出，CI
+`.gitmodules` 仍保留 `docs` 子模块条目, 但工作副本里的 `docs/` 是独立检出, CI
 不再递归检出子模块。
 
 v5.9.0 起 Code CIN 为 **native-only 架构**: 纯 Python 解释器与 JIT 已整体删除,
@@ -284,8 +284,8 @@ codecin/native/
 
 ## 相关页面
 
-- [编译 Go 原生库与 cincc](/dev/build-native) — 三平台构建命令与产物
-- [测试与 CI](/dev/testing) — 本地复现 CI 的完整命令
-- [打包与发布](/dev/packaging) — 版本真源、构建钩子、Release 资产
-- [扩展指令 / 系统调用](/dev/extend) — 逐步改动清单
-- [架构总览](/guide/architecture) — 分层与数据流
+- [编译 Go 原生库与 cincc](/dev/build-native): 构建命令与产物
+- [测试与 CI](/dev/testing): 本地复现 CI 的完整命令
+- [打包与发布](/dev/packaging): 版本真源、构建钩子、Release 资产
+- [扩展指令 / 系统调用](/dev/extend): 逐步改动清单
+- [架构总览](/guide/architecture): 分层与数据流
