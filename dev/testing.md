@@ -1,13 +1,14 @@
 ---
-description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、两条一致性检查、Go 侧 (含 cincc/mc) 测试、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
+description: "Code CIN 的测试与 CI: 安装开发依赖、pytest、ruff、一致性检查、Go 侧 (含 cincc/mc) 测试、tests/ 逐文件覆盖点、CI 作业与本地复现命令。"
 ---
 
 # 测试与 CI
 
 Code CIN 的回归体系分三层: **pytest 测试套件**、**两条一致性门禁**
-(`gen_isa_docs.py --check` 与 `gen_native_isa.py --check`)、以及
-**GitHub Actions CI** (`test` / `integration` /
-`lint` / `native` / `dist` 五个作业)。
+(`gen_native_isa.py --check` 与 `sync_stdlib_packages.py --check`)、以及
+**GitHub Actions CI** (`test` / `integration` / `registry` /
+`lint` / `native` 五个作业)。`dist` 打包作业在 `ci.yml` 中已注释停用，
+发布物检查由 Release 的 `python-dist` 作业承担。
 
 ## 安装开发依赖
 
@@ -23,6 +24,7 @@ python -m pip install -r requirements-dev.txt
 | `pytest>=7` | 测试运行器 |
 | `pytest-cov>=5` | 覆盖率 (CI 的 integration 作业用, `--cov-fail-under=70`) |
 | `ruff>=0.5` | 静态检查 |
+| `PyYAML>=6` | `tests/test_workflows.py` 解析 GitHub Actions YAML |
 
 用 `pip install -e ".[dev]"` 也可以 (见 `pyproject.toml` 的
 `[project.optional-dependencies] dev`)。
@@ -41,8 +43,10 @@ python -m pytest --cov=codecin --cov-report=term-missing --cov-fail-under=70
 `pythonpath = ["."]`, 所以在仓库根目录直接 `python -m pytest` 就是全量。
 
 ::: info 临时目录与 native skip
-`tests/conftest.py` 提供会话级的 `workdir` 夹具, 落在仓库内的 `.pytest_tmp/`
-(会话结束清理), 这样在沙箱环境里也能安全写文件。
+`tests/conftest.py` 提供会话级的 `workdir` 夹具, 临时根优先取环境变量
+`CODECIN_TEST_TMP`; 未设置时用仓库内的 `.pytest_tmp/`, 目录存在但不可写时回退到
+`.pytest_tmp-<pid>-<uuid>/`。conftest 还会把 `CODECIN_AOT_CACHE` 指向
+`<临时根>/aot-cache`, 避免测试污染用户缓存。会话结束清理该临时根。
 
 **不要用 pytest 的 `tmp_path`**: 受限沙箱下子进程无法 `scandir` 系统临时目录,
 `tmp_path` 会在 setup 阶段就 `PermissionError`。仓库统一约定用 `workdir`;
@@ -59,9 +63,9 @@ skip**, 所以 CI 的 integration 作业会先断言库真的能加载。
 ## 静态检查 (ruff)
 
 ```bash
-ruff check codecin cpu.py script tests
-ruff check --fix codecin cpu.py script tests      # 自动修可修的
-ruff format --check codecin cpu.py script tests   # 可选: 只检查格式
+ruff check codecin cpu.py script tests registry
+ruff check --fix codecin cpu.py script tests registry      # 自动修可修的
+ruff format --check codecin cpu.py script tests registry   # 可选: 只检查格式
 ```
 
 `pyproject.toml` 的 ruff 配置:
@@ -75,41 +79,48 @@ ruff format --check codecin cpu.py script tests   # 可选: 只检查格式
 
 注意 CI 只跑 `ruff check`, 不含 `ruff format`; 提交前至少让 `ruff check` 干净。
 
-## 两条一致性门禁
+## 一致性检查
+
+主仓库 CI 强制检查两处: `gen_native_isa.py --check` 校验 Go 生成物,
+`sync_stdlib_packages.py --check` 校验 41 个内置库的 `pic.toml`。文档站是独立仓库,
+`gen_isa_docs.py --check` 由文档仓库自己保证, 主仓库 CI 不运行; 本地有 `docs/`
+工作副本时仍可手动执行。
 
 ```bash
-python script/gen_isa_docs.py --check     # docs/ISA.md 与 docs/reference/isa.md 与 isa.py 一致
-python script/gen_native_isa.py --check   # Go 常量生成物与 isa.py / __version__ 一致
+python script/gen_native_isa.py --check
+python script/sync_stdlib_packages.py --check
+python script/gen_isa_docs.py --check     # 可选, 需要 docs/ 工作副本
 ```
 
 ```text
-$ python script/gen_isa_docs.py --check
-ISA docs up to date.
-
 $ python script/gen_native_isa.py --check
 native isa_gen.go up to date.
 compiler syscalls.go up to date.
 native version_gen.go up to date.
+
+$ python script/sync_stdlib_packages.py --check
+41 个内置库 pic 包结构一致
 ```
 
-| 脚本 | 生成物 | 失败提示 |
-|------|--------|----------|
-| `gen_isa_docs.py` | `docs/ISA.md`、`docs/reference/isa.md` | `ISA doc OUT OF DATE: <path>` / `ISA doc missing` |
+| 脚本 | 生成物 / 校验对象 | 失败提示 |
+|------|----------------------|----------|
 | `gen_native_isa.py` | `engine/isa_gen.go`、`compiler/syscalls.go`、`engine/version_gen.go` | `<label> OUT OF DATE` / `换行不是 LF (CRLF)` / `missing` |
+| `sync_stdlib_packages.py` | `codecin/lib/<name>/pic.toml` (41 个) | `内容漂移 ...` / `结构错误 ...` |
+| `gen_isa_docs.py` | 文档仓库的 `ISA.md`、`reference/isa.md` | `ISA doc OUT OF DATE: <path>` / `ISA doc missing` |
 
-修复方式永远是重新生成, 然后**重新编译原生库**:
+修复方式永远是重新生成, 然后重新编译原生库:
 
 ```bash
-python script/gen_isa_docs.py
 python script/gen_native_isa.py
+python script/sync_stdlib_packages.py --build   # 版本号或库源码变了时
 cd codecin/native && sh build.sh && cd ../..
 python -m pytest
 ```
 
 ::: warning 生成物必须 gofmt 干净且是 LF
 `gen_native_isa.py --check` 按**字节**比对, Windows 下写出的 CRLF 会被判为不一致。
-CI 的 `native` 作业另有 `gofmt -l .` 门禁 —— 生成器已按 gofmt 规则对齐映射字面量,
-所以正常情况下 `gofmt -l` 应该是空的。
+CI 的 `native` 作业另有 `gofmt -l .` 门禁, 生成器已按 gofmt 规则对齐映射字面量,
+正常情况下 `gofmt -l` 应该是空的。
 :::
 
 ## Go 侧检查
@@ -123,7 +134,7 @@ go test ./... -race -count=1
 go test ./mc -count=1         # cincc 原生编译器
 ```
 
-交叉编译自检 (不需要 C 交叉工具链；`cmd/cincc` 是纯 Go，可一并检查):
+交叉编译自检 (不需要 C 交叉工具链; `cmd/cincc` 是纯 Go, 可一并检查):
 
 ```bash
 cd codecin/native
@@ -137,11 +148,15 @@ done
 
 ```bash
 cd codecin/native
-# 允许的 package main: c-shared 库入口 main.go + cincc 编译器 cmd/cincc/main.go
+# 白名单目前只列 c-shared 库入口 main.go
 grep -rl '^package main' --include='*.go' . \
-  | grep -v -E '^\./main\.go$|^\./cmd/cincc/main\.go$'   # 必须无输出
+  | grep -v '^\./main\.go$'   # 必须无输出
 python -m pytest ../tests/test_no_go_cli.py
 ```
+
+`cmd/cincc/main.go` 是第二个 `package main`。`tests/test_no_go_cli.py` 与 CI 的
+`native` 作业目前都只白名单 `main.go`, 所以上述检查会报出 `cmd/cincc/main.go`;
+要放行编译器入口, 需要同时修改测试与 CI。
 
 ## `tests/` 逐文件覆盖点
 

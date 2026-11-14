@@ -23,35 +23,25 @@ hero:
       link: https://github.com/ByUsiStudio/Code-CIN
 
 features:
-  - icon: 🎓
-    title: 零基础教程 (13 章)
+  - title: 零基础教程 (12 章)
     details: 从安装与第一个程序讲到函数、数组、字符串、struct、模块、调试与六个综合项目, 每段代码都实机验证过输出。
-  - icon: 🧩
-    title: 三语言一条工具链
+  - title: 三语言一条工具链
     details: CIN 高级语言、PL 关键字风格汇编、ASM 汇编, 默认统一编译为 .sdgcc 产物 (CODE 段为 BIN v3), 共享同一套 ISA 与 VM; 另提供 cincc 直出机器码的原生编译主线。
-  - icon: ⚡
-    title: Go 原生引擎单路径执行
+  - title: Go 原生引擎单路径执行
     details: Python 前端编译装载后, 经 ABI v2 (codecin_run_v2) 一次调用把整程序交给 Go 原生引擎执行, 回传寄存器/向量/标志/脏内存段与输出; 默认 1 GiB 稀疏内存。
-  - icon: 🛠️
-    title: 112 条指令的 UCPU
+  - title: 112 条指令的 UCPU
     details: Base 28 + ARM64 40 + RISC-V 27 + FP 10 + Vector 6 + SYS 宿主调用 (含 FFI 与网络); 32 通用 + 32 向量寄存器。
-  - icon: 📦
-    title: 41 个内置标准库
-    details: math / str / array / sort / conv / rand / json / time / io / gui / ffi / net / termux 等随 pip 包分发, import 即用。
-  - icon: 🔍
-    title: 可分析、可核对
+  - title: 41 个内置标准库
+    details: math / str / array / sort / conv / rand / json / time / io / gui / ffi / net / termux 等随 pip 包分发, import 即用; 8.0.0 新增 a_rotate、sort_merge、bi_div、c_to_base、io_copy、http_status_text、codec_base32_encode、val_is_email、fmt_bytes_size、t_date_utc、j_escape。
+  - title: 可分析、可核对
     details: rich 超详细日志与彩色错误面板、--disasm 反汇编、指令级性能统计、--build-info 核对原生库与包版本。
-  - icon: 🚀
-    title: 两种原生产物
+  - title: 两种原生产物
     details: --build-exe 用 C 后端或 Go 后端产出静态单文件; --native 调用 Go 编译器 cincc 直出 x86-64 ELF (不经 C、不经字节码)。
-  - icon: 🧱
-    title: 独立编译与链接
+  - title: 独立编译与链接
     details: --emit-object 生成可重定位对象, --link 合并 CIN/ASM/PL 对象与 .colib 静态库, 支持 extern 函数/全局、数据重定位、链接期优化与 --gc-sections。
-  - icon: 🎨
-    title: 宿主能力开箱可用
+  - title: 宿主能力开箱可用
     details: 2D 画布与 GUI 窗口、音频播放、FFI 动态库调用、HTTP/TCP/UDP 网络、文件/进程/环境变量访问、Termux API(Android)。
-  - icon: 🧪
-    title: 严格回归
+  - title: 严格回归
     details: 指令黄金值、内存保护、原生库版本核对、断点回归、打包断言, 全线由 CI 把关。
 ---
 
@@ -63,7 +53,7 @@ codecin --version        # 打印当前版本
 codecin --help           # 完整命令行帮助
 ```
 
-> Go 原生引擎库是**运行必需组件**: pip 安装时会用本机的 Go 工具链现场编译原生库;
+> Go 原生引擎库是运行必需组件: pip 安装时会用本机的 Go 工具链现场编译原生库;
 > 本机没有工具链时可从 Release 下载预编译库, 或在源码树 `codecin/native/` 下执行
 > `build.ps1` (Windows) / `build.sh` (Linux/Termux/macOS) 重建 (需 Go 1.26+)。
 > 原生库缺失时运行程序会直接抛 `CPUSimulatorError`, 没有解释器回退。
@@ -88,7 +78,7 @@ function main() -> int {
 .text
 main:
     set x0, 65
-    output x0          ; 65 -> 'A'
+    output x0          ; 输出 65
     output #10         ; 换行
     stop
 ```
@@ -109,14 +99,14 @@ msg: ASCIZ "Hello, Code CIN!"
 
 :::
 
-默认路径下, 三种写法最终都编译成 **`.sdgcc`** 产物 (内部 `CODE` 段与 BIN v3 逐字节一致),
-由 **Go 原生引擎**通过 ABI v2 一次调用执行整程序:
+默认路径下, 三种写法最终都编译成 `.sdgcc` 产物 (内部 `CODE` 段与 BIN v3 逐字节一致),
+由 Go 原生引擎通过 ABI v2 一次调用执行整程序:
 
 ```bash
 codecin hello.cin
 ```
 
-v7.22.10 起还可走 **`cincc` 原生机器码主线** (不经 C、不经 UCBC 字节码):
+8.0.0 起还可走 `cincc` 原生机器码主线 (不经 C、不经 UCBC 字节码):
 
 ```bash
 codecin hello.cin --native        # 编译并运行 (x86-64 ELF; Windows 自动经 WSL)
@@ -127,7 +117,7 @@ codecin hello.cin --native-out hi # 只产出二进制
 
 | 章节 | 内容 | 入口 |
 |------|------|------|
-| **初学者教程** | 13 章零基础教程: 从第一个程序到函数/数组/字符串/struct/模块/调试/六个实战项目, 附习题答案与速查表 | [教程导览](/beginner/) · [速查表](/beginner/cheatsheet) |
+| 初学者教程 | 12 章零基础教程: 从第一个程序到函数/数组/字符串/struct/模块/调试/六个实战项目, 附习题答案与速查表 | [教程导览](/beginner/) · [速查表](/beginner/cheatsheet) |
 | 指南 | 安装、快速开始、命令行、执行路径、架构、示例、FAQ | [安装](/guide/installation) · [快速开始](/guide/quickstart) |
 | CIN 语言 | 词法、类型、变量、运算符、控制流、函数、struct、数组、字符串、内建、宿主能力、模块 | [语言总览](/language/) |
 | 汇编 / ISA | 汇编语法 (ASM 与 PL 两种风格)、112 条指令语义、指令编码表 | [汇编总览](/asm/) |
@@ -141,10 +131,10 @@ codecin hello.cin --native-out hi # 只产出二进制
 
 | 项目 | 信息 |
 |------|------|
-| 当前版本 | `7.22.10` (以 `codecin --version` 为准) |
+| 当前版本 | `8.0.0` (以 `codecin --version` 为准) |
 | 编译主线 | 默认 Python 前端 → `.sdgcc` → Go 原生引擎; `--native` → Go 编译器 `cincc` → 目标机器码 |
-| 语言实现 | Go 侧是核心 (CIN 编译器 / 字节码 VM / CROM / AOT / `cincc`), 用户命令行入口仍是 Python `codecin` |
-| 唯一命令行入口 | `codecin <程序> [选项]` 或安装后的 `codecin <程序> [选项]` |
+| 语言实现 | Python 前端负责词法/语法/IR 与 `.sdgcc` 装载; Go 侧负责字节码 VM、CROM、AOT 与 `cincc` 编译器 |
+| 命令行入口 | 安装后执行 `codecin <程序> [选项]`; 源码树中 `python -m codecin.cli <程序> [选项]` 等价 |
 | 依赖 | Python 3.8+ 与 `rich` (唯一第三方运行时依赖); Go 1.26+ 仅用于编译原生库/AOT |
 | 代码仓库 | [ByUsiStudio/Code-CIN](https://github.com/ByUsiStudio/Code-CIN) |
 | 文档仓库 | [ByUsiStudio/Code-CIN-Docs](https://github.com/ByUsiStudio/Code-CIN-Docs) (本站在 `docs/` 下, 以 git submodule 方式内嵌于主仓库) |

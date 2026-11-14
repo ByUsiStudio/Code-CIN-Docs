@@ -35,7 +35,7 @@ python -m codecin.cli --version
 
 ::: warning 安装时看到编译日志是正常的
 安装过程会尝试用你机器上的 **Go 工具链**现场编译原生加速库。看到编译输出不代表出错;
-机器上没有 Go 就会跳过, 程序依然能跑, 只是慢一点。
+机器上没有 Go 就会跳过这一步。原生库是运行必需组件, 跳过编译后要先按安装说明补齐原生库, 程序才能跑。
 :::
 
 ## 1.2 第一个程序
@@ -67,10 +67,10 @@ codecin hello.cin
 你会看到类似这样的输出:
 
 ```text
-08:37:15 INFO     CIN compiled: 30 instructions
-         INFO     Starting program execution
+08:37:15 INFO     CIN compiled: 16 instructions
+         INFO     Starting program execution (Go native engine)
 Hello, Code CIN!
-         INFO     HALT instruction executed
+         INFO     HALT (native)
          INFO     Program execution finished
 ```
 

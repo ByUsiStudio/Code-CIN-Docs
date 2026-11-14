@@ -4,10 +4,10 @@ description: 用 pip 安装 Code CIN 的完整步骤：安装期原生库编译�
 
 # 安装 Code CIN
 
-Code CIN 以 **pip 包**作为唯一发行形式: 包内自带 41 个内置标准库（`codecin/lib/<name>/src/<name>.cin`，每个库一个 pic 包）,
-Python 侧提供唯一命令行入口 `codecin`, 负责编译前端与程序装载; 语言实现
-(Go 编译器 / 字节码引擎 / CROM / AOT 运行时) 以 c-shared 原生库的形式随包加载 ——
-**原生库是运行必需组件**, 缺失时程序会直接抛 `CPUSimulatorError`, 没有解释器回退。
+Code CIN 以 pip 包作为唯一发行形式: 包内自带 41 个内置标准库 (`codecin/lib/<name>/src/<name>.cin`, 每个库一个 pic 包),
+Python 侧提供命令行入口 `codecin`, 负责编译前端与程序装载; 语言实现
+(Go 编译器 / 字节码引擎 / CROM / AOT 运行时) 以 c-shared 原生库的形式随包加载。
+原生库是运行必需组件, 缺失时程序会直接抛 `CPUSimulatorError`, 没有解释器回退。
 
 ## 环境要求
 
@@ -15,16 +15,16 @@ Python 侧提供唯一命令行入口 `codecin`, 负责编译前端与程序装�
 |------|------|------|------|
 | Python | 3.8+ | 是 | CLI 外壳、编译前端、程序装载与结果回传、工具链 |
 | rich | 13 – 14 (自动安装) | 是 | 终端彩色输出、表格、面板、彩色 traceback |
-| Go | 1.26+ | 是 | 构建原生引擎库 (缺失时运行程序会报 `CPUSimulatorError`) |
-| C 编译器 | gcc / clang / MinGW | 是 | Go `cgo` (`-buildmode=c-shared`) 需要 |
+| Go | 1.26+ | 否 | 构建原生引擎库 (用预编译库时可跳过) |
+| C 编译器 | gcc / clang / MinGW | 否 | Go `cgo` (`-buildmode=c-shared`) 构建原生库时需要 |
 
 > `rich` 是唯一的第三方运行时依赖, `pip` 会自动装上。没有 Go/cgo 工具链时安装本身
-> 也能完成, 但**运行任何程序前都必须先补齐原生库**: 下载预编译库放进包目录, 或在
+> 也能完成, 但运行任何程序前都必须先补齐原生库: 下载预编译库放进包目录, 或在
 > 源码树 `codecin/native/` 下执行 `build.ps1` (Windows) / `build.sh` (Linux/Termux/macOS)。
 
 ## 下载发布文件 (动态)
 
-下面列出的是**最新发布**里可下载的文件 (实时取自 GitHub Releases), 适合离线安装或直接用二进制:
+下面列出的是最新发布里可下载的文件 (实时取自 GitHub Releases), 适合离线安装或直接用二进制:
 
 <ReleaseDownloads :per-page="5" />
 
@@ -42,8 +42,8 @@ Python 侧提供唯一命令行入口 `codecin`, 负责编译前端与程序装�
 pip install codecin
 ```
 
-发行版是 **sdist** (源码分发包), 因此 `pip` 在安装阶段会调用 `setup.py` 的 `build_py` 钩子,
-用**本机的 Go 工具链现场编译原生库**, 并把产物单独拷进安装目录 —— 装完即带原生加速。
+PyPI 上的发行物是 sdist (源码分发包), 因此 `pip` 在构建 wheel 阶段会运行 `setup.py` 的 `build_py` 钩子,
+用本机的 Go 工具链现场编译原生库, 并把产物单独拷进安装目录。
 
 ```bash
 codecin --version     # 打印当前版本
@@ -61,8 +61,8 @@ CODECIN_SKIP_NATIVE=1 pip install codecin
 $env:CODECIN_SKIP_NATIVE=1; pip install codecin
 ```
 
-适合没有 Go/cgo 工具链、CI 构建发布物的场景。跳过编译后安装可以完成, 但**运行程序前
-必须补齐原生库**: 在源码树 `codecin/native/` 下执行 `build.ps1` / `build.sh`, 或从
+适合没有 Go/cgo 工具链、CI 构建发布物的场景。跳过编译后安装可以完成, 但运行程序前
+必须补齐原生库: 在源码树 `codecin/native/` 下执行 `build.ps1` / `build.sh`, 或从
 Release 下载对应平台的预编译库放进包目录, 否则运行时报 `CPUSimulatorError`。
 
 == 预编译原生库资产
@@ -84,7 +84,7 @@ curl -L -O https://github.com/ByUsiStudio/Code-CIN/releases/latest/download/libc
 python -c "from codecin import native; print(native.get_engine())"   # 非 None 即生效
 ```
 
-库的查找顺序是**架构专属名 → 通用名**, 所以同目录下混放多个架构时也会优先选本机架构那个;
+库的查找顺序是架构专属名 → 通用名, 所以同目录下混放多个架构时也会优先选本机架构那个;
 架构不符或缺失时运行程序会抛 `CPUSimulatorError` 并附重建指引。
 
 == 源码树 (开发)
@@ -99,10 +99,10 @@ cd codecin/native && sh build.sh      # Windows: .\build.ps1
 go build -o cincc ./cmd/cincc
 cd ../..
 
-codecin basic.cin                # 直接运行, 由 Go 原生引擎执行
-codecin basic.cin --native       # 可选: cincc 直出机器码 (Windows 经 WSL)
-codecin --help
-pip install -e .                       # 可选: 以可编辑模式装上 codecin 命令
+python -m codecin.cli basic.cin          # 直接运行, 由 Go 原生引擎执行
+python -m codecin.cli basic.cin --native # 可选: cincc 直出机器码 (Windows 经 WSL)
+python -m codecin.cli --help
+pip install -e .                         # 可选: 装上 codecin / mkn / pic / cvm 命令
 ```
 
 源码树方式适合改编译器/VM/加指令, 见 [编译 Go 原生库与 cincc](/dev/build-native)。
@@ -184,7 +184,7 @@ pip cache purge                   # 需要时可清理 wheel/sdist 缓存
 | `ImportError: DLL load failed` / `cannot open shared object file` | 原生库依赖的系统 C 运行时缺失 (如 Windows 缺 MinGW 运行库) | 安装缺失的系统运行库, 或改装对应平台的预编译库 |
 | `get_engine()` 返回 `None` | 库的架构/ABI 与当前解释器不符 | 换成对应平台的资产; 运行程序会因缺少原生库而失败 |
 | `import "math.cin"` 报 `Import file not found` | 装到了不含内置标准库的旧版本 | `pip install -U codecin` 后重试 |
-| `codecin: command not found` | 脚本目录不在 `PATH` | 用 `python -m codecin.cli` 或 `codecin` 运行, 或把 `Scripts`/`bin` 加进 `PATH` |
+| `codecin: command not found` | 脚本目录不在 `PATH` | 用 `python -m codecin.cli` 运行, 或把 `Scripts`/`bin` 加进 `PATH` |
 | 想核对原生库版本是否与包版本一致 | — | `codecin --build-info`, 看 native 版本是否 matches |
 
 ## 下一步
