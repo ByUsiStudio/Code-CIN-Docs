@@ -4,7 +4,7 @@ description: "Code CIN 性能分析与计时: time_us()/time_ns() 程序内打�
 
 # 性能分析与计时
 
-v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。Python 侧不再逐指令记账，旧版的逐指令统计报告选项已随解释器一并移除。性能测量改用**程序内计时**。
+v5.9.0 起整程序由 Python 侧**一次调用**交给 Go 原生引擎执行（ABI v2），结束后回传寄存器/向量/NZCV/脏内存段/输出。执行统计（逐操作码直方图、内存读写、分支结果）由 Go 引擎在解释循环中累加，随结果尾部一次性回传，Python 侧不再逐指令记账。逐段耗时仍建议在程序内用 `time_us()` / `time_ns()` 打点。
 
 - 内存模型与 `--mem-size` 见 [/tools/memory-cache](/tools/memory-cache)；
 - 日志级别与错误面板见 [/tools/logging](/tools/logging)；
@@ -56,11 +56,16 @@ codecin --build-info
 
 它打印版本号、平台与原生库加载状态等环境信息（由 `codecin/version.py` 的 `build_info()` 生成，永不抛异常）。若动态库缺失或 ABI 不匹配，运行程序会直接抛 `CPUSimulatorError` 并附重建指引（`codecin/native/build.ps1` / `build.sh`）。v5.9.0 起没有解释器回退，构建方法见 [/dev/build-native](/dev/build-native)。
 
-## 引擎侧只有 steps 一项计数
+## 引擎侧执行统计
 
-原生引擎随结果回传的唯一执行统计是 **steps（执行的指令数）**，由 Python 侧一次性写入 `CPU.stats`：
+原生引擎在解释循环中顺手累加以下计数，并通过 v2 结果缓冲的可选统计尾部一次性回传：
 
-- `stats.instruction_count` = 引擎返回的步数；
-- 逐操作码直方图等细粒度统计不再收集（直方图为空，计数集中在占位项）。
+- **steps**：执行的指令总数（`stats.instruction_count`）；
+- **逐操作码直方图**：`stats.opcode_count` / `get_hot_instructions()`，用于指令使用率与周期分布；
+- **内存读写次数**：`stats.memory_reads` / `stats.memory_writes`；
+- **分支数与预测命中**：`stats.performance_counters`，`--debug` 报告中的分支准确率由此计算。
 
-需要更细的性能归因（哪段代码慢）时，用上面的 `time_us()`/`time_ns()` 在程序内分段打点，这是 v5.9.0 起唯一的逐段测量方式。
+`Instruction Cycle Profile` 的周期数按 `InstructionProfiler.latency` 的延迟表由真实直方图换算，不是硬件性能计数器；它适合比较指令构成，不适合测量绝对速度。绝对耗时仍以程序内 `time_us()` / `time_ns()` 为准。
+
+若装载的是旧版 `codecin-native`（只回传 steps），统计尾部不存在：`stats.native_stats=False`，`--debug` 会把内存/分支指标显示为 `N/A` 并提示重建原生库，不会输出占位项 `?` 或伪造的 0/100%。
+

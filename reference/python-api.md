@@ -457,19 +457,24 @@ for line in disasm.disassemble_file('prog.bin')[:12]:
 
 ## 统计: `codecin.stats`
 
-`CPU.stats` 是一个 `Statistics` 实例。注意原生 VM 路径**不按指令逐个记账**
-(整程序执行完毕一次性批量写入), 所以 `opcode_count` 是空的, 只有总数可靠。
+`CPU.stats` 是一个 `Statistics` 实例。原生 VM 路径不按指令逐个记账, 而是由
+Go 引擎在解释循环中累加, 整程序执行完毕后一次性批量写入 (统计尾部 ABI):
 
 | 成员 | 说明 |
 |------|------|
-| `instruction_count` | 已执行指令总数 |
-| `opcode_count` | `defaultdict(int)`, 各助记符执行次数 (原生路径为空) |
+| `instruction_count` | 已执行指令总数 (`steps`) |
+| `opcode_count` | `defaultdict(int)`, 各助记符真实执行次数 |
 | `execution_time` | `start()` / `stop()` 之间的墙钟秒数 |
-| `memory_reads` / `memory_writes` | 内存读写次数 |
-| `get_hot_instructions(top_n=10)` | 最热的指令列表 (原生路径只有 `'?'` 一项) |
-| `inst_profiler` | `InstructionProfiler`: 指令周期表, `get_total_cycles()` |
+| `memory_reads` / `memory_writes` | 内存读写次数 (引擎侧统计) |
+| `get_hot_instructions(top_n=10)` | 最热的指令列表 |
+| `inst_profiler` | `InstructionProfiler`: 按周期表换算的指令周期分布, `get_total_cycles()` |
 | `performance_counters` | `PerformanceCounters`: `get_ipc()` / `get_stats()` 给出 IPC / 分支准确率等 |
 | `display_summary(console=None, cache_stats=None, native_used=True)` | 渲染统计表 (`cache_stats` 为兼容保留的透传参数) |
+| `native_stats` | 原生库是否回传了统计尾部；旧库为 `False`, 显示层改用 `N/A` |
+
+装载了旧版 `codecin-native` (只回传 `steps`) 时, `opcode_count` 为空,
+`native_stats=False`; `--debug` 的统计表会把内存/分支指标显示为 `N/A`,
+并提示重建原生库, 不再输出占位项或伪造的 0/100%。
 
 ```python
 from codecin import CPU, Config

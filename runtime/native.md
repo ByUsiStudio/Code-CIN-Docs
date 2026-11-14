@@ -100,7 +100,7 @@ in_len  u32 | stdin 预填数据 ...
 按同一偏移解析：
 
 ```text
-offset 0    status      u8   (+flags u8 +streamed u8 +1B padding; flags bit0..3 = N/Z/C/V)
+offset 0    status      u8   (+flags u8 +streamed u8 +stats magic u8; flags bit0..3 = N/Z/C/V)
 offset 4    pc          u64
 offset 12   sp          u64
 offset 20   heap_ptr    u64
@@ -111,7 +111,15 @@ offset 1324 seg_count   u64
             每段:       addr u64 | len u64 | 数据 ...   (只回传被写过的 4 KiB 页)
             out_len     u64 | stdout 输出 ...
             err_len     u16 | 错误文本 ...
+            [可选统计尾部, 第 4 字节 = 0xA5 时存在]
+            mem_reads u64 | mem_writes u64 | branches u64 |
+            branch_hits u64 | branch_total u64 | op_counts 256 × u64
 ```
+
+第 4 字节在旧布局中是 padding（恒 0），新增统计尾部因此对旧
+`_parse_result_v2()` 完全透明（它读完 `err` 就结束）；新解析器只在
+magic 为 `0xA5` 时读取尾部。统计尾部让 `--debug` 能给出真实的指令直方图、
+内存读写次数和分支预测命中率，而不是占位项 `?`。
 
 状态码语义：
 
