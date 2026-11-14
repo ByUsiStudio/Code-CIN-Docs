@@ -256,8 +256,8 @@ codecin --build-info
 就是答案：
 
 ```text
-  native           : 可用: codecin-native 7.22.10 (Go)
-  native version   : codecin-native 7.22.10 (Go)
+  native           : 可用: codecin-native 8.0.0 (Go)
+  native version   : codecin-native 8.0.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
 ```

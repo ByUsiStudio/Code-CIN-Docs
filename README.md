@@ -16,7 +16,7 @@
 [Code CIN](https://github.com/ByUsiStudio/Code-CIN) (`pip install codecin`) 是一门
 语法近似 C/Go 的高级语言 (CIN) 及其工具链。v5.9.0 起 **native-only**: 全部程序由
 Go 原生引擎统一执行, 纯 Python 解释器与 JIT 已整体删除, 无解释器回退。
-v7.22.10 的默认编译产物是 **`.sdgcc`** (CODE 段 = BIN v3), 并提供 **`cincc`**
+v8.0.0 的默认编译产物是 **`.sdgcc`** (CODE 段 = BIN v3), 并提供 **`cincc`**
 原生编译主线 (`--native`) 直出目标机器码。
 
 - **默认执行路径**: Python 侧负责编译/装载 (`.cin/.asm/.pl/.sdgcc/.bin/.crom`), 通过
