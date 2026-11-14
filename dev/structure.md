@@ -43,7 +43,7 @@ CodeCIN/
 └── .editorconfig / .gitattributes / .gitignore
 ```
 
-## `codecin/` — Python 包
+## `codecin/` (Python 包)
 
 | 模块 | 职责 |
 |------|------|
@@ -59,11 +59,11 @@ CodeCIN/
 | `toolchain.py` | AOT 工具链发现 (GCC 家族与交叉编译, `CODECIN_CC` / `CODECIN_GCC_HOME`) |
 | `toolkit.py` | 工具链 CLI 共享小工具 (`configure_stdio` 等, 仅标准库) |
 | `nativegen.py` | 旧 AST→C 后端, 仅保留给 `--build-backend` 的 C 路径与历史测试 |
-| `isa.py` | 指令集定义: `Opcode`、`Syscall` (0–159)、`Cond`、`Constants`、`KIND_*`、`BC_MAGIC` |
+| `isa.py` | 指令集定义: `Opcode`、`Syscall` (0-159)、`Cond`、`Constants`、`KIND_*`、`BC_MAGIC` |
 | `assembler.py` | ASM / PL 汇编器: `.equ` 常量、表达式、数据段、标签、内存操作数 |
 | `cin.py` | CIN 高级语言编译器: 词法/语法/代码生成、import 展开、`HOST_BUILTINS` 表 |
 | `memory.py` | `FastMemory` 稀疏分页内存 (4 KiB 页按需分配, `resident_bytes` 只算已触碰页) 与逐字节保护表 |
-| `registers.py` | `RegisterFile` (X0–X31/XZR) 与 `VectorRegisterFile` (V0–V31 × 4 lane) |
+| `registers.py` | `RegisterFile` (X0-X31/XZR) 与 `VectorRegisterFile` (V0-V31 × 4 lane) |
 | `stats.py` | 统计载体: `Statistics` / `PerformanceCounters` / `InstructionProfiler` / `BranchPredictor` (默认路径下主要承载引擎回传的步数) |
 | `sdgcc.py` | `.sdgcc` 容器读写: v1/v2 头部、CODE/META/SYMS/SRCS 段、可选 zlib 压缩 (CODE 段 = BIN v3) |
 | `crom.py` | 段式 CROM v4 镜像与 BIN v3 容器读写 (只存已分配页; 兼容读旧 CROM v3 / BIN v2) |
@@ -81,8 +81,9 @@ CodeCIN/
 | `version.py` | 版本设施: `version_tuple` / `compare` / `version_info` (纯函数) 与 `build_info()` 环境自检 (永不抛异常), 驱动 `--build-info` 与 `bump_version.py` |
 | `errors.py` | 异常层次: `CPUSimulatorError` 及子类 |
 
-随包分发的二进制: `codecin_native.dll` 与 `codecin_native.h` (Windows 预编译库与
-c-shared 头文件)。
+源码树可能保留本地构建的原生库: `codecin_native.dll` / `codecin_native.h`
+(Windows) 与 `libcodecin_native.so` (Linux)。它们不进入 sdist/wheel, 发布物由用户
+安装时用 Go 现场编译。
 
 ```text
 codecin/lib/<name>/src/<name>.cin   (41 个内置标准库, import 时按裸名字解析到这里)
@@ -92,7 +93,7 @@ math  matrix  net  path  queue  rand  set  sort  stat  str  termux
 test  text  time  token  tree  unionfind  validate  vec
 ```
 
-## `codecin/native/` — Go 原生库
+## `codecin/native/` (Go 原生库)
 
 Go 模块名 `codecin-native`, `go.mod` 声明 `go 1.26`。
 
@@ -166,7 +167,7 @@ codecin/native/
           --native / --native-out; Windows 经 WSL; 覆盖语言子集
 ```
 
-## `tests/` — 测试套件
+## `tests/` (测试套件)
 
 | 文件 | 覆盖点 |
 |------|--------|

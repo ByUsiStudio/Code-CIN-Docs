@@ -52,7 +52,7 @@ for (int i = 0; i < 10; i = i + 1) {
 
 - 三段 (init / cond / update) 都可以省略: `for (;;) { break }`;
 - init 段支持类型声明, 也支持**赋值表达式** (`for (i = 0; i < n; i = i + 1)`), 适合给已有变量赋初值;
-- init 段声明的变量作用域覆盖整个循环;
+- init 段声明的变量作用域覆盖整个函数, 每次进入循环都会重新执行初始化;
 - update 段是赋值表达式, 也可以写 `i++` 或 `i += 2`;
 - 条件为空视为恒真。
 
@@ -77,7 +77,7 @@ for (string s : names) {
 
 - 被遍历对象必须是**定长数组** (`int a[5]` / `float m[3]` / `string names[3]`, 含声明为 `int[5]` 的形参);
   指针形式 (`int[]` / `int[][]`) 报 `range-for requires a fixed-size array`;
-- 元素类型**不能是数组** —— 多维数组用下标循环, 否则报
+- 元素类型**不能是数组**，多维数组用下标循环, 否则报
   `range-for over multi-dimensional arrays is not supported`;
 - 循环变量每轮迭代**拷贝**当前元素, 改它不影响原数组; 元素类型可为标量 / `string` / struct;
 - `break` / `continue` 语义与普通 `for` 相同 (`continue` 直接进入下一个元素)。
@@ -224,12 +224,12 @@ sum=20 d=4 pass
 | `Empty case range: lo..hi` | `case` 范围写反 (`lo > hi`) | 保证 `lo <= hi` |
 | `range-for requires a fixed-size array` | `for (T v : arr)` 遍历了 `int[]` 指针形式数组 | 用定长数组或下标循环 |
 | `range-for over multi-dimensional arrays is not supported` | 遍历了多维数组 | 用两层下标循环 |
-| 死循环 | 循环条件永远成立 | 检查循环条件; 调试时可临时用 `break` 或 `--max-instructions` 限制步数 |
+| 死循环 | 循环条件永远成立 | 检查循环条件; 调试时临时加 `break`, 或用已弃用的隐藏参数 `--max-instructions N` 限制步数 |
 | `do-while` 少执行一次 | 条件写在体前 (写成了 `while`) | 确认使用 `do { } while (...)` |
 
 ## 相关页面
 
-- [运算符](/language/operators) — 比较、逻辑短路与三目优先级
-- [函数](/language/functions) — 递归与调用栈
-- [限制与常见错误](/language/errors) — 报错表与排错入口
-- [示例程序集](/guide/examples) — 更多可运行例子
+- [运算符](/language/operators)：比较、逻辑短路与三目优先级
+- [函数](/language/functions)：递归与调用栈
+- [限制与常见错误](/language/errors)：报错表与排错入口
+- [示例程序集](/guide/examples)：更多可运行例子

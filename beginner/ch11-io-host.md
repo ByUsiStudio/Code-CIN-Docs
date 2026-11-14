@@ -135,6 +135,34 @@ function main() -> int {
 
 (内容是 `10\n20\n30\n`, 末尾换行会多算出一行, 所以行数是 4。)
 
+除了文本处理, `io.cin` 也把几项常用文件操作包了一层: `io_tmpdir` 取临时目录,
+`io_is_dir` 判断目录, `io_copy` 复制文件 (返回 `0` 成功 / `-1` 失败):
+
+```cin
+import "io.cin"
+
+function main() -> int {
+    string dir = io_tmpdir()
+    string src = io_join(dir, "io_demo_src.txt")
+    string dst = io_join(dir, "io_demo_dst.txt")
+
+    io_write(src, "copy me")
+    println("是目录? " + io_is_dir(dir))        // 1
+    println("复制: " + io_copy(src, dst))      // 0
+    println("内容: " + io_read(dst))           // copy me
+
+    io_remove(src)
+    io_remove(dst)
+    return 0
+}
+```
+
+```text
+是目录? 1
+复制: 0
+内容: copy me
+```
+
 ::: tip 把数据文件当“输入源”
 交互输入用 `input()` 即可 (见 [第 2 章](/beginner/ch02-variables#_2-8-读取用户输入))。
 数据量较大时, **用文件当输入**更实用: 把数据写进 `data.txt`, 程序读进来处理后输出结果。

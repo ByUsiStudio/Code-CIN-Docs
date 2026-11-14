@@ -83,7 +83,7 @@ max = 9
 point = (3, 4)
 ```
 
-要点: `import "sort.cin"` 走内置标准库（`codecin/lib/<name>/src/`）; 固长数组以指针形式传参;
+要点: `import "sort.cin"` 走内置标准库 (`codecin/lib/<name>/src/`); 固长数组以指针形式传参;
 struct 实例默认全零、成员用 `.` 访问。参考 [模块与标准库](/language/modules)、
 [数组](/language/arrays)、[struct](/language/structs) 与 [标准库参考](/stdlib/reference)。
 
@@ -225,20 +225,91 @@ hello world
 size = 11
 exists = 1
 os = windows
-cwd = D:\ByUsi\Projects\UCPU
+cwd = D:\work\demo
 ```
 
+最后一行随当前工作目录变化。
+
 ::: warning 沙箱模式下宿主调用会被拦截
-`--sandbox` 只放行 `ALLOCFRAME` / `TIMEUS` / `TIMENS`, 上面的文件/系统类宿主调用
-会报 `Host capability disabled in sandbox mode` 并以非零退出码结束, 请在非沙箱
-模式运行。
+`--sandbox` 只白名单 `ALLOCFRAME` / `TIMEUS` / `TIMENS` 三条核心调用, 编号 ≥ 39 的
+文件/系统/网络类宿主调用会报 `Host capability disabled in sandbox mode` 并以非零退出码
+结束, 请在非沙箱模式运行。
 :::
 
 更多宿主能力 (画布导出 PNG、GUI 窗口与鼠标、本地音频、FFI 动态库调用
 `lib/ffi.cin`、HTTP/TCP/UDP 网络 `lib/net.cin`、Termux API) 见
 [宿主能力](/language/host-abilities)。
 
-## 8. 汇编示例
+## 8. 标准库新能力
+
+`a_rotate`、`sort_merge`、`bi_div`、`c_to_base`、`io_copy`、`http_status_text`、
+`codec_base32_encode`、`val_is_email`、`fmt_bytes_size`、`t_date_utc`、`j_escape`
+分别来自 array / sort / bigint / conv / io / net / codec / validate / fmt / time / json:
+
+```cin
+import "array.cin"
+import "sort.cin"
+import "conv.cin"
+import "codec.cin"
+import "fmt.cin"
+import "time.cin"
+import "json.cin"
+import "validate.cin"
+import "bigint.cin"
+import "net.cin"
+import "io.cin"
+
+function main() -> int {
+    int a[6] = { 1, 2, 3, 4, 5, 6 }
+    a_rotate(a, 6, 2)
+    println("rotate = " + int_to_str(a[0]) + " " + int_to_str(a[1]) + " "
+            + int_to_str(a[2]) + " " + int_to_str(a[3]) + " "
+            + int_to_str(a[4]) + " " + int_to_str(a[5]))
+
+    int b[6] = { 5, 2, 6, 1, 4, 3 }
+    sort_merge(b, 6)
+    println("merge = " + int_to_str(b[0]) + " " + int_to_str(b[1]) + " "
+            + int_to_str(b[2]) + " " + int_to_str(b[3]) + " "
+            + int_to_str(b[4]) + " " + int_to_str(b[5]))
+
+    println("base = " + c_to_base(255, 16) + " " + c_to_base(-8, 2))
+    println("base32 = " + codec_base32_encode("hello"))
+    println("email = " + int_to_str(val_is_email("dev@example.com")) + " "
+            + int_to_str(val_is_email("dev@example")))
+    println("size = " + fmt_bytes_size(1536))
+    println("date = " + t_date_utc(86400))
+    println("status = " + http_status_text(404))
+    println("escape = " + j_escape("a\"b\nc"))
+
+    BigInt x = bi_from_str("100000000000000000000")
+    BigInt y = bi_from_int(7)
+    println("bigdiv = " + bi_to_str(bi_div(x, y)))
+
+    file_write("copy_src.txt", "cin")
+    println("copy = " + int_to_str(io_copy("copy_src.txt", "copy_dst.txt")))
+    return 0
+}
+```
+
+```text
+rotate = 3 4 5 6 1 2
+merge = 1 2 3 4 5 6
+base = FF -1000
+base32 = NBSWY3DP
+email = 1 0
+size = 1.5 KB
+date = 1970-01-02
+status = Not Found
+escape = a\"b\nc
+bigdiv = 14285714285714285714
+copy = 0
+```
+
+`a_rotate` 按给定步数循环左移数组; `sort_merge` 原地归并排序; `bi_div` 返回截断后的商;
+`c_to_base` 支持 2–36 进制与负数; `io_copy` 成功返回 0; `http_status_text` 不发起网络请求;
+`t_date_utc` 接收 Unix 秒; `j_escape` 转义引号、反斜杠与控制字符。文件操作需要非沙箱模式。
+
+## 9. 汇编示例
 
 ### 循环求和 + 字符串打印 (`test_asm.asm`)
 
@@ -340,12 +411,12 @@ main:
 `compare`/`jump_greater`); 两者由同一汇编器处理。完整语法见 [汇编语法参考](/asm/syntax),
 逐条语义见 [指令语义参考](/asm/instructions)。
 
-## 9. 编译成独立可执行文件
+## 10. 编译成独立可执行文件
 
 ```bash
 codecin hello.cin --build-exe hello              # 本机平台 (默认 C 后端)
 codecin hello.cin --build-exe app --build-target linux/amd64 --build-static
-./hello                                          # 运行产物 (无需 Python/Go)
+./hello                                          # Linux/macOS 运行产物; Windows 为 hello.exe
 ```
 
 默认 `auto` 后端优先 C 后端 (需系统 C 编译器或 `zig`), C 不支持时回退 Go native/VM;
@@ -368,6 +439,6 @@ codecin hello.cin --build-exe app --build-target linux/amd64 --build-static
 | `examples/modules_demo.cin` | `import` 与内置标准库 |
 | `examples/stdlib_demo.cin` | 多库联动 (断言式演示) |
 | `examples/system_interaction.cin` | 文件、进程、环境变量、主机信息 |
-| `examples/terminal_cache_demo.cin` | 7.22.10 终端缓存 + 实时输出 (type-ahead 提前输入、原地刷新动画、`key_flush`, 真实终端效果最佳) |
+| `examples/terminal_cache_demo.cin` | 终端缓存 + 实时输出 (type-ahead 提前输入、原地刷新动画、`key_flush`, 真实终端效果最佳) |
 | `examples/asm_constants.asm` | `.equ` 常量与表达式立即数 |
 | `test_asm.asm` | 汇编端到端 (循环、`SYS`、数据段、间接寻址) |

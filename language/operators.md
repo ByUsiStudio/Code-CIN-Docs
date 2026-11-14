@@ -46,7 +46,7 @@ string s = "n = " + (a + b)        // 先算数, 再拼字符串
 | `idiv(7, 2)` | `3` | 整数除法 (内建, 向零截断) |
 | `idiv(-7, 2)` | `-3` | 向零截断, 不是向下取整 |
 | `7 % 3` | `1` | 取模仅支持整数 |
-| `7.5 % 2` | 运行期错误 | `Float modulo not supported` |
+| `7.5 % 2` | 编译错误 | `Float modulo not supported` |
 | `2 + 3 * 4` | `14` | `*` 优先于 `+` |
 | `-x` | 取负 | 一元负号 |
 
@@ -83,7 +83,8 @@ bool ok = (x > 0) && (x < 100)      // 短路: 左侧为假时右侧不求值
 bool bad = (s == "") || (n != 0)    // 左侧为真时右侧不求值
 ```
 
-- `==` / `!=` 对整数、浮点、bool、struct 按值比较;
+- `==` / `!=` 对整数、浮点、bool 按值比较；struct 变量比较的是两个对象的地址，不是字段内容，
+  两个独立声明的 `P a` / `P b` 即使字段相同也判为不等；
 - `<` `>` `<=` `>=` 用于 int/float;
 - `!` 是逻辑非 (布尔取反), `~` 才是位取反, 两者不可混用。
 
@@ -179,7 +180,7 @@ int sign = (x < 0) ? -1 : 1
 
 ## 相关页面
 
-- [类型系统](/language/types) — 提升与截断规则
-- [控制流](/language/control-flow) — 条件表达式在分支中的用法
-- [内建函数](/language/builtins) — `idiv` / `min` / `max` / 转换函数
-- [字符串](/language/strings) — 拼接、比较与字符串内建
+- [类型系统](/language/types)：提升与截断规则
+- [控制流](/language/control-flow)：条件表达式在分支中的用法
+- [内建函数](/language/builtins)：`idiv` / `min` / `max` / 转换函数
+- [字符串](/language/strings)：拼接、比较与字符串内建

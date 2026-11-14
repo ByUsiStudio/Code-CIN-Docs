@@ -47,6 +47,22 @@ Compiler error: Expected IDENT but got STRING ('math.cin')
 `import "lib/math.cin"` 是历史写法, 等价于 `import "math.cin"`。
 :::
 
+pic 包走单独的查找链: 先按裸名字查内置库, 内置库没有, 再到项目 `pic_modules/`、
+`CIN_PATH` 与已安装的 pic 包里找入口。
+
+```cin
+// 只导入包入口
+import "rich"
+// 入口 + 全部公开模块
+import "rich:*"
+// 只导入 table 模块
+import "rich:table"
+// 指定版本 + 指定模块
+import "rich::1.1.1:table"
+```
+
+模块名可以用 `pic modules rich` 查; 分块选择只影响 import 写法, 不改变已安装内容。
+
 ## 10.3 第一个自建模块
 
 新建两个文件, 放在**同一个目录**里。
@@ -120,19 +136,20 @@ max3 = 9
 | `matrix.cin` | 矩阵 | `mat_zero` `mat_identity` `mat_mul` `mat_transpose` `mat_det` |
 | `bits.cin` | 位运算 | `bits_popcount` `bits_set` `bits_clear` `bits_toggle` `bits_rotl` |
 | `hash.cin` | 哈希 | `hash_djb2` `hash_fnv1a` `hash_string_bucket` |
+| `net.cin` | HTTP / TCP / UDP / DNS (需原生) | `http_get_headers` `http_post_headers` `http_ok` `http_status_text` `tcp_roundtrip` `dns_resolve` |
 | `validate.cin` | 输入校验 | `val_is_int` `val_is_digit` `val_is_alpha` `val_parse_int` |
 | `json.cin` | 扁平 JSON | `j_int` `j_str` `j_float` `j_bool` `j_has` |
 | `time.cin` | 时间 | `t_now` `t_hms` `t_human` |
 | `test.cin` | 断言测试 | `t_eq_int` `t_eq_str` `t_true` `t_reset` `t_report` |
 | `queue.cin` | 队列/栈 | `queue_push` `queue_pop` `stack_push` `stack_pop` |
-| `io.cin` | 文件 (需原生) | `io_read` `io_write` `io_exists` `io_line_count` `io_get_line` |
-| `gui.cin` | 画图 (需原生) | `g_new` `g_bar_chart` `g_line_chart` `g_save` |
-| `termux.cin` | 安卓 Termux (需原生) | `tx_notify` `tx_toast` `tx_battery_level` |
+| `io.cin` | 文件 (需原生) | `io_read` `io_write` `io_exists` `io_line_count` `io_get_line` `io_copy` `io_tmpdir` |
+| `gui.cin` | 画图 (需原生) | `g_new` `g_bar_chart` `g_line_chart` `g_rect` `g_save` |
+| `termux.cin` | 安卓 Termux (需原生) | `tx_notify` `tx_toast` `tx_battery_level` `tx_share` |
 | `key.cin` | 键盘轮询 (需原生) | `k_ctrl` `k_is_special` `key_wait` + `enum Key` 常量 |
 
-::: warning 四个库需要 Go 原生运行时
-`io` / `gui` / `termux` / `key` 封装的是宿主能力 (文件、绘图、安卓 API、键盘), 由 Go 原生引擎
-执行 (沙箱模式下会被拦截)。其余 32 个库是纯 CIN, 无宿主依赖。
+::: warning 六个库需要 Go 原生运行时
+`ffi` / `gui` / `io` / `key` / `net` / `termux` 封装的是宿主能力 (外部函数、绘图、文件、键盘、网络、安卓 API),
+由 Go 原生引擎执行 (沙箱模式下会被拦截)。其余 35 个库是纯 CIN, 无宿主依赖。
 :::
 
 完整函数签名见 [标准库参考](/stdlib/reference)。
@@ -209,6 +226,7 @@ function main() -> int {
 | `j_` | json |
 | `t_` | time / test |
 | `io_` `g_` `tx_` | io / gui / termux |
+| `http_` `tcp_` `udp_` `dns_` | net |
 
 给自己的模块也加个前缀 (例如 `my_`、`game_`), 半年后回来看代码会感谢自己。
 
@@ -239,7 +257,8 @@ function main() -> int {
 - `import` 只能写在文件顶部; `"./x.cin"` 是相对路径, 裸名字是内置库;
 - 模块里不写 `main`; 重复包含会去重, 循环引用报错;
 - 内置库的数组函数都要传数组 + 长度; 41 个库覆盖数学、字符串、数组、排序、统计、随机、测试等;
-- `io` / `gui` / `termux` / `key` 需要原生运行时;
+- pic 包用 `import "包名"` / `import "包名:模块"` / `import "包名::版本:模块"` 分块导入;
+- `ffi` / `gui` / `io` / `key` / `net` / `termux` 需要原生运行时;
 - 给自己的函数加前缀避免冲突。
 
 下一章: [文件、画布与系统交互](/beginner/ch11-io-host)。

@@ -135,7 +135,7 @@ import "bigint.cin"
 | `bi_mod_small` | `bi_mod_small(BigInt a, int k)` | `int` | `a % k`（符号随 `a`）；`k == 0` 时返回 0 并置溢出标志。内部复用全局暂存对象，长循环里不会累积堆内存。 |
 | `bi_cmp_small` | `bi_cmp_small(BigInt a, int k)` | `int` | 与 64 位整数比较：`a < k` 返回 `-1`，相等 0，`a > k` 返回 1 |
 | `bi_is_even` | `bi_is_even(BigInt a)` | `int` | 是否为偶数，0 也算偶数；返回 1/0 |
-| `bi_to_hex` | `bi_to_hex(BigInt a)` | `string` | 大写十六进制字符串，无 `0x` 前缀，负数带 `-`；`bi_to_hex(255)` 为 `"FF"`，零返回 `"0"`。 |
+| `bi_to_hex` | `bi_to_hex(BigInt a)` | `string` | 大写十六进制字符串，无 `0x` 前缀，负数带 `-`；`bi_to_hex(bi_from_int(255))` 为 `"FF"`，零返回 `"0"`。 |
 | `bi_gcd` | `bi_gcd(BigInt a, BigInt b)` | `BigInt` | 最大公约数，结果非负；`bi_gcd(0, 0)` 为 0，`bi_gcd(a, 0)` 为 `\|a\|` |
 
 内部辅助函数（`bi_aux_cmp_digits` / `bi_aux_sub_digits` / `bi_divmod_core` / `bi_div_small_core`）不是公开 API，后续版本可能调整。
@@ -377,7 +377,8 @@ import "codec.cin"
 | `codec_atbash` | `codec_atbash(string s)` | `string` | Atbash 密码：`A` 与 `Z`、`a` 与 `z` 互换，其它字节原样；自逆，加密与解密相同 |
 
 > 另有若干内部辅助（`codec_chr_of` / `codec_hex_byte` / `codec_rle_count` /
-> `codec_is_digit` / `codec_is_url_safe` / `codec_b64_ok` / `codec_morse_of` 等），
+> `codec_is_digit` / `codec_is_url_safe` / `codec_b64_ok` / `codec_b64_val` /
+> `codec_morse_of` / `codec_morse_char` / `codec_rebuild_range` 等），
 > 属于**非稳定接口**，不保证跨版本兼容。
 
 ```cin
@@ -2304,7 +2305,7 @@ function main() -> int {
 
 纯 CIN 切分/分词库。CIN 没有字符串数组类型，所以本库不返回数组，而是提供「按序号取第 n 个 token」的 API：计数、取内容、取长度、查序号、取首/尾 token，以及按空白切分的便捷封装。只依赖非宿主内建（`strlen` / `substr` / `strcmp`）；因为拿不到字符串数组，本库**不提供 join**。
 
-切分语义（与 Go `strings.Split` 一致）：`delim` 按**整串**匹配（多字符分隔符算一个整体，不是字符集合）；**保留空 token** —— 连续分隔符之间、串首/串尾分隔符旁边都会产生空 token；空串切分后是 1 个空 token；`delim` 为空串时整个串是唯一 token。下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致），非 ASCII 按 UTF-8 字节序列处理，分隔符请用完整字符。
+切分语义（与 Go `strings.Split` 一致）：`delim` 按**整串**匹配（多字符分隔符算一个整体，不是字符集合）；**保留空 token**：连续分隔符之间、串首/串尾分隔符旁边都会产生空 token；空串切分后是 1 个空 token；`delim` 为空串时整个串是唯一 token。下标与长度一律是**字节**语义（与 `strlen` / `substr` / `s[i]` 一致），非 ASCII 按 UTF-8 字节序列处理，分隔符请用完整字符。
 
 ```cin
 import "token.cin"

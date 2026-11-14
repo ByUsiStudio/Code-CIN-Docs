@@ -117,16 +117,17 @@ p2 = (5, 6)
 曼哈顿距离 = 8
 ```
 
-多个独立的 struct 变量互不影响 —— 这是当前版本可靠的用法。
+多个独立的 struct 变量互不影响。
 
-::: danger 嵌套 struct 的字段访问 (`r.a.x`) 当前不可靠
-实测: 结构里套结构时, 多层字段访问会互相覆盖:
+嵌套 struct 也可以直接读写, 多层字段访问按正常顺序取值:
 
 ```cin
-struct Point { int x
-               int y }
+struct Point {
+    int x
+    int y
+}
 struct Rect {
-    Point a        // 嵌套 struct 字段
+    Point a
     Point b
 }
 
@@ -136,12 +137,18 @@ function main() -> int {
     r.a.y = 2
     r.b.x = 5
     r.b.y = 6
-    // 实测: r.a 与 r.b 读到的是同一份数据 (都是 5,6)
+    println("a = " + r.a.x + ", " + r.a.y)
+    println("b = " + r.b.x + ", " + r.b.y)
     return 0
 }
 ```
 
-**规避办法**: 用扁平字段, 或直接声明多个 struct 变量 (上面的例子)。
+```text
+a = 1, 2
+b = 5, 6
+```
+
+扁平字段仍然是好习惯, 字段少时更好读:
 
 ```cin
 struct Rect {           // 扁平写法: 每个坐标一个字段
@@ -157,7 +164,6 @@ function width(Rect r) -> int {
     return w
 }
 ```
-:::
 
 ## 9.4 一张表: 用并行数组
 
@@ -197,21 +203,34 @@ function main() -> int {
 
 要点: 两个数组靠**同一个下标 `i`** 关联, 所以遍历时只会写一个循环。
 
-::: danger struct 数组 (`Student cls[3]`) 当前不能正确工作
-实测: 给 `cls[i].字段` 赋值时, 所有元素会写到**同一个位置**, 读出来全是最后一次
-写入的值 (局部数组与全局数组都一样):
+struct 数组也能直接当表格用, 每个元素独立保存一条记录:
 
 ```cin
-Student cls[3]
-cls[0].name = "小明"; cls[0].score = 92
-cls[1].name = "小红"; cls[1].score = 85
-cls[2].name = "小刚"; cls[2].score = 78
-// 实测: 三行打印出来都是最后一次写入的值
+struct Student {
+    string name
+    int score
+}
+
+function main() -> int {
+    Student cls[3]
+    cls[0].name = "小明"; cls[0].score = 92
+    cls[1].name = "小红"; cls[1].score = 85
+    cls[2].name = "小刚"; cls[2].score = 78
+    for (int i = 0; i < 3; i++) {
+        println(cls[i].name + " " + cls[i].score)
+    }
+    return 0
+}
 ```
 
-**在修好之前, 表格数据请用并行数组** (上面的写法): 名字放一个数组, 分数放另一个数组,
-用同一下标关联。单个 struct 变量 (一条记录) 是正常的。
-:::
+```text
+小明 92
+小红 85
+小刚 78
+```
+
+并行数组和 struct 数组都可以用来存表格: 字段少、要按列整体运算时并行数组更直接;
+一条记录字段多时 struct 数组更清楚。
 
 ## 9.5 struct 作参数与返回值
 
@@ -311,8 +330,6 @@ function main() -> int {
 | `Undefined variable` / 找不到字段 | struct 定义写在函数里, 或字段名拼错 | struct 定义放函数外, 检查字段名 |
 | 函数里改了 struct 外面没变 | struct 是值传递 | 用返回值, 或把结果写进数组 |
 | 想放变长数组字段报错 | 字段只能是标量/嵌套 struct/固长数组 | 用固长数组或改为数组参数 |
-| 表格数据全变成最后一行的值 | 用了 struct 数组 (当前版本缺陷) | 改用并行数组 (见 9.4) |
-| 嵌套 struct 字段互相覆盖 | 多层字段访问 `r.a.x` (当前版本缺陷) | 扁平字段或独立 struct 变量 (见 9.3) |
 | `string` 字段打印出别人的文本 | 声明 struct 后字段未初始化就使用 | 先给字段赋初值 |
 
 ## 9.8 练习
@@ -331,10 +348,9 @@ function main() -> int {
 ## 9.9 本章小结
 
 - `struct` 把相关字段打包, 定义写在函数外, 成员用 `.` 访问;
-- 单个 struct 变量的字段读写是可靠的; **struct 数组与嵌套 struct 字段访问当前不可靠**,
-  表格数据请用并行数组, “多段数据”用多个独立 struct 变量;
+- struct 数组与嵌套 struct 字段都可以直接读写, 表格数据用并行数组或 struct 数组;
 - struct 传参是**值语义** (副本), 数组是引用语义;
-- 字段只能是标量、固长数组 (或嵌套 struct, 但见上面的限制);
+- 字段只能是标量、固长数组或嵌套 struct;
 - 一个函数只能返回一个值 → 需要多个结果时用数组传出。
 
 下一章: [模块与标准库](/beginner/ch10-modules)。

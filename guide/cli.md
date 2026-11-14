@@ -4,9 +4,10 @@ description: Code CIN 命令行完整参考：位置参数与程序参数直传�
 
 # 命令行参考
 
-唯一命令行入口是 Python 侧: 安装后的 `codecin`, 或源码树里的 `codecin`。
-两者参数表完全相同 (源码中由 `codecin/cli.py` 的 `build_parser()` 单一来源定义, 因此
-`--help` 与本文档始终一致)。
+运行程序的入口是 `codecin`: 安装后直接可用, 源码树中先 `pip install -e .` 或改用
+`python -m codecin.cli`。参数表由 `codecin/cli.py` 的 `build_parser()` 单一来源定义,
+`--help` 与本文档描述同一组选项。`mkn` / `pic` / `cvm` 是构建、包管理与模块工具,
+不运行程序。
 
 ```text
 Usage:
@@ -18,7 +19,7 @@ Supported formats:
   .pl     Code CIN 汇编语言 (PL 关键字风格)
   .asm    Code CIN 汇编
   .sdgcc  默认编译产物: UCBC 字节码容器 (CODE 段 = BIN v3)
-  .bin    UCBC 字节码 (兼容格式, 由 --compile 生成)
+  .bin    UCBC 字节码 (裸格式, 由 --compile 生成)
 
 AOT/link inputs:
   .co     可重定位对象 (--emit-object)
@@ -32,34 +33,34 @@ codecin --version       # 打印当前版本
 codecin --build-info    # 打印版本 + 运行环境 + 原生库状态 (排障用)
 ```
 
-v5.9.0 起为 **native-only**：程序统一由 Go 原生库执行，原生库缺失会直接报错
-并提示重建（无解释器回退），构建原生库是运行前的必要步骤（见
-[编译 Go 原生库](/dev/build-native)）。v7.22.10 起默认产物为 `.sdgcc`，并新增
-`--native` / `--native-out` 的 `cincc` 机器码编译路径。
+v5.9.0 起为 native-only: 程序统一由 Go 原生库执行, 原生库缺失会直接报错
+并提示重建 (无解释器回退), 构建原生库是运行前的必要步骤 (见
+[编译 Go 原生库](/dev/build-native))。默认产物是 `.sdgcc`,
+`--native` / `--native-out` 走 `cincc` 机器码编译路径。
 
 ## 版本与构建信息
 
 | 选项 | 默认 | 说明 |
 |------|------|------|
 | `--version` / `-V` | — | 打印 `Code CIN <x.y.z>` 并退出 0 |
-| `--build-info` | — | 打印多行构建信息并退出 0,**不需要**位置参数 |
-| `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用会向 **stderr** 打印一行提示并返回 2 |
-| `--libs` | — | 列出全部内置标准库并标注类别 (见下), 退出 0,**不需要**位置参数 |
+| `--build-info` | — | 打印多行构建信息并退出 0, 不需要位置参数 |
+| `--json` | 关闭 | 只能与 `--build-info` 同用: 改为输出机器可读 JSON; 单独使用会向 stderr 打印一行提示并返回 2 |
+| `--libs` | — | 列出全部内置标准库并标注类别 (见下), 退出 0, 不需要位置参数 |
 
 `--build-info` 的字段包含版本、Python 实现与版本、平台/架构、包路径,
-以及**原生库是否可用、自报版本号、是否与包版本一致** —— 排查"原生库过期/未加载"时
+以及原生库是否可用、自报版本号、是否与包版本一致。排查"原生库过期/未加载"时
 先看这里, 不必再手工比对 `codecin --version` 与原生库自报串:
 
 ```text
-Code CIN 构建信息 (build info) - 7.22.10
-  version          : 7.22.10
-  version_info     : (7, 22, 10)
-  python           : 3.14.6 (CPython)
+Code CIN 构建信息 (build info) - 8.0.0
+  version          : 8.0.0
+  version_info     : (8, 0, 0)
+  python           : 3.15.2 (CPython)
   platform         : win32/AMD64
   system           : Windows
   machine          : AMD64
-  native           : 可用: codecin-native 7.22.10 (Go)
-  native version   : codecin-native 7.22.10 (Go)
+  native           : 可用: codecin-native 8.0.0 (Go)
+  native version   : codecin-native 8.0.0 (Go)
   native library   : D:\...\codecin\codecin_native.dll
   native matches   : 一致
   package path     : D:\...\codecin
@@ -68,35 +69,35 @@ Code CIN 构建信息 (build info) - 7.22.10
 
 原生库不可用时 `native` 行为 `不可用 (请运行 codecin/native/build.ps1 或 build.sh 重建)`,
 `native matches` 行为 `(未知)`; 版本字段无法解析为 `x.y.z` 时 `version_info` 显示
-`(无法解析为 x.y.z)` —— **这个命令永远以退出码 0 结束**, 不会因为原生库缺失而失败。
+`(无法解析为 x.y.z)`。这个命令永远以退出码 0 结束, 不会因为原生库缺失而失败。
 
 `--build-info --json` 输出同一份信息的 JSON (可直接 `json.loads`),
-适合脚本判断"原生库是否需要重建":
+适合脚本判断原生库是否需要重建:
 
 ```bash
 codecin --build-info --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['native_version_matches'])"
 ```
 
-`--libs` 列出 `codecin/lib/<name>/src/` 全部官方标准库, 并按**类别**标注三类
+`--libs` 列出 `codecin/lib/<name>/src/` 全部官方标准库, 并按类别标注三类
 (分类由源码扫描内建引用得出, 与库头注释保持一致):
 
 ```text
 Code CIN 内置标准库清单
 
   模块             类别      说明
-  cstd.cin       C 兼容层    C 语言兼容层 (cstd)
-  cppstd.cin     C++ 兼容层  C++ 标准库 (STL) 兼容层 (cppstd)
-  gostd.cin      Go 兼容层   Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]
-  ffi.cin        需原生运行时  FFI 动态库调用便捷封装 (ffi)
-  gui.cin        需原生运行时  GUI 窗口 + 画布绘图助手 (gui)
-  net.cin        需原生运行时  网络便捷封装 (net)
-  math.cin       纯 CIN   ...
+  cstd.cin       兼容层     C 语言兼容层 (cstd)
+  cppstd.cin     兼容层     C++ 标准库 (STL) 兼容层 (cppstd)
+  gostd.cin      兼容层     Go 标准库兼容层 (gostd) [go_os_args_* 依赖原生]
+  io.cin         需原生运行时  文件与路径 (io) [16 个宿主内建]
+  gui.cin        需原生运行时  GUI 窗口 + 画布绘图助手 (gui) [18 个宿主内建]
+  net.cin        需原生运行时  网络便捷封装 (net) [13 个宿主内建]
+  math.cin       纯 CIN   数学扩展
 ```
 
-- **纯 CIN**: 只调用语言内建, 原生 / AOT 全路径行为一致;
-- **兼容层**: C / C++ / Go 标准库兼容层 (`cstd` / `cppstd` / `gostd`), 同样纯 CIN
+- 纯 CIN: 只调用语言内建, 原生 / AOT 全路径行为一致;
+- 兼容层: C / C++ / Go 标准库兼容层 (`cstd` / `cppstd` / `gostd`), 同样纯 CIN
   实现; 个别函数的原生依赖以方括号标注 (如 `gostd` 的 `go_os_args_*`);
-- **需原生运行时**: 转调宿主能力内建 (`gui` / `key` / `io` / `termux` / `ffi` /
+- 需原生运行时: 转调宿主能力内建 (`gui` / `key` / `io` / `termux` / `ffi` /
   `net` 等), `--sandbox` 下调用会被拦截。
 
 ## 位置参数
@@ -105,11 +106,11 @@ Code CIN 内置标准库清单
 |------|------|
 | `program` | 程序源文件或编译产物: `.cin` / `.pl` / `.asm` / `.sdgcc` / `.bin`。省略时打印错误并返回 1 |
 
-`program` 是**可选**位置参数, 只有真正要运行程序时才需要它: `--help` / `--version` /
+`program` 是可选位置参数, 只有真正要运行程序时才需要它: `--help` / `--version` /
 `--build-info` 都在读取位置参数之前就退出, 所以 `codecin --build-info` 不带任何程序文件
 也能成功运行 (退出码 0)。`--json` 只作为 `--build-info` 的修饰符, 不能代替位置参数。
 
-**程序参数直传**: 程序文件之后的裸参数原样传给 CIN 程序, 程序内用
+程序参数直传: 程序文件之后的裸参数原样传给 CIN 程序, 程序内用
 `arg_count()` / `arg(i)` 读取 (AOT 产物等价于 `os.Args[1:]`):
 
 ```bash
@@ -119,9 +120,9 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 
 规则:
 
-- `--` 分隔符**优先级最高**——其后的参数不再按 CLI 选项解析, 全部转交程序;
+- `--` 分隔符优先级最高, 其后的参数不再按 CLI 选项解析, 全部转交程序;
 - 已知 CLI 选项放在程序之前或之后均可识别;
-- 形如选项的直传参数 (如 `-n 24`) 会得到一条 **stderr** 提示,
+- 形如选项的直传参数 (如 `-n 24`) 会得到一条 stderr 提示,
   建议用 `--` 显式分隔; `--help` 的 Program arguments 段有说明。
 
 ## 日志
@@ -130,10 +131,10 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 |------|------|------|
 | `--log-level <LVL>` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL` |
 | `--log-file <FILE>` | 无 | 日志写入文件 (终端仍显示) |
-| `--sandbox` | 关闭 | 沙箱模式 (引擎侧拦截全部宿主能力系统调用, 仅放行 ALLOCFRAME/TIMEUS/TIMENS) |
+| `--sandbox` | 关闭 | 沙箱模式: 引擎拦截编号 ≥ 39 的宿主能力调用, 仅白名单 ALLOCFRAME(137) / TIMEUS(138) / TIMENS(139); 编号 < 39 的打印、输入、字符串、转换、内存分配等内建照常可用 |
 
 ::: tip 日志与程序输出在同一流
-日志默认输出到 **stdout**。需要只保留程序输出时用 `--log-level ERROR` (或 `CRITICAL`)。
+日志默认输出到 stdout。需要只保留程序输出时用 `--log-level ERROR` (或 `CRITICAL`)。
 详见 [日志与错误输出](/tools/logging)。
 :::
 
@@ -141,8 +142,8 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 
 | 选项 | 默认 | 说明 |
 |------|------|------|
-| `--mem-size <BYTES>` | `1073741824` (1 GiB) | 虚拟机内存大小 (最小 256, 上限 1 TiB)。4 KiB 稀疏分页按需提交, 只有真正写入的部分占物理内存, **大数组/大缓冲不需要再调它** (默认即可 `int a[1000000]`) |
-| `--max-instructions <N>` | 不限制 | **已弃用**, 仅作为隐藏参数保留以兼容旧脚本; 默认不限制指令数 |
+| `--mem-size <BYTES>` | `1073741824` (1 GiB) | 虚拟机内存大小 (最小 256, 上限 1 TiB)。4 KiB 稀疏分页按需提交, 只有真正写入的部分占物理内存; 大数组/大缓冲通常不需要再调它 (默认即可 `int a[1000000]`) |
+| `--max-instructions <N>` | 不限制 | 已弃用, 仅作为隐藏参数保留以兼容旧脚本; 默认不限制指令数 |
 
 ## 编译与 CROM
 
@@ -163,7 +164,7 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 | 选项 | 默认 | 说明 |
 |------|------|------|
 | `--seed <N>` | 随机 | 随机种子, 保证 `rand()` 序列确定 |
-| `--bounds-check` | 关闭 | CIN 数组越界检查 (编译期注入字节码, 与原生路径兼容) |
+| `--bounds-check` | 关闭 | CIN 数组越界检查, 编译期注入字节码; 只在默认字节码路径生效, `--native` 与 AOT 不读取该开关 |
 | `--disasm` | 关闭 | 反汇编 `.sdgcc` / `.bin` 为文本清单后退出 (支持 BIN v3 / 旧 v2 头) |
 
 ## 对象、链接与静态库
@@ -171,9 +172,9 @@ codecin args_demo.cin -- --flag "hello 中文" 42   # `--` 之后一律视为程
 | 选项 | 说明 |
 |------|------|
 | `--emit-object` | 把 CIN/ASM/PL 编译为可重定位 `.co` 对象后退出 |
-| `--link INPUT` | 链接 `.cin` / `.asm` / `.pl` / `.co` / `.colib`（可重复）为可执行文件 |
+| `--link INPUT` | 链接 `.cin` / `.asm` / `.pl` / `.co` / `.colib` (可重复) 为可执行文件 |
 | `--emit-archive` | 把 `--link` 输入打包为 `.colib` 静态库归档 |
-| `--gc-sections` | 链接时删除从入口不可达的函数/代码段（默认关闭） |
+| `--gc-sections` | 链接时删除从入口不可达的函数/代码段 (默认关闭) |
 
 ```bash
 codecin --emit-object main.cin -o main.co
@@ -183,23 +184,23 @@ codecin --link main.co --link lib.co -o app --optimize 3 --gc-sections
 # 源文件直接链接
 codecin --link main.cin --link lib.cin -o app
 
-# 静态库：只拉取能解决未定义符号的成员
+# 静态库: 只拉取能解决未定义符号的成员
 codecin --emit-archive --link lib.co --link lib2.co -o lib.colib
 codecin --link main.co --link lib.colib -o app
 ```
 
-CIN 库文件用 `extern function` / `extern int` 声明跨对象符号；无 `main` 的文件作为函数库对象。详见 [模块与标准库](/language/modules#独立编译与链接)。
+CIN 库文件用 `extern function` / `extern int` 声明跨对象符号; 无 `main` 的文件作为函数库对象。详见 [模块与标准库](/language/modules#独立编译与链接)。
 
 ## 原生机器码构建 (cincc)
 
-v7.22.10 新增的 `--native` 路径由 Go 编译器 `cincc` 直接生成机器码, **不经过 C,
-也不经过 UCBC 字节码**。它不参与默认的 `.sdgcc` / Go 引擎流程。
+`--native` 路径由 Go 编译器 `cincc` 直接生成机器码, 不经过 C,
+也不经过 UCBC 字节码。它不参与默认的 `.sdgcc` / Go 引擎流程。
 
 | 选项 | 说明 |
 |------|------|
-| `--native` | 用 `cincc` 编译当前 `.cin` 源文件为设备本机可执行文件并运行; Windows 下自动改用 WSL 执行 |
+| `--native` | 用 `cincc` 编译当前 `.cin` 源文件为可执行文件并运行; Windows 下自动改用 WSL 执行 |
 | `--native-out <OUT>` | 同 `--native`, 但只构建不运行, 产物写到 `OUT` |
-| `--build-target linux/amd64` | 传给 `cincc -target x86_64-linux`; 当前仅接受这一目标, 其它值会报 `cincc 暂不支持目标` |
+| `--build-target linux/amd64` | 传给 `cincc -target x86_64-linux`; CLI 目前只映射 `linux/amd64` (别名 `linux/x86_64`), 其它值会报 `cincc 暂不支持目标` |
 
 ```bash
 codecin hello.cin --native          # 编译并运行
@@ -219,9 +220,13 @@ cd codecin/native && go build -o cincc ./cmd/cincc
 多文件 `import`、`malloc`、`time` / `rand` / `sleep`、文件/目录、`cwd` / `chdir` /
 `os_name` / `temp_dir`、TCP/UDP。
 
-尚未实现: GUI/画布/音频、HTTP/HTTPS/DNS、FFI、Windows PE 目标、完整 AArch64 后端。
+尚未实现: GUI/画布/音频、HTTP/HTTPS/DNS、FFI。
 `--native` 也不使用 Python 侧的 `--seed` / `--sandbox` / `--bounds-check` / `--save`
 等运行期配置。
+
+`cincc` 自身接受 `x86_64-linux`、`aarch64-linux`、`x86_64-windows` 三个 `-target`;
+CLI 只开放 `linux/amd64`。直接调用 `cincc -target x86_64-windows -o app.exe app.cin`
+可产出 PE32+。
 :::
 
 ## AOT 构建
@@ -236,10 +241,10 @@ cd codecin/native && go build -o cincc ./cmd/cincc
 | `--build-keep-c` | 保留 C 后端生成的 `program.c` |
 | `--build-verify` | 构建后校验 ELF/PE 头部与目标架构是否一致 |
 | `--no-build-cache` | 禁用 AOT 增量构建缓存 (含对象/归档链接缓存) |
-| `--build-debug` | 保留符号表/DWARF，不传 `-s -w` |
+| `--build-debug` | 保留符号表/DWARF, 不传 `-s -w` |
 | `--build-keep-temp` | 保留构建临时目录, 便于排查失败 |
 
-AOT 默认使用 C 后端, Go native/VM 后端仍强制 `CGO_ENABLED=0` 纯静态链接；产物独立运行。
+AOT 默认使用 C 后端; Go native/VM 后端强制 `CGO_ENABLED=0` 纯静态链接, 产物独立运行。
 输入支持 `.cin/.asm/.pl/.sdgcc/.bin/.co`。详见 [AOT 独立可执行文件](/runtime/aot)。
 
 ## 常用组合

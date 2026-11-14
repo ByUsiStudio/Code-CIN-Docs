@@ -81,7 +81,7 @@ FFI（`ffi`）这类库依赖宿主能力，由 Go 原生引擎实现，`--sandb
 | `stl_` | `cppstd.cin` | C++ STL 兼容层（`std::string` / `vector` / `stack` / `queue`） |
 | `go_` | `gostd.cin` | Go 标准库兼容层（`strings` / `strconv` / `math` / `slices` / `os`） |
 | `ffi_` | `ffi.cin` | FFI 动态库调用便捷封装 |
-| —（函数名以 `http_` / `tcp_` / `udp_` / `dns_` 开头） | `net.cin` | 网络便捷封装 |
+| 无（函数名以 `http_` / `tcp_` / `udp_` / `dns_` 开头） | `net.cin` | 网络便捷封装 |
 
 ::: warning `t_` 前缀冲突
 `codecin/lib/time/src/time.cin` 与 `codecin/lib/test/src/test.cin` 都使用 `t_` 前缀且符号不同名，同时导入不会报
