@@ -5,8 +5,8 @@ description: 五分钟上手 Code CIN：第一个 CIN 程序、三种输入语�
 # 快速开始
 
 本节假设你已经完成 [安装](/guide/installation) (`pip install codecin`)。
-下面所有命令既可以用安装后的 `codecin`, 也可以用源码树里的 `codecin`,
-两者完全等价。
+下面的 `codecin` 命令来自安装后的入口; 在源码树中先 `pip install -e .` (或把 `codecin`
+换成 `python -m codecin.cli`), 行为完全一致。
 
 ## 1. 第一个程序
 
@@ -29,11 +29,11 @@ codecin hello.cin
 实际输出 (日志行会与程序输出混在同一终端, 见下方提示):
 
 ```text
-08:37:15 INFO     CIN compiled: 30 instructions
-         INFO     Starting program execution
+08:40:08 INFO     CIN compiled: 30 instructions
+         INFO     Starting program execution (Go native engine)
 Hello, Code CIN!
 2 + 3 = 5
-         INFO     HALT instruction executed
+08:40:11 INFO     HALT (native)
          INFO     Program execution finished
 ```
 
@@ -52,8 +52,8 @@ Hello, Code CIN!
 
 这段程序的要点:
 
-- `main` 是入口函数 (不是必须叫 `main`, 程序按源码顺序先执行全局初始化, 再到第一条语句);
-- **语句以换行结尾**, 分号可选;
+- `main` 是入口函数, 必须定义; 程序从 `main` 开始执行;
+- 语句以换行结尾, 分号可选;
 - 字符串用 `+` 与任意类型拼接, `println` 自动追加换行;
 - `-> int` 是返回类型, 省略时默认 `void`。
 
@@ -112,7 +112,7 @@ codecin hello.asm        # 汇编
   ASM 风格使用标准助记符 (`MOV` / `OUT` / `HALT` / `CMP` / `JZ` / `BL` …); 两种风格都由同一个
   `codecin/assembler.py` 汇编, 语法细节见 [汇编语法参考](/asm/syntax)。
 - `sys #24` 是宿主系统调用 `PRINT_STR` (打印 `x0` 指向的 NUL 结尾字符串), `out` 输出数值,
-  值为 `10` 时输出换行 —— 详见 [指令语义参考](/asm/instructions)。
+  值为 `10` 时输出换行, 详见 [指令语义参考](/asm/instructions)。
 
 ## 3. 两条执行主线: Go 引擎与 cincc
 
@@ -124,11 +124,11 @@ codecin hello.cin                     # 编译为 .sdgcc, 由 Go 引擎执行
 
 Python 侧负责编译与装载, 然后通过 ABI v2 的 `codecin_run_v2` 把整程序一次调用
 交给 Go 原生引擎执行, 结束后回传寄存器/向量/标志/脏内存段与输出。
-v5.9.0 起**没有解释器/JIT 回退**: 原生库缺失时会直接抛 `CPUSimulatorError` 并附
+v5.9.0 起没有解释器/JIT 回退: 原生库缺失时会直接抛 `CPUSimulatorError` 并附
 重建指引 (源码树 `codecin/native/` 下的 `build.ps1` / `build.sh`, 需 Go 1.26+),
 所以[安装后构建原生库](/guide/installation)是必要步骤。
 
-v7.22.10 起也可以走 `cincc` 原生机器码路径 (不经 C、不经字节码):
+8.0.0 起也可以走 `cincc` 原生机器码路径 (不经 C、不经字节码):
 
 ```bash
 codecin hello.cin --native            # 编译为 x86-64 ELF 并运行 (Windows 经 WSL)
@@ -139,7 +139,7 @@ codecin hello.cin --native-out hello  # 只构建, 不运行
 或设置 `CODECIN_CINCC`。它覆盖语言子集: 没有 GUI/画布/音频、HTTP/DNS、FFI。
 完整宿主能力请用默认 `.sdgcc` 路径。
 
-内存默认 **1 GiB** (4 KiB 稀疏分页、按需提交), 大数组/大缓冲不再需要 `--mem-size`。
+内存默认 1 GiB (4 KiB 稀疏分页、按需提交), 大数组/大缓冲不再需要 `--mem-size`。
 
 ## 4. 编译产物与内存镜像
 
@@ -149,7 +149,7 @@ codecin hello.cin --compile-only
 # INFO  CIN compiled: 30 instructions
 # INFO  Compiled to hello.sdgcc
 
-# 显式要兼容 BIN v3 时:
+# 需要裸 .bin 字节码时:
 codecin hello.cin --compile-only -o hello.bin
 
 # 直接运行产物
@@ -178,7 +178,7 @@ codecin prog.asm --crom prog.crom    # 汇编路径: 先恢复内存镜像再汇
 ```
 
 ::: warning `--crom` 只对 `.pl` / `.asm` 生效
-`CPU.load_program` 在 `.cin`、`.sdgcc` 与 `.bin` 分支会直接返回, 因此这些入口**不会读取** `--crom`;
+`CPU.load_program` 在 `.cin`、`.sdgcc` 与 `.bin` 分支会直接返回, 因此这些入口不会读取 `--crom`;
 `.pl` / `.asm` 还会自动探测同目录同名的 `<程序名>.crom`。CROM 是内存镜像而不是可执行文件
 (直接 `codecin x.crom` 会被当作汇编源码而报错), 详见 [二进制格式](/runtime/formats)。
 :::
@@ -196,8 +196,8 @@ codecin hello.cin --build-exe app-linux --build-target linux/amd64 --build-stati
 codecin hello.cin --build-exe app-mac --build-target darwin/arm64 --build-backend native
 ```
 
-默认 `auto` 后端优先使用 **C 后端** (需系统 GCC/Clang 或 `zig`); C 不支持时回退
-Go native/VM。产物**运行时不需要 Python、Go 工具链或 Code CIN 动态库**; C 后端默认动态
+默认 `auto` 后端优先使用 C 后端 (需系统 GCC/Clang 或 `zig`); C 不支持时回退
+Go native/VM。产物运行时不需要 Python、Go 工具链或 Code CIN 动态库; C 后端默认动态
 链接系统 C 库, `--build-static` 时静态链接。CIN/ASM/PL 也可 `--emit-object` + `--link`
 独立编译链接, 详见 [AOT 独立可执行文件](/runtime/aot)。
 
@@ -284,7 +284,7 @@ Sum 1..10 = 55
 155
 ```
 
-演示循环、`SYS` 字符串打印、`.data` 段与间接寻址。
+`test_asm.asm` 在仓库根目录 (不在 `examples/`), 演示循环、`SYS` 字符串打印、`.data` 段与间接寻址。
 
 :::
 

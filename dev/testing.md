@@ -223,7 +223,7 @@ python -m pytest ../tests/test_no_go_cli.py
 `native` / `python-dist` / `release` 四个作业, 见 [打包与发布](/dev/packaging)。
 
 ::: tip `test_workflows.py` 为什么存在
-GitHub Actions 的表达式函数集里**没有 `replace()`** —— 用了它的工作流在 GitHub 上
+GitHub Actions 的表达式函数集里**没有 `replace()`**。用了它的工作流在 GitHub 上
 会被判为 `Invalid workflow file`, 本地却看不出来。`tests/test_workflows.py` 因此在本地
 就把这类错误拦住: 校验 YAML 可解析、表达式函数在官方白名单内、`matrix.<key>` 都在同
 job 的 matrix 里声明过、每个 job 有 `runs-on` + `steps`、每个 step 有 `uses` 或 `run`。
@@ -234,22 +234,22 @@ job 的 matrix 里声明过、每个 job 有 `runs-on` + `steps`、每个 step �
 ```bash
 # 1) 与 test 作业等价 (任选一个 Python 版本)
 python -m pip install -r requirements-dev.txt
-python script/gen_isa_docs.py --check
 python script/gen_native_isa.py --check
+python script/sync_stdlib_packages.py --check
 python -m pytest
 git ls-files --others --ignored --exclude-standard -- '*.py' '*.go' '*.cin' '*.asm'
 
 # 2) 与 lint 作业等价
-ruff check codecin cpu.py script tests
+ruff check codecin cpu.py script tests registry
 
 # 3) 与 native 作业等价
 cd codecin/native
 go build ./... && go vet ./... && gofmt -l . && go test ./... -race -count=1
 go test ./mc -count=1
 grep -rl '^package main' --include='*.go' . \
-  | grep -v -E '^\./main\.go$|^\./cmd/cincc/main\.go$'
+  | grep -v '^\./main\.go$'   # 当前会报出 cmd/cincc/main.go
 for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-  GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 go build ./engine ./ir ./compiler ./aot ./mc ./cmd/cincc
+  GOOS="${t%/*}" GOARCH="${t#*/}" CGO_ENABLED=0 go build ./engine ./ir ./compiler ./aot
 done
 go build -buildmode=c-shared -o /tmp/libcodecin_native.so .
 cd ../..
@@ -260,7 +260,7 @@ python -c "from codecin import native; assert native.get_engine() is not None"
 CODECIN_AOT_TESTS=1 python -m pytest -rs \
   --cov=codecin --cov-report=term-missing --cov-fail-under=70
 
-# 5) 与 dist 作业等价 (本地构建发布物)
+# 5) 本地打包检查 (CI 的 dist 作业已注释停用)
 CODECIN_SKIP_NATIVE=1 python -m build
 python -m pytest tests/test_packaging.py tests/test_version.py
 ```
@@ -279,13 +279,13 @@ python -c "from codecin import native; print(native.get_engine())"
 
 ::: warning 覆盖率门槛只在 integration 作业里生效
 `--cov-fail-under=70` 需要原生库就绪 (否则大量用例 skip, 覆盖率自然偏低)。
-在没编译原生库的机器上跑带门槛的覆盖率命令会失败, 这是预期行为 —— 先按
+在没编译原生库的机器上跑带门槛的覆盖率命令会失败, 这是预期行为。先按
 [编译 Go 原生库](/dev/build-native) 建好库。
 :::
 
 ## 相关页面
 
-- [项目结构](/dev/structure) — tests/ 与 script/ 在仓库中的位置
-- [编译 Go 原生库与 cincc](/dev/build-native) — 让 integration 作业前置条件成立的步骤
-- [打包与发布](/dev/packaging) — `dist` 作业与 Release 流程
-- [贡献指南](/dev/contributing) — 提交前应跑哪些检查
+- [项目结构](/dev/structure): tests/ 与 script/ 在仓库中的位置
+- [编译 Go 原生库与 cincc](/dev/build-native): 让 integration 作业前置条件成立的步骤
+- [打包与发布](/dev/packaging): Release 流程与内置库批量发布
+- [贡献指南](/dev/contributing): 提交前应跑哪些检查
