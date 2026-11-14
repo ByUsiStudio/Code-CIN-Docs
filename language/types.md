@@ -317,14 +317,20 @@ function f() -> void {
     q = 888
 }
 
-function main() -> int {
-    f()
+function g() -> void {
     int p
     int q
-    println("p=" + int_to_str(p) + " q=" + int_to_str(q))   // 可能是 p=777 q=888
+    println("p=" + int_to_str(p) + " q=" + int_to_str(q))   // 实测 p=777 q=888
+}
+
+function main() -> int {
+    f()
+    g()
     return 0
 }
 ```
+
+`main` 自己的局部变量在调用 `f` 之前已经分配，帧不重叠，所以直接写在 `main` 里仍然读到 0。
 
 **规则：局部变量总是先赋值再使用。** 需要确定初值时显式写 `int total = 0`。
 :::

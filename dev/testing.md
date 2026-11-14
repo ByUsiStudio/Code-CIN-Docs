@@ -189,7 +189,7 @@ python -m pytest ../tests/test_no_go_cli.py
 | `test_literals_and_bom.py` | 数值字面量与带 UTF-8 BOM 源码中 `import` 的双端一致性 |
 | `test_native_hardening.py` | 原生库加固: 步数用尽报错、不可信字节码、CROM 解压上限 |
 | `test_native_lib_lookup.py` | 原生库查找顺序: 架构专属文件名优先于通用名 |
-| `test_no_go_cli.py` | 架构门禁: 允许 c-shared 入口与 `cmd/cincc` 编译器, 无用户 CLI; 源码树无构建产物 |
+| `test_no_go_cli.py` | 架构门禁: `package main` 白名单目前只列 c-shared 入口 `main.go`; 源码树无构建产物 |
 | `test_packaging.py` | 打包设计: package-data 含内置库不含二进制、MANIFEST 带 Go 源码、只发 sdist、`BuildPyWithNative` |
 | `test_sparse_memory.py` | 稀疏分页内存: 页按需分配、`resident_bytes`、越界与负地址提示、保护检查 |
 | `test_switch_semantics.py` | switch 语义回归 (Go 与 Python 双编译器对齐) |
