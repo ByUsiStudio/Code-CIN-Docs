@@ -76,18 +76,21 @@ tag = "v2.1.0"
 ## 发布 (详细输出)
 
 ```bash
-pic publish [--manifest pic.toml] --repo <git-url> --name <name> \
-  [--version 1.2.0] [--tag v1.2.0] [--push] [--no-tag] \
-  [--allow-dirty] [-o dist/hello-1.2.0.cinpkg]
+pic publish [--manifest <pic.toml|包目录>] [--repo <git-url>] [--name <name>] \
+  [--version 1.2.0] [--tag v1.2.0] [--push] [--remote origin] [--no-tag] \
+  [--allow-dirty] [--index <目录>] [-o dist/hello-1.2.0.cinpkg]
 ```
 
-发布前通常需要带上的三个参数：
+`--manifest` 接受 `pic.toml` 或包目录（默认当前目录）。发布前通常需要带上的参数：
 
 - `--no-tag`：多个包共用同一个 Git 仓库时跳过 `v<version>` 标签，避免标签冲突；
   版本改用当前 commit 记录。
 - `--allow-dirty`：工作区有未提交改动时仍允许发布；不带该参数会直接拒绝。
 - `-o` / `--output`：自定义 `.cinpkg` 归档路径，默认写入
   `dist/<name>-<version>.cinpkg`。
+- `--push`：把新建的标签推送到远端，默认 `--remote origin`。
+- `--index <目录>`：额外把 `name/version/tag/sha256` 写入该目录下的 `<name>.toml`
+  分散索引。
 
 输出示例：
 
@@ -123,7 +126,8 @@ pic publish hello@1.0.0
 
 1. 校验/规范化 `pic.toml`，检查 Git 工作区；
 2. 生成 `dist/<name>-<version>.cinpkg`（含 `META-INF/SHA256SUMS`）；
-3. 创建并推送标签（`--no-tag` 改用 commit 记录）；
+3. 在本地创建标签；只有加 `--push` 才推送到远端，`--no-tag` 跳过标签并改用
+   当前 commit 记录；
 4. 向 `package.codecin.org.cn` 提交元数据；
 5. 上传 `.cinpkg` 制品（服务端校验 SHA-256）。
 
@@ -141,10 +145,10 @@ python script/publish_stdlib_packages.py --offline     # 只登记本地 registr
 python script/publish_stdlib_packages.py --require-clean
 ```
 
-脚本对每个包调用 `pic publish`，并统一带 `--no-tag` 与 `--allow-dirty`：内置库
-共用同一个 Git 仓库，逐包创建版本标签会冲突，而改动常常还在工作区里。需要严格
-检查工作区时加 `--require-clean`；单个包失败不会中断后续包，结束时打印汇总并以
-非零退出码报告失败数。
+脚本对每个包调用 `pic publish`，并统一带 `--no-tag`；默认再加 `--allow-dirty`
+（内置库共用同一个 Git 仓库，逐包创建版本标签会冲突，而改动常常还在工作区里）。
+需要严格检查工作区时加 `--require-clean`，此时不再传 `--allow-dirty`。单个包失败
+不会中断后续包，结束时打印汇总并以非零退出码报告失败数。
 
 ## 安装
 
@@ -335,26 +339,31 @@ offline = false
 ## 其他命令
 
 ```bash
-pic login [--no-browser] [--email ...] [--password ...] [--code ...]
+pic login [--no-browser] [--email ...] [--password ...] [--code ...] \
+  [--api-base <url>] [--timeout 300] [--force]
 pic logout
 pic whoami [--json]
-pic init [name] [--path .] [--version 0.1.0] [--entry src/<name>.cin] [--repo <url>]
-pic build [--manifest pic.toml] [-o out.cinpkg]
+pic init [name] [--path .] [--version 0.1.0] [--entry src/<name>.cin] \
+  [--description ...] [--license MIT] [--repo <url>] [--force]
+pic build [--manifest <pic.toml|包目录>] [-o out.cinpkg]
+pic install <spec> [...] [-e] [--project] [--name ...] [--version ...] \
+  [--ref ...] [--force] [--no-deps]
 pic list [--project] [--json]
-pic show hello
-pic freeze [--project]
-pic uninstall hello [--project]
+pic show hello [--version 1.0.0] [--project] [--json]
+pic freeze [--project] [-o pic.lock]
+pic uninstall hello [--version 1.0.0] [--project]
 pic search [query] [--json] [--limit N] [--offset N] [--sort ...] [--keyword ...]
 pic versions hello [--json]
 pic info hello [--json]
-pic modules hello [--json]
+pic modules hello [--version 1.0.0] [--project] [--json]
 pic yank hello 1.0.0
 pic unyank hello 1.0.0
 pic latest hello 1.0.0
 pic use hello 1.0.0
-pic admin [--no-browser] [--print-token]
+pic admin [--no-browser] [--print-token] [--print-url]
 pic registry list
 pic registry add <name> <git-url>   # 本地回退登记
+pic registry add <git-url> --name <name>
 pic registry remove <name>
 pic doctor
 ```

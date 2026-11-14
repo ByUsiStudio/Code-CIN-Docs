@@ -127,15 +127,15 @@ import "bigint.cin"
 | `bi_mul_small` | `bi_mul_small(BigInt a, int k)` | `BigInt` | `a * k`（快速乘以 64 位小整数） |
 | `bi_pow` | `bi_pow(BigInt a, int e)` | `BigInt` | `a` 的 `e` 次幂（快速幂）；**`e < 0` 视为 0**，即返回 `1`；中途一旦饱和立即返回饱和值 |
 | `bi_fact` | `bi_fact(int n)` | `BigInt` | `n` 的阶乘（`n < 0` 视为 `0! = 1`）；超过容量时饱和并置溢出标志，并立即停止迭代 |
-| `bi_divmod_into` | `bi_divmod_into(BigInt a, BigInt b, BigInt q, BigInt r)` | `int` | q = a / b, r = a % b; 商向零截断, 因此余数符号随 a (与 C 语言一致)。 返回 1 成功; b 为零时返回 0, 把 q、r 置 0 并置溢出标志; 要求 q、r 与 a、b 为不同结构体, 且 q 与 r 也互不相同。 |
+| `bi_divmod_into` | `bi_divmod_into(BigInt a, BigInt b, BigInt q, BigInt r)` | `int` | `q = a / b`，`r = a % b`；商向零截断，余数符号随 `a`（与 C 语言一致）。成功返回 1；`b` 为零时返回 0，把 `q`、`r` 置 0 并置溢出标志；`q`、`r` 必须与 `a`、`b` 为不同结构体，且 `q` 与 `r` 也互不相同。 |
 | `bi_div` | `bi_div(BigInt a, BigInt b)` | `BigInt` | a / b (向零截断); b 为零时返回 0 并置溢出标志 |
 | `bi_mod` | `bi_mod(BigInt a, BigInt b)` | `BigInt` | a % b (符号随 a); b 为零时返回 0 并置溢出标志 |
-| `bi_div_small_into` | `bi_div_small_into(BigInt a, int k, BigInt out)` | `int` | out = a / k (向零截断), 返回 a % k (符号随 a, 与截断除法一致)。 k == 0: 返回 0, out 置 0 并置溢出标志; out 必须与 a 为不同结构体。任意 64 位 k 都可用, 不做 \|k\| <= 10^17 限制。 |
+| `bi_div_small_into` | `bi_div_small_into(BigInt a, int k, BigInt out)` | `int` | `out = a / k`（向零截断），返回 `a % k`（符号随 `a`，与截断除法一致）；`k == 0` 时返回 0，`out` 置 0 并置溢出标志；`out` 必须与 `a` 为不同结构体。任意 64 位 `k` 都可用，没有 `\|k\| <= 10^17` 的限制。 |
 | `bi_div_small` | `bi_div_small(BigInt a, int k)` | `BigInt` | a / k (向零截断); k 为零时返回 0 并置溢出标志 |
-| `bi_mod_small` | `bi_mod_small(BigInt a, int k)` | `int` | a % k (符号随 a); k 为零时返回 0 并置溢出标志。 复用库内全局暂存对象, 长循环里不会累积堆内存。 |
+| `bi_mod_small` | `bi_mod_small(BigInt a, int k)` | `int` | `a % k`（符号随 `a`）；`k == 0` 时返回 0 并置溢出标志。内部复用全局暂存对象，长循环里不会累积堆内存。 |
 | `bi_cmp_small` | `bi_cmp_small(BigInt a, int k)` | `int` | 与 64 位整数比较: -1 (a < k) / 0 / 1 (a > k) |
 | `bi_is_even` | `bi_is_even(BigInt a)` | `int` | 是否为偶数 (0 也算偶数): 1 / 0 |
-| `bi_to_hex` | `bi_to_hex(BigInt a)` | `string` | 十六进制字符串 (大写, 无 0x 前缀, 负数带 '-'): bi_to_hex(255) = "FF" |
+| `bi_to_hex` | `bi_to_hex(BigInt a)` | `string` | 大写十六进制字符串，无 `0x` 前缀，负数带 `-`；`bi_to_hex(255)` 为 `"FF"`，零返回 `"0"`。 |
 | `bi_gcd` | `bi_gcd(BigInt a, BigInt b)` | `BigInt` | 最大公约数 (结果非负); bi_gcd(0, 0) = 0, bi_gcd(a, 0) = \|a\| |
 
 内部辅助函数（`bi_aux_cmp_digits` / `bi_aux_sub_digits` / `bi_divmod_core` / `bi_div_small_core`）不是公开 API，后续版本可能调整。
@@ -190,8 +190,8 @@ import "bits.cin"
 | `bits_bswap` | `bits_bswap(int x)` | `int` | 字节序翻转（bswap64）；`bits_bswap(0x0102)` 为 `0x0201000000000000` |
 | `bits_parity` | `bits_parity(int x)` | `int` | popcount 的奇偶性: 1 的个数为奇数返回 1, 否则 0 |
 | `bits_zero_count` | `bits_zero_count(int x)` | `int` | 0 的个数 (64 位) |
-| `bits_gray_encode` | `bits_gray_encode(int x)` | `int` | 格雷码编码: g = x ^ (x >>> 1) (逻辑右移, 对负数也正确) |
-| `bits_gray_decode` | `bits_gray_decode(int g)` | `int` | 格雷码解码 (64 位, 前缀异或展开) |
+| `bits_gray_encode` | `bits_gray_encode(int x)` | `int` | 格雷码编码 `g = x ^ (x >>> 1)`，逻辑右移，对负数也正确 |
+| `bits_gray_decode` | `bits_gray_decode(int g)` | `int` | 格雷码解码，按 64 位逐位前缀异或还原原值 |
 | `bits_sign_extend` | `bits_sign_extend(int x, int width)` | `int` | 把低 width 位按有符号数扩展 (width 属于 1..64) |
 | `bits_one_runs` | `bits_one_runs(int x)` | `int` | 连续 1 的段数 (例如 0b1011 有 2 段) |
 
@@ -282,11 +282,11 @@ import "bitset.cin"
 | `bs_shift_right` | `bs_shift_right(int k)` | `void` | 当前槽整体右移 `k` 位（下标 `i -> i - k`），移出 0 以下的位丢弃；`k < 0` 或 `k == 0` 无操作；**`k >= 512` 时清零** |
 | `bs_from_int` | `bs_from_int(int v)` | `void` | 当前槽 = `v` 的低 64 位（其余 448 位清零，负数按补码展开） |
 | `bs_to_int` | `bs_to_int()` | `int` | 当前槽的低 64 位（第 0 个字），高位丢弃 |
-| `bs_prev_set` | `bs_prev_set(int from)` | `int` | 小于等于 from 的最大置位下标; 没有则返回 -1; from 越界返回 -1 |
+| `bs_prev_set` | `bs_prev_set(int from)` | `int` | 小于等于 `from` 的最大置位下标；没有则返回 `-1`，`from` 越界返回 `-1` |
 | `bs_intersects` | `bs_intersects(int other)` | `int` | 当前槽与槽 other 是否有共同置位; 1/0; other 非法返回 0 |
 | `bs_and_not` | `bs_and_not(int other)` | `int` | 当前槽 &= ~槽 other (差集写回当前槽); 1 成功, 0 表示 other 非法 (无操作) |
-| `bs_set_range` | `bs_set_range(int lo, int hi)` | `int` | 把闭区间 [lo, hi] 内的位置 1 (lo/hi 自动钳制到 0..511); 返回新置位的位数; 钳制后 hi < lo 返回 0 |
-| `bs_clear_range` | `bs_clear_range(int lo, int hi)` | `int` | 把闭区间 [lo, hi] 内的位清 0 (lo/hi 自动钳制到 0..511); 返回被清掉的位数; 钳制后 hi < lo 返回 0 |
+| `bs_set_range` | `bs_set_range(int lo, int hi)` | `int` | 把闭区间 `[lo, hi]` 内的位置 1，`lo`/`hi` 自动钳制到 `0..511`；返回新置位的位数，钳制后 `hi < lo` 返回 0 |
+| `bs_clear_range` | `bs_clear_range(int lo, int hi)` | `int` | 把闭区间 `[lo, hi]` 内的位清 0，`lo`/`hi` 自动钳制到 `0..511`；返回被清掉的位数，钳制后 `hi < lo` 返回 0 |
 | `bs_count_range` | `bs_count_range(int lo, int hi)` | `int` | 闭区间 [lo, hi] 内 1 的个数 (lo/hi 自动钳制到 0..511); 钳制后 hi < lo 返回 0 |
 
 内部辅助函数（`bs_valid` / `bs_popcount_word` / `bs_ctz_word` / `bs_high_bit`）不是公开 API，后续版本可能调整。
@@ -369,12 +369,12 @@ import "codec.cin"
 | `codec_morse_encode` | `codec_morse_encode(string s)` | `string` | 字母/数字 → 摩尔斯码，字母间单空格、单词间 `/`；不支持的字节跳过 |
 | `codec_reverse_bytes` | `codec_reverse_bytes(string s)` | `string` | 按字节反转（会打乱非 ASCII 的多字节序列） |
 | `codec_char_at` | `codec_char_at(string s, int i)` | `string` | 第 `i` 个**字节**组成的单字符字符串；越界返回 `""`（与内置 `s[i]` 不同：本函数做边界检查且返回字符串） |
-| `codec_morse_decode` | `codec_morse_decode(string m)` | `string` | 摩尔斯码 -> 大写字母/数字: 未知码字跳过, 无有效码字时返回 "" |
+| `codec_morse_decode` | `codec_morse_decode(string m)` | `string` | 摩尔斯码 → 大写字母/数字；未知码字跳过，没有有效码字时返回 `""` |
 | `codec_base32_encode` | `codec_base32_encode(string s)` | `string` | RFC 4648 base32 编码（字母表 A-Z2-7，'=' 填充）；空串返回空串；输出长度为 ceil(n / 5) * 8，末尾补 1..6 个 '=' |
 | `codec_base32_decode` | `codec_base32_decode(string b)` | `string` | base32 解码，接受带 '=' 的标准形式与无填充形式，大小写不敏感；非法字符、'=' 不在末尾或长度非法返回 ""；输出字节 0 无法表示，遇 0 返回 "" |
 | `codec_hexdump` | `codec_hexdump(string s)` | `string` | 十六进制转储：每行 16 字节，含偏移、16 组十六进制和可打印 ASCII 区，不可打印字节显示为 '.'；单次最多 256 字节，超出截断并追加一行 "..."；空串返回空串 |
-| `codec_vigenere` | `codec_vigenere(string s, string key, int decrypt)` | `string` | 维吉尼亚密码: 只移动 ASCII 字母, 大小写保持; 非字母原样输出且不消耗密钥。 密钥中的非字母字节按 0 位移; 密钥为空时原样返回 s。 decrypt == 0 加密, 非 0 解密 (自逆, 密钥相同时可还原)。 |
-| `codec_atbash` | `codec_atbash(string s)` | `string` | Atbash 密码: A<->Z, a<->z, 其它字节原样; 自逆 (加密 = 解密) |
+| `codec_vigenere` | `codec_vigenere(string s, string key, int decrypt)` | `string` | 维吉尼亚密码：只移动 ASCII 字母，大小写保持；非字母原样输出且不消耗密钥，密钥中的非字母字节按 0 位移；密钥为空时原样返回 `s`。`decrypt == 0` 加密，非 0 解密，密钥相同时可自逆还原。 |
+| `codec_atbash` | `codec_atbash(string s)` | `string` | Atbash 密码：`A` 与 `Z`、`a` 与 `z` 互换，其它字节原样；自逆，加密与解密相同 |
 
 > 另有若干内部辅助（`codec_chr_of` / `codec_hex_byte` / `codec_rle_count` /
 > `codec_is_digit` / `codec_is_url_safe` / `codec_b64_ok` / `codec_morse_of` 等），
@@ -431,13 +431,13 @@ import "combin.cin"
 
 | 函数名 | 签名 | 返回值 | 说明与边界行为 |
 | --- | --- | --- | --- |
-| `comb_gcd` | `comb_gcd(int a, int b)` | `int` | 最大公约数 (欧几里得, 先取绝对值); `comb_gcd(a, 0) = abs(a)`, `comb_gcd(0, 0) = 0`, 负数同样可用 |
+| `comb_gcd` | `comb_gcd(int a, int b)` | `int` | 最大公约数，欧几里得算法，先取绝对值；`comb_gcd(a, 0) = abs(a)`，`comb_gcd(0, 0) = 0`，负数同样可用 |
 | `comb_lcm` | `comb_lcm(int a, int b)` | `int` | 最小公倍数 `abs(idiv(a, g) * b)`; 任一参数为 `0` 返回 `0` |
-| `comb_gcd3` | `comb_gcd3(int a, int b, int c)` | `int` | 三个数的最大公约数, 即 `comb_gcd(comb_gcd(a, b), c)` |
-| `comb_is_prime` | `comb_is_prime(int n)` | `int` | 试除法判素, 返回 `1`/`0`; `n < 2` 为 `0`, `n == 2` 为 `1`, 偶数直接为 `0`; 与筛表容量无关 |
-| `comb_sieve` | `comb_sieve(int n)` | `int` | 埃氏筛出 `[0, n]` 的素数写入全局表, 返回素数个数; `n < 2` 返回 `0` 并清空表; `n > 511` 按 `511` 截断 (超出部分不保证); 每次调用都会先清空整张表 |
-| `comb_prime_at` | `comb_prime_at(int i)` | `int` | 第 `i` 个素数 (0 起, 依据最近一次 `comb_sieve`); **越界 (含负数) 返回 `-1`** |
-| `comb_prime_count` | `comb_prime_count()` | `int` | 最近一次 `comb_sieve` 的素数个数; 未筛过时为 `0` |
+| `comb_gcd3` | `comb_gcd3(int a, int b, int c)` | `int` | 三个数的最大公约数，即 `comb_gcd(comb_gcd(a, b), c)` |
+| `comb_is_prime` | `comb_is_prime(int n)` | `int` | 试除法判素，返回 1/0；`n < 2` 为 0，`n == 2` 为 1，偶数直接为 0；与筛表容量无关 |
+| `comb_sieve` | `comb_sieve(int n)` | `int` | 埃氏筛出 `[0, n]` 的素数写入全局表，返回素数个数；`n < 2` 返回 0 并清空表，`n > 511` 按 511 截断；每次调用都会先清空整张表 |
+| `comb_prime_at` | `comb_prime_at(int i)` | `int` | 第 `i` 个素数，0 起，依据最近一次 `comb_sieve`；越界（含负数）返回 `-1` |
+| `comb_prime_count` | `comb_prime_count()` | `int` | 最近一次 `comb_sieve` 的素数个数；未筛过时为 0 |
 | `comb_next_prime` | `comb_next_prime(int n)` | `int` | **`>= n`** 的最小素数 (`n` 本身是素数就返回 `n`); 表内找不到 (含超出 `511`) 返回 `-1`; 必须先调用过 `comb_sieve` |
 | `comb_fact` | `comb_fact(int n)` | `int` | 阶乘 `n!`; 仅 `n in [0, 20]` 精确, `n < 0` 或 `n > 20` 返回 `0` |
 | `comb_perm` | `comb_perm(int n, int k)` | `int` | 排列数 `P(n, k)`; `k == 0` 返回 `1`; `k < 0` 或 `k > n` 或 `n < 0` 返回 `0`; 仅 `n <= 20` 精确 |
@@ -448,18 +448,18 @@ import "combin.cin"
 | `comb_digit_count` | `comb_digit_count(int n)` | `int` | 十进制位数 (取绝对值); `0` 记为 `1` 位 |
 | `comb_reverse_int` | `comb_reverse_int(int n)` | `int` | 整数倒序并保留符号: `1230 -> 321`, `-120 -> -21`; 结果超出 64 位时为回绕值 |
 | `comb_is_palindrome` | `comb_is_palindrome(int n)` | `int` | 回文数判定 (忽略符号), 返回 `1`/`0`; `0` 与个位数都是回文 |
-| `comb_is_armstrong` | `comb_is_armstrong(int n)` | `int` | 阿姆斯特朗数 (水仙花数) 判定, 取绝对值; `153` / `370` / `371` / `407` / `1634` / `9474` 为真; 位数很多时幂和会回绕 (结果无意义) |
-| `comb_to_base` | `comb_to_base(int n, int base)` | `string` | 整数转 `base` 进制字符串, 用大写字母; **`base` 非法 (`< 2` 或 `> 36`) 返回 `""`**; 负数带 `-` 前缀; `0` 返回 `"0"` (按绝对值转换, 不是补码) |
-| `comb_from_base` | `comb_from_base(string s, int base)` | `int` | `base` 进制字符串转整数; 失败返回 `0`。允许前导空白与一个前导 `+`/`-`, 允许 `0x`/`0X` 前缀 (仅 `base == 16`), 大小写字母都接受; 出现 `>= base` 的数字或非法字符立即返回 `0` (不返回部分结果); 空串、只有符号、只有 `0x` 都返回 `0` |
+| `comb_is_armstrong` | `comb_is_armstrong(int n)` | `int` | 阿姆斯特朗数（水仙花数）判定，取绝对值；`153`、`370`、`371`、`407`、`1634`、`9474` 为真，位数很多时幂和会回绕 |
+| `comb_to_base` | `comb_to_base(int n, int base)` | `string` | 整数转 `base` 进制字符串，用大写字母；`base < 2` 或 `base > 36` 返回 `""`，负数带 `-` 前缀，0 返回 `"0"`，按绝对值转换而不是补码 |
+| `comb_from_base` | `comb_from_base(string s, int base)` | `int` | `base` 进制字符串转整数，失败返回 0；允许前导空白与一个 `+`/`-`，仅 `base == 16` 时允许 `0x`/`0X` 前缀，大小写字母都接受；出现大于等于 `base` 的数字或非法字符立即返回 0，不返回部分结果；空串、只有符号、只有 `0x` 都返回 0 |
 | `comb_mod_pow` | `comb_mod_pow(int base, int exp, int mod)` | `int` | 快速幂取模 `(base ^ exp) mod mod`;**`mod <= 0` 或 `exp < 0` 返回 `0`**; `exp == 0` 返回 `1 % mod`; `base` 为负时先归一化到 `[0, mod)`; 保证 `mod <= 2^31` 且 `abs(base) < 2^31` 时精确 |
 | `comb_collatz_steps` | `comb_collatz_steps(int n)` | `int` | 考拉兹 (3n+1) 到 `1` 的步数; `n <= 1` 返回 `0`; 循环有 100 万步上限 (防跑飞) |
 | `comb_is_perfect` | `comb_is_perfect(int n)` | `int` | 完全数判定 (真因子之和等于自身); `n <= 1` 返回 `0`; `6` / `28` / `496` / `8128` 为真 |
 | `comb_divisor_count` | `comb_divisor_count(int n)` | `int` | 正因子个数 (含 `1` 与自身); `n <= 0` 返回 `0`; `comb_divisor_count(12) = 6` |
 | `comb_divisor_sum` | `comb_divisor_sum(int n)` | `int` | 正因子之和 (含 `1` 与自身); `n <= 0` 返回 `0`; `comb_divisor_sum(12) = 28` |
-| `comb_modinv` | `comb_modinv(int a, int mod)` | `int` | 模逆: 扩展欧几里得求 a 在模 mod 下的乘法逆元, 结果落在 [0, mod-1]。 mod <= 1 或 gcd(a, mod) != 1 时不存在逆元, 返回 -1; mod <= 2^31 时中间乘积不会溢出 |
-| `comb_choose_mod` | `comb_choose_mod(int n, int k, int mod)` | `int` | C(n, k) mod m; m <= 0 返回 0; n / k 非法返回 0。 内部调用 comb_choose 求精确值, 因此只在 n <= 62 时保证精确。 |
-| `comb_factorize` | `comb_factorize(int n)` | `int` | 质因数分解: 把 n 的质因子 (含重复, 升序) 写入全局表 comb_factors, 返回个数。 n < 2 返回 0 并清空表; 因子超过 32 个时截断 (只保留前 32 个); 试除法用 d <= idiv(x, d) 判断上界, 大 n 时乘法不会回绕 |
-| `comb_factor_at` | `comb_factor_at(int i)` | `int` | 第 i 个质因子 (0 起, 依据最近一次 comb_factorize); 越界返回 -1 |
+| `comb_modinv` | `comb_modinv(int a, int mod)` | `int` | 模逆：扩展欧几里得求 `a` 在模 `mod` 下的乘法逆元，结果落在 `[0, mod-1]`；`mod <= 1` 或 `gcd(a, mod) != 1` 时不存在逆元，返回 `-1`；`mod <= 2^31` 时中间乘积不会溢出 |
+| `comb_choose_mod` | `comb_choose_mod(int n, int k, int mod)` | `int` | `C(n, k) mod m`；`m <= 0` 返回 0，`n`/`k` 非法返回 0。内部调用 `comb_choose` 求精确值，只在 `n <= 62` 时保证精确。 |
+| `comb_factorize` | `comb_factorize(int n)` | `int` | 质因数分解：把 `n` 的质因子（含重复、升序）写入全局表 `comb_factors`，返回个数；`n < 2` 返回 0 并清空表，因子超过 32 个时只保留前 32 个；试除法用 `d <= idiv(x, d)` 判断上界，大 `n` 时乘法不会回绕 |
+| `comb_factor_at` | `comb_factor_at(int i)` | `int` | 第 `i` 个质因子，0 起，依据最近一次 `comb_factorize`；越界返回 `-1` |
 | `comb_binom_row` | `comb_binom_row(int n, int[] out)` | `int` | 杨辉三角第 n 行: 把 C(n, 0..n) 写入 out (out 至少 n+1 个槽), 返回写入个数。 n < 0 或 n > 62 返回 0 (超出 64 位精确范围) |
 | `comb_is_coprime` | `comb_is_coprime(int a, int b)` | `int` | 是否互质: gcd(\|a\|, \|b\|) == 1; 1/0 (comb_is_coprime(0, 0) = 0) |
 | `comb_sieve_count` | `comb_sieve_count(int n)` | `int` | 重新筛到 n 并返回 <= n 的素数个数 (会覆盖 comb_sieve 的全局表状态)。 n < 2 返回 0; n > 511 按 511 截断。 |
@@ -529,7 +529,7 @@ import "conv.cin"
 | `c_chr` | `c_chr(int code)` | `string` | 字符编码 → 单字符字符串；特殊处理 `10`/`9`/`13`；覆盖常用可见 ASCII，未知返回空串 |
 | `c_to_int` | `c_to_int(string s)` | `int` | 十进制字符串 → 整数，是内建 `atoi` 的别名 |
 | `c_parse_float` | `c_parse_float(string s)` | `float` | 字符串 → 浮点；支持可选负号与小数部分，遇非法字符停止，不解析指数形式 |
-| `c_to_base` | `c_to_base(int v, int base)` | `string` | 整数 -> 任意进制字符串 (base 2..36, 大写数字; 负数保留 '-' 号) 例: c_to_base(255, 16) -> "FF"; c_to_base(-8, 2) -> "-1000" |
+| `c_to_base` | `c_to_base(int v, int base)` | `string` | 整数 → 任意进制字符串，`base` 取 `2..36`，用大写数字；负数保留 `-` 号。`c_to_base(255, 16)` 为 `"FF"`，`c_to_base(-8, 2)` 为 `"-1000"` |
 | `c_parse_base` | `c_parse_base(string s, int base)` | `int` | 任意进制字符串 -> 整数 (base 2..36; 忽略非法字符前的部分) 例: c_parse_base("FF", 16) -> 255; c_parse_base("-1010", 2) -> -10 |
 | `c_to_oct` | `c_to_oct(int v)` | `string` | 整数 -> 八进制字符串 (负数保留 '-' 号) |
 | `c_parse_oct` | `c_parse_oct(string s)` | `int` | 八进制字符串 -> 整数 (可带 0o / 0O 前缀) |
@@ -671,7 +671,7 @@ import "cstd.cin"
 | `libc_strncat` | `libc_strncat(string dst, string src, int n)` | `string` | strncat: 追加 src 的前 n 个字符 (n<=0 时原样返回 dst; C 需预分配 dst) |
 | `libc_strncpy` | `libc_strncpy(string dst, string src, int n)` | `string` | strncpy: 取 src 的前 n 个字符 (n<=0 返回空串; src 不足 n 时原样返回) 注: C 会用 '\0' 补齐剩余字节, CIN 字符串无法承载 NUL, 这里不做填充 |
 | `libc_strnlen` | `libc_strnlen(string s, int maxlen)` | `int` | strnlen (POSIX): 长度上限 maxlen (maxlen<=0 返回 0) |
-| `libc_strtoul` | `libc_strtoul(string s, int base)` | `int` | strtoul: 解析无符号整数字面量 (base 0 自动识别 0x/0 前缀, base 2..36; 允许前导空白与可选 +/- 符号; 遇到非法字符即停, 无数字返回 0) |
+| `libc_strtoul` | `libc_strtoul(string s, int base)` | `int` | `strtoul`：解析无符号整数字面量；`base == 0` 时自动识别 `0x`/`0` 前缀，否则取 `2..36`；允许前导空白与可选 `+`/`-`，遇到非法字符即停，没有数字返回 0 |
 
 内部辅助函数（`_libc_chr`）不是公开 API，后续版本可能调整。
 
@@ -735,11 +735,11 @@ import "csv.cin"
 | `csv_line_count` | `csv_line_count()` | `int` | 当前累积的字段个数（区分"0 个字段"与"一个空字段"） |
 | `csv_raw_count` | `csv_raw_count(string line, int delim)` | `int` | 按单字节分隔符 `delim`（如 `';'` 即 `59`）切分的字段数，**不做引号处理**；空行为 `0`；`delim <= 0` 时整行算 1 个字段 |
 | `csv_raw_get` | `csv_raw_get(string line, int delim, int idx)` | `string` | 按 `delim` 取第 `idx` 个字段（0 起，原样返回、不还原引号）；越界或 `idx < 0` 返回 `""`；`delim <= 0` 时只有 `idx == 0` 命中整行 |
-| `csv_row` | `csv_row(string[] fields, int n)` | `string` | 仍遵守本库的单行、逗号分隔、RFC 4180 引号转义约定 (见文件头"限制")。 把 string[] 的前 n 个字段拼成一行 (每个字段按 csv_quote 决定是否加引号) 等价于对每个字段依次调用 csv_line_add; 不走全局缓冲, 也没有 1024 字节上限。 n <= 0 返回 ""; 注意拼接产生的堆块不回收, 单次调用请控制字段数/总长度。 |
+| `csv_row` | `csv_row(string[] fields, int n)` | `string` | 把 `string[]` 的前 `n` 个字段拼成一行，每个字段按 `csv_quote` 规则决定是否加引号；等价于依次调用 `csv_line_add`，但不走全局缓冲，也没有 1024 字节上限。`n <= 0` 返回 `""`；拼接产生的堆块不回收，单次调用请控制字段数与总长度。 |
 | `csv_escape_quoted` | `csv_escape_quoted(string field)` | `string` | 总是加外层双引号并转义内部 " (即使字段为空或不需要引号) csv_escape_quoted("") -> "\"\""; csv_escape_quoted("a\"b") -> "\"a\"\"b\"" |
 | `csv_unescape` | `csv_unescape(string field)` | `string` | csv_escape 的逆操作: 把字段内部的 "" 还原成单个 ", 不处理外层引号。 未出现 "" 时原样返回 field; 空串返回 "" |
-| `csv_field_raw` | `csv_field_raw(string line, int idx)` | `string` | 第 idx 个字段的原始文本 (0 起, 含外层引号与前后的空白, 不含分隔逗号); 越界或 idx < 0 返回 ""; 需要"保留用户原样写法"时用它, 需要去引号值时用 csv_get |
-| `csv_row_count` | `csv_row_count(string line)` | `int` | 一行有多少个字段; 与 csv_count 等价 (命名更直观: 一行 = 一条记录) |
+| `csv_field_raw` | `csv_field_raw(string line, int idx)` | `string` | 第 `idx` 个字段的原始文本，0 起，含外层引号与前后空白，不含分隔逗号；越界或 `idx < 0` 返回 `""`；需要保留用户原样写法时用它，需要去引号值时用 `csv_get` |
+| `csv_row_count` | `csv_row_count(string line)` | `int` | 一行有多少个字段；与 `csv_count` 等价，命名强调一行即一条记录 |
 
 内部辅助函数（`csv_skip_ws` / `csv_quote_pos` / `csv_next_start` / `csv_val_at` / `csv_cell_trim` / `csv_is_int` / `csv_is_float` / `csv_parse_float`）不是公开 API，后续版本可能调整。
 
@@ -805,10 +805,10 @@ import "dp.cin"
 | `dp_lis` | `dp_lis(int[] a, int n)` | `int` | 最长**严格**递增子序列长度（O(n²)）；**`n <= 0` 返回 `0`**；`n > 64` 时只看前 `64` 个元素 |
 | `dp_max_subarray` | `dp_max_subarray(int[] a, int n)` | `int` | 最大子段和（Kadane，O(n)）；**`n <= 0` 返回 `0`**；至少取一个元素，全负数时返回其中最大的那个 |
 | `dp_min_path` | `dp_min_path(int[] grid, int rows, int cols)` | `int` | 网格最小路径和（只能向右/向下），网格按**行主序一维**给出：`grid[r * cols + c]`；起点与终点都计入和；**`rows <= 0` 或 `cols <= 0` 返回 `0`**；**`cols > 256` 返回 `-1`**（列数参与行主序下标，定长滚动数组放不下，明确失败） |
-| `dp_knapsack_complete` | `dp_knapsack_complete(int[] w, int[] v, int n, int cap)` | `int` | 完全背包最大价值 (每件物品可用无限次), 其余语义与 dp_knapsack01 完全一致 n <= 0 或 cap <= 0 返回 0; cap > DP_KNAP_CAP 时按 DP_KNAP_CAP 计算; 重量 < 0 的物品按"重量 0"处理; 重量 > cap 的物品自动跳过 |
-| `dp_stock_profit` | `dp_stock_profit(int[] prices, int n)` | `int` | 单笔股票交易的最大利润 (先买后卖, 只允许一次买卖) n <= 0 返回 0; 价格可正可负, 无利润时返回 0 |
-| `dp_house_robber` | `dp_house_robber(int[] a, int n)` | `int` | 打家劫舍: 相邻房屋不能同时选, 返回能偷到的最大金额 n <= 0 返回 0; 金额为负时也会按"不偷"处理 |
-| `dp_longest_common_substring` | `dp_longest_common_substring(string a, string b)` | `int` | 最长公共子串长度 (要求连续, 按字节比较; 滚动两行 O(min) 空间) 任一空串返回 0; 串长超过 DP_STR_MAX 时只看前 DP_STR_MAX 字节 |
+| `dp_knapsack_complete` | `dp_knapsack_complete(int[] w, int[] v, int n, int cap)` | `int` | 完全背包最大价值，每件物品可用无限次；`n <= 0` 或 `cap <= 0` 返回 0，`cap > 256` 按 256 计算，重量小于 0 的物品按重量 0 处理，重量大于 `cap` 的物品自动跳过。其余语义与 `dp_knapsack01` 一致。 |
+| `dp_stock_profit` | `dp_stock_profit(int[] prices, int n)` | `int` | 单笔股票交易的最大利润，先买后卖，只允许一次买卖；`n <= 0` 返回 0，价格可正可负，无利润时返回 0 |
+| `dp_house_robber` | `dp_house_robber(int[] a, int n)` | `int` | 打家劫舍：相邻房屋不能同时选，返回能偷到的最大金额；`n <= 0` 返回 0，金额为负时按不偷处理 |
+| `dp_longest_common_substring` | `dp_longest_common_substring(string a, string b)` | `int` | 最长公共子串长度，要求连续，按字节比较，滚动两行实现 O(min) 空间；任一空串返回 0，串长超过 `DP_STR_MAX` 时只看前 `DP_STR_MAX` 字节 |
 | `dp_grid_paths` | `dp_grid_paths(int rows, int cols)` | `int` | 网格路径数 (rows x cols, 只能向右或向下): 等价于 C(rows+cols-2, rows-1) rows <= 0 或 cols <= 0 返回 0; cols > DP_PATH_COLS 返回 -1 (滚动数组放不下); 结果按 64 位整数回绕 (rows/cols 较大时可能溢出) |
 
 ```cin
@@ -910,7 +910,7 @@ import "fmt.cin"
 | `fmt_int_width` | `fmt_int_width(int v, int width)` | `string` | 整数**右对齐**到 `width` 列，左侧补空格；负数保留 `-`；`width <= strlen(int_to_str(v))` 时原样返回 |
 | `fmt_int_zero` | `fmt_int_zero(int v, int width)` | `string` | 补前导 `0` 到 `width` 列，**`width` 是含符号的总宽度**（`fmt_int_zero(-42, 5)` 为 `"-0042"`）；不足时原样返回 |
 | `fmt_thousands` | `fmt_thousands(int v)` | `string` | 千位分隔，每 3 位一个 `,`，负数保留 `-`；`0` 为 `"0"`，`-1000` 为 `"-1,000"` |
-| `fmt_float_dec` | `fmt_float_dec(float v, int digits)` | `string` | **定点小数**：四舍五入到 `digits` 位并补足尾随 0；`fmt_float_dec(3.14159, 2)` 为 `"3.14"`，`fmt_float_dec(2.0, 3)` 为 `"2.000"`，`fmt_float_dec(9.999, 2)` 为 `"10.00"`（进位贯穿整数部分）。`digits` 钳制到 `[0, 9]`，负数按绝对值圆整后补号（`-0.005` → `"-0.01"`）；`|v| >= 1e9` 退化为 `float_to_str(v)` |
+| `fmt_float_dec` | `fmt_float_dec(float v, int digits)` | `string` | **定点小数**：四舍五入到 `digits` 位并补足尾随 0；`fmt_float_dec(3.14159, 2)` 为 `"3.14"`，`fmt_float_dec(2.0, 3)` 为 `"2.000"`，`fmt_float_dec(9.999, 2)` 为 `"10.00"`（进位贯穿整数部分）。`digits` 钳制到 `[0, 9]`，负数按绝对值圆整后补号（`-0.005` → `"-0.01"`）；`\|v\| >= 1e9` 退化为 `float_to_str(v)` |
 | `fmt_float_pad` | `fmt_float_pad(float v, int int_width, int dec_digits)` | `string` | 定点小数并把**整数部分**补前导 0 到 `int_width` 位（不含符号与小数部分）：`fmt_float_pad(3.14159, 6, 2)` 为 `"000003.14"`，`fmt_float_pad(-3.5, 4, 1)` 为 `"-0003.5"`；`dec_digits` 钳制到 `[0, 9]`，整数部分已足够长时不补 |
 | `fmt_percent` | `fmt_percent(float ratio, int digits)` | `string` | 比例 → 百分数（`ratio * 100` 后定点到 `digits` 位）：`fmt_percent(0.1234, 1)` 为 `"12.3%"`，`fmt_percent(1.0, 0)` 为 `"100%"`；`digits` 钳制到 `[0, 9]`，**`ratio` 不做钳制**（`2.0` → `"200.0%"`） |
 | `fmt_align` | `fmt_align(string s, int width, int mode)` | `string` | 对齐到 `width` 列：`mode` `0` 左对齐 / `1` 右对齐 / `2` 居中，其余取值（含负数）按左对齐；居中时余出的 1 列补在**右侧**；`strlen(s) >= width` 原样返回 |
@@ -924,11 +924,11 @@ import "fmt.cin"
 | `fmt_hex` | `fmt_hex(int v, int width)` | `string` | 大写十六进制，前导 `0` 补到 `width` 位；`v == 0` 输出 `"0"`，**负数按 64 位补码展开**（16 位）；`width` 钳制到 `[0, 64]`，不超过实际位数时不补 |
 | `fmt_bin` | `fmt_bin(int v, int width)` | `string` | 二进制，前导 `0` 补到 `width` 位；`v == 0` 输出 `"0"`，负数按 64 位补码展开（64 位）；`width` 钳制到 `[0, 64]` |
 | `fmt_bool` | `fmt_bool(bool b)` | `string` | 布尔 → `"true"` / `"false"`（**本库选定与内建 `bool_to_str` 及打印一致的拼写**，不是 `"yes"` / `"no"`）；非零为 `true` |
-| `fmt_left` | `fmt_left(string s, int width)` | `string` | 宽度仍是字节列数 (UTF-8 汉字算 3 列), 不做终端宽度计算。 左对齐到 width 列右补空格; 已 >= width 时原样返回 (等价 fmt_align(s, width, 0)) |
-| `fmt_right` | `fmt_right(string s, int width)` | `string` | 右对齐到 width 列左补空格; 已 >= width 时原样返回 (等价 fmt_align(s, width, 1)) |
+| `fmt_left` | `fmt_left(string s, int width)` | `string` | 按字节列数左对齐到 `width` 列，右侧补空格；已经达到或超过 `width` 时原样返回，等价于 `fmt_align(s, width, 0)`；UTF-8 汉字按 3 列计算，不做终端显示宽度换算 |
+| `fmt_right` | `fmt_right(string s, int width)` | `string` | 按字节列数右对齐到 `width` 列，左侧补空格；已经达到或超过 `width` 时原样返回，等价于 `fmt_align(s, width, 1)` |
 | `fmt_join` | `fmt_join(string[] parts, int n, string sep)` | `string` | 用 sep 拼接 string[] 的前 n 个元素; n <= 0 返回 "" |
-| `fmt_bytes_size` | `fmt_bytes_size(int bytes)` | `string` | 字节数 -> 人类可读大小 (1024 进制, 保留 1 位小数) fmt_bytes_size(0) -> "0 B"; fmt_bytes_size(1024) -> "1.0 KB"; fmt_bytes_size(1536) -> "1.5 KB"; fmt_bytes_size(-2048) -> "-2.0 KB" 单位依次为 B / KB / MB / GB / TB / PB; \|bytes\| < 1024 时不带小数 |
-| `fmt_duration_short` | `fmt_duration_short(int ms)` | `string` | 毫秒 -> 紧凑时长: "500ms" / "1s" / "1.5s" / "1m05s" / "1h02m03s" 负值按 0 处理; 不足 1 秒显示毫秒, 不足 1 分钟显示秒 (有零头时保留 1 位小数) |
+| `fmt_bytes_size` | `fmt_bytes_size(int bytes)` | `string` | 字节数 → 人类可读大小，1024 进制，保留 1 位小数；单位依次为 `B`/`KB`/`MB`/`GB`/`TB`/`PB`，绝对值小于 1024 时不带小数。`fmt_bytes_size(1536)` 为 `"1.5 KB"`，`fmt_bytes_size(-2048)` 为 `"-2.0 KB"` |
+| `fmt_duration_short` | `fmt_duration_short(int ms)` | `string` | 毫秒 → 紧凑时长；负值按 0 处理，不足 1 秒显示毫秒，不足 1 分钟显示秒（有零头时保留 1 位小数），否则显示 `m`/`h` 组合，如 `"500ms"`、`"1.5s"`、`"1m05s"`、`"1h02m03s"` |
 | `fmt_currency` | `fmt_currency(int cents, string symbol)` | `string` | 金额 (单位: 分) -> 货币字符串 (两位小数 + 千位分隔) fmt_currency(123456, "$") -> "$1,234.56"; fmt_currency(-5, "$") -> "-$0.05" |
 
 内部辅助函数（`fmt_rep` / `fmt_ascii_table`）不是公开 API，后续版本可能调整。
@@ -1000,7 +1000,7 @@ import "frac.cin"
 | `fr_to_str` | `fr_to_str(Frac a)` | `string` | 整数输出 `"2"`，否则输出 `"3/4"`；输出前先规范化 |
 | `fr_to_float` | `fr_to_float(Frac a)` | `float` | 浮点近似 `num / den`；分母为 0 时置错误标志并返回 `0.0` |
 | `fr_recip` | `fr_recip(Frac a)` | `Frac` | 倒数 1/a; a 为 0 时返回 0/1 并置错误标志 |
-| `fr_pow` | `fr_pow(Frac a, int e)` | `Frac` | 整数次幂 a^e (e 可为负, 负幂取倒数); 快速幂实现 |
+| `fr_pow` | `fr_pow(Frac a, int e)` | `Frac` | 整数次幂 `a^e`，`e` 可为负，负幂取倒数；快速幂实现 |
 | `fr_to_decimal` | `fr_to_decimal(Frac a, int places)` | `float` | 保留 places 位小数后的浮点近似 (places 钳制到 0..9) |
 | `fr_compare_float` | `fr_compare_float(Frac a, float x)` | `int` | 与浮点数比较: -1 (a < x) / 0 / 1 (a > x) |
 
@@ -1068,9 +1068,9 @@ import "gostd.cin"
 | `go_slices_clone` | `(int[] dst, int[] src, int n)` | `int` | 拷贝到 `dst`，返回 `n`（调用方保证容量） |
 | `go_os_args_len` | `()` | `int` | `len(os.Args)`：CLI `--` 之后传给 CIN 程序的参数个数；依赖命令行参数内建 |
 | `go_os_args_get` | `(int i)` | `string` | `os.Args[i]`（越界空串；下标从 `0` 计 CIN 参数）；依赖命令行参数内建 |
-| `go_strings_join` | `go_strings_join(string[] parts, int n, string sep)` | `string` | strings.Join: 把 parts[0..n-1] 用 sep 连接 (CIN 无动态数组, 显式传长度) |
+| `go_strings_join` | `go_strings_join(string[] parts, int n, string sep)` | `string` | `strings.Join`：把 `parts[0..n-1]` 用 `sep` 连接；CIN 没有动态数组，长度需显式传入 |
 | `go_strings_fields_count` | `go_strings_fields_count(string s)` | `int` | strings.Fields 的计数形态: 按 ASCII 空白分隔的非空片段数 |
-| `go_strconv_atoi_ok` | `go_strconv_atoi_ok(string s, int[] out)` | `int` | strconv.Atoi 的 (value, ok) 形态: 解析成功写 out[0] 并返回 1; 失败返回 0 且不写 out。允许可选 +/- 前缀, 其余必须全是 0-9 |
+| `go_strconv_atoi_ok` | `go_strconv_atoi_ok(string s, int[] out)` | `int` | `strconv.Atoi` 的 `(value, ok)` 形态：解析成功写 `out[0]` 并返回 1，失败返回 0 且不写 `out`；允许可选 `+`/`-` 前缀，其余字符必须全是 `0-9` |
 | `go_strconv_parse_bool` | `go_strconv_parse_bool(string s, int[] out)` | `int` | strconv.ParseBool 的 (value, ok) 形态: 成功写 out[0] (0/1) 并返回 1; 失败写 out[0] = -1 并返回 0 |
 
 ```cin
@@ -1133,11 +1133,11 @@ import "graph.cin"
 | `graph_is_cyclic` | `graph_is_cyclic()` | `int` | 是否存在环（自环算环），`1`/`0`；空图返回 `0`。无向图用「边数 > 节点数 - 分量数」判定，有向图用拓扑排序能否覆盖全部节点判定 |
 | `graph_topo_order` | `graph_topo_order(int[] order)` | `int` | 有向图拓扑排序（Kahn，每轮取**编号最小**的入度 0 节点，结果确定）；成功返回节点数并写 `order[0..n-1]`，**有环返回 `-1`**；无向图返回 `-1`（无向图没有拓扑序）；空有向图返回 `0` |
 | `graph_dijkstra` | `graph_dijkstra(int src, int[] dist)` | `int` | 单源最短路（O(n²) 邻接矩阵版）；返回可达节点数（含 `src`），`dist[0..graph_nodes()-1]` 写最短距离，**不可达写 `-1`**；`src` 越界或图为空返回 `0` 且不写 `dist`。有向图按出边方向松弛，无向图两个方向都松弛；**要求边权 >= 0**，出现负权时「松弛结果 < 0」的边会被忽略（不报错，此时结果没有保证） |
-| `graph_has_path` | `graph_has_path(int u, int v)` | `int` | u 能否沿出边到达 v (无向图加边时两侧都有, 因此等价于连通); 1/0 任一节点越界返回 0 |
-| `graph_edges_between` | `graph_edges_between(int u, int v)` | `int` | u 到 v 的最短跳数 (按边数计, 沿出边方向; 无向图两个方向都算) 同一节点返回 0; 不可达返回 -1; 任一节点越界返回 -1 |
-| `graph_label_components` | `graph_label_components(int[] labels)` | `int` | 按无向视角给每个节点标出所属连通分量编号 (0 起, 按最小节点编号递增), labels 至少 graph_n 个槽; 返回分量个数 (空图返回 0) |
-| `graph_edge_total_weight` | `graph_edge_total_weight()` | `int` | 所有边权之和; 无向图里每条边只算一次, 有向图按每条弧分别累加; 空图返回 0 |
-| `graph_is_complete` | `graph_is_complete()` | `int` | 是否为完全图 (任意两个不同节点之间都有边, 自环不影响判定); 空图与单节点返回 1 |
+| `graph_has_path` | `graph_has_path(int u, int v)` | `int` | `u` 能否沿出边到达 `v`，无向图加边时两侧都有，因此等价于连通；返回 1/0，任一节点越界返回 0 |
+| `graph_edges_between` | `graph_edges_between(int u, int v)` | `int` | `u` 到 `v` 的最短跳数，按边数计，沿出边方向，无向图两个方向都算；同一节点返回 0，不可达返回 `-1`，任一节点越界返回 `-1` |
+| `graph_label_components` | `graph_label_components(int[] labels)` | `int` | 按无向视角给每个节点标出所属连通分量编号，编号从 0 起、按最小节点编号递增；`labels` 至少要有 `graph_n` 个槽，返回分量个数，空图返回 0 |
+| `graph_edge_total_weight` | `graph_edge_total_weight()` | `int` | 所有边权之和；无向图里每条边只算一次，有向图按每条弧分别累加，空图返回 0 |
+| `graph_is_complete` | `graph_is_complete()` | `int` | 是否为完全图，即任意两个不同节点之间都有边，自环不影响判定；空图与单节点返回 1 |
 
 内部辅助函数（`graph_aux_node` / `graph_aux_arc`）不是公开 API，后续版本可能调整。
 
@@ -1204,7 +1204,7 @@ import "gui.cin"
 | `g_save` | `g_save(string path)` | `int` | 导出 PNG，`0` 成功 / `-1` 失败，转调内建 `save_png` |
 | `g_show` | `g_show()` | `int` | 调系统查看器弹出窗口，转调内建 `show_canvas` |
 | `g_update` | `g_update()` | `int` | 呈现当前帧 (处理事件 + 把后备缓冲上屏); 无窗口返回 -1。 |
-| `g_close` | `g_close()` | `int` | 关闭窗口 (画布保留, 仍可 save_png 导出); 恒返回 0。 |
+| `g_close` | `g_close()` | `int` | 关闭窗口，画布保留，仍可用 `save_png` 导出；恒返回 0。 |
 | `g_closed` | `g_closed()` | `int` | 用户是否已请求关闭 (点 X / Alt+F4): 1 是 / 0 否 |
 | `g_active` | `g_active()` | `int` | 窗口是否已打开: 1 是 / 0 否 |
 | `g_mouse_x` | `g_mouse_x()` | `int` | 鼠标光标 x (窗口客户区坐标); 无窗口返回 -1 |
@@ -1220,7 +1220,7 @@ import "gui.cin"
 | `g_circle` | `g_circle(int cx, int cy, int r, int rgb)` | `void` | 实心圆: 圆心 (cx, cy), 半径 r, 颜色 rgb |
 | `g_rect` | `g_rect(int x, int y, int w, int h, int rgb)` | `void` | 实心矩形 (左上角 x,y; 宽 w 高 h), 颜色 rgb |
 | `g_pixel` | `g_pixel(int x, int y, int rgb)` | `void` | 单像素点 (内部用 1x1 的 fill_rect 实现), 颜色 rgb |
-| `g_progress_bar` | `g_progress_bar(int x, int y, int w, int h, int pct, int rgb)` | `void` | 进度条: 在 (x,y,w,h) 内先铺浅灰底, 再按 pct (0..100, 越界自动钳制) 从左填充 rgb 色。只使用画布内建, 窗口打开时可直接调用。 |
+| `g_progress_bar` | `g_progress_bar(int x, int y, int w, int h, int pct, int rgb)` | `void` | 进度条：在 `(x, y, w, h)` 内先铺浅灰底，再按 `pct`（0..100，越界自动钳制）从左填充 `rgb` 色；只使用画布内建，窗口打开时可直接调用。 |
 | `g_scatter` | `g_scatter(int[] xs, int[] ys, int n, int w, int h, int rgb)` | `void` | 散点图 (离屏画布: 会调用 canvas(w, h), 窗口打开期间不要使用)。 xs/ys 为点坐标 (各 n 个), 自动按两组的最小/最大值缩放到 w x h, 每点画 1 像素。 |
 
 ```cin
@@ -1257,8 +1257,8 @@ import "hash.cin"
 | `hash_string_bucket` | `hash_string_bucket(string s, int buckets)` | `int` | 字符串 → 桶下标，即 `hash_bucket(hash_fnv1a(s), buckets)` |
 | `hash_crc32` | `hash_crc32(string s)` | `int` | CRC-32（IEEE 802.3，反射多项式 `0xEDB88320`，初值与异或值均为 `0xFFFFFFFF`），返回无符号 32 位结果（0..0xFFFFFFFF）；空串返回 0 |
 | `hash_adler32` | `hash_adler32(string s)` | `int` | Adler-32 (mod 65521): 低 16 位为 a (字节和 + 1), 高 16 位为 b (前缀和); 空串返回 1 (a = 1, b = 0) |
-| `hash_mix64` | `hash_mix64(int x)` | `int` | 64 位雪崩混合 (MurmurHash3 fmix64 风格): 打散低位规律性输入, 与 hash_int (splitmix64 风格) 使用不同常量, 两者可互补使用 |
-| `hash_bytes_bucket` | `hash_bytes_bucket(string s, int buckets)` | `int` | 字节串 -> 桶下标: 先做 64 位 FNV-1a (初值 0x9E3779B97F4A7C15), 再做 hash_mix64 雪崩, 最后映射到 [0, buckets); buckets <= 0 返回 0。 与 hash_string_bucket 的区别: 多一步雪崩混合, 低位分布更均匀。 |
+| `hash_mix64` | `hash_mix64(int x)` | `int` | 64 位雪崩混合，MurmurHash3 fmix64 风格，用于打散低位规律性输入；与 `hash_int`（splitmix64 风格）使用不同常量，两者可互补 |
+| `hash_bytes_bucket` | `hash_bytes_bucket(string s, int buckets)` | `int` | 字节串 → 桶下标：先做 64 位 FNV-1a（初值 `0x9E3779B97F4A7C15`），再做 `hash_mix64` 雪崩，最后映射到 `[0, buckets)`；`buckets <= 0` 返回 0。与 `hash_string_bucket` 的区别是多一步雪崩混合，低位分布更均匀。 |
 
 ```cin
 import "hash.cin"
@@ -1301,7 +1301,7 @@ import "heap.cin"
 | `heap_build` | `heap_build(int[] a, int n, int is_max)` | `void` | 用 `a` 的前 `n` 个元素重建堆并切换模式；**`n <= 0` 钳制为 0，`n > 64` 钳制为 64**（超出的元素被丢弃） |
 | `heap_is_valid` | `heap_is_valid()` | `int` | 校验堆性质（每个孩子都不比父节点更优先），`1`/`0`；空堆返回 `1` |
 | `heap_sort` | `heap_sort(int[] a, int n)` | `void` | 就地升序排序（堆排序），`n <= 1` 直接返回；不依赖也不修改全局堆状态 |
-| `heap_contains` | `heap_contains(int v)` | `int` | 是否包含值 v (1 / 0); 线性扫描, 不影响堆状态 |
+| `heap_contains` | `heap_contains(int v)` | `int` | 是否包含值 `v`，返回 1/0；线性扫描，不影响堆状态 |
 | `heap_push_all` | `heap_push_all(int[] a, int n)` | `int` | 批量入堆: 返回实际入堆的元素个数 (堆满时停止) |
 | `heap_depth` | `heap_depth()` | `int` | 堆的层数 (空堆返回 0) |
 | `heap_pop_min_max` | `heap_pop_min_max(int want_max)` | `int` | 移除并返回当前堆中的最小值 (want_max = 0) 或最大值 (want_max != 0) 与堆的方向无关 (最小堆取最大 / 最大堆取最小均可); 空堆返回 0 |
@@ -1372,17 +1372,17 @@ import "io.cin"
 | `io_get_line` | `io_get_line(string text, int idx)` | `string` | 取第 `idx` 行（0 起，不含换行符）；越界返回空串 |
 | `io_split_get` | `io_split_get(string text, string sep, int idx)` | `string` | 按分隔串切分，取第 `idx` 段；`sep` 为空串时 `idx == 0` 返回原文，否则空串；越界返回空串 |
 | `io_split_count` | `io_split_count(string text, string sep)` | `int` | 按分隔串切分的段数；`sep` 为空串时返回 1 |
-| `io_copy` | `io_copy(string src, string dst)` | `int` | 复制文件 (0 成功 / -1 失败); 目标是覆盖写, 内容按字节复制 |
-| `io_move` | `io_move(string src, string dst)` | `int` | 移动/重命名 (0 成功 / -1 失败); 跨卷移动由系统实现, 失败返回 -1 |
-| `io_rmdir` | `io_rmdir(string path)` | `int` | 删除目录 (递归删除其下所有内容; 0 成功 / -1 失败)。 注意: 这是递归删除, 与只删除空目录的语义不同 |
-| `io_is_dir` | `io_is_dir(string path)` | `int` | 是否为目录 (1 是 / 0 否, 不存在也返回 0) |
-| `io_mtime` | `io_mtime(string path)` | `int` | 最后修改时间 (Unix 纪元秒; 失败 -1) |
+| `io_copy` | `io_copy(string src, string dst)` | `int` | 复制文件，成功 0，失败 `-1`；目标是覆盖写，内容按字节复制 |
+| `io_move` | `io_move(string src, string dst)` | `int` | 移动或重命名，成功 0，失败 `-1`；跨卷移动由系统实现，失败也返回 `-1` |
+| `io_rmdir` | `io_rmdir(string path)` | `int` | 删除目录，包含其下所有内容；成功 0，失败 `-1`。这是递归删除，与只删除空目录的语义不同。 |
+| `io_is_dir` | `io_is_dir(string path)` | `int` | 是否为目录，返回 1/0，不存在也返回 0 |
+| `io_mtime` | `io_mtime(string path)` | `int` | 最后修改时间，Unix 纪元秒；失败返回 `-1` |
 | `io_tmpdir` | `io_tmpdir()` | `string` | 系统临时目录 (如 /tmp、%TEMP%); 失败为空串 |
-| `io_abs` | `io_abs(string path)` | `string` | 绝对路径 (基于当前工作目录; 失败为空串)。 分隔符由系统决定: Windows 返回 '\\' 形式 (与 io_join 的 '/' 风格不同), Linux/Android 返回 '/' 形式; 需要统一风格可再交给 io_join 或字符串处理 |
+| `io_abs` | `io_abs(string path)` | `string` | 绝对路径，基于当前工作目录；失败返回空串。分隔符由系统决定：Windows 返回 `\` 形式，Linux/Android 返回 `/` 形式，需要统一风格可再交给 `io_join` 处理 |
 | `io_chdir` | `io_chdir(string path)` | `int` | 切换当前工作目录 (0 成功 / -1 失败); 影响后续相对路径的宿主调用 |
 | `io_ext` | `io_ext(string path)` | `string` | 扩展名 (含点): "a/b/c.txt" -> ".txt"; 无扩展名返回 ""。 没有点或点在最前 (隐藏文件 ".gitignore") 返回 ""; "." / ".." 返回 ""; "a." 视为"扩展名就是点本身"返回 "."; 只看最后一段 (目录中的点不算) |
 | `io_stem` | `io_stem(string path)` | `string` | 去掉扩展名的最后一段 (不含目录): "a/b/c.txt" -> "c", ".gitignore" -> ".gitignore", "a." -> "a", "." / ".." 原样返回 |
-| `io_is_abs` | `io_is_abs(string path)` | `int` | 是否绝对路径: 以 '/' 或 '\' 开头 ("/a"、"\\a"), 或盘符形式 "C:\a" / "c:" (第二个字节是 ':' 即算, 不校验盘符范围, 也不检查路径是否存在) |
+| `io_is_abs` | `io_is_abs(string path)` | `int` | 是否绝对路径：以 `/` 或 `\` 开头，或盘符形式如 `"C:\\a"`；第二个字节是 `:` 即算盘符，不校验盘符范围，也不检查路径是否存在 |
 
 ```cin
 import "io.cin"
@@ -1420,7 +1420,7 @@ import "json.cin"
 | `j_escape` | `j_escape(string s)` | `string` | JSON 字符串转义（不含外层引号）：`"` 与 `\` 转义，控制字符 8/9/10/12/13 用 `\b \t \n \f \r`，其余 0..31 用 `\u00XX`；>= 32 的字节原样保留，UTF-8 多字节字符可直接通过 |
 | `j_obj` | `j_obj(string key, string value)` | `string` | 单成员 JSON 对象 (字符串值): j_obj("k", "a\"b") -> "{\"k\":\"a\\\"b\"}" |
 | `j_obj_raw` | `j_obj_raw(string key, string raw)` | `string` | 单成员 JSON 对象 (原始值): raw 必须是合法 JSON 片段 (数字/true/false/null/数组/对象) j_obj_raw("n", "42") -> "{\"n\":42}" |
-| `j_num` | `j_num(int v)` | `string` | 整数 -> JSON 数字字面量 (十进制; 负数带 '-') |
+| `j_num` | `j_num(int v)` | `string` | 整数 → JSON 数字字面量，十进制，负数带 `-` |
 | `j_arr_len` | `j_arr_len(string a)` | `int` | 数组元素个数 (支持嵌套 [] {} 与字符串内逗号); 找不到 '[' 或空数组返回 0。 j_arr_len("[1, 2, 3]") == 3; j_arr_len("[]") == 0; j_arr_len("[\"a,b\", [1,2]]") == 2 |
 | `j_arr_get` | `j_arr_get(string a, int idx)` | `string` | 取数组第 idx 个元素的原始 JSON 片段 (已 trim, 不递归解析); 越界或非数组返回 ""。 j_arr_get("[10, \"a,b\", [1,2]]", 1) == "\"a,b\"" |
 
@@ -1466,11 +1466,11 @@ import "key.cin"
 | `key_wait` | `key_wait()` | `int` | 阻塞等待一个按键：内部以 10ms 轮询 `get_key()`，取到键码即返回 |
 | `k_is_function` | `k_is_function(int code)` | `int` | 是否功能键 F1..F12 |
 | `k_is_modified_arrow` | `k_is_modified_arrow(int code)` | `int` | 是否修饰键 + 方向键组合 (Ctrl/Shift + 方向) |
-| `k_is_arrow` | `k_is_arrow(int code)` | `int` | 是否方向键 (不含 Ctrl/Shift 组合, 组合见 k_is_modified_arrow) |
+| `k_is_arrow` | `k_is_arrow(int code)` | `int` | 是否方向键，不含 Ctrl/Shift 组合；组合键见 `k_is_modified_arrow` |
 | `k_is_nav` | `k_is_nav(int code)` | `int` | 是否导航键 (方向键 / Home / End / PgUp / PgDn / Ins / Del) |
 | `k_is_enter` | `k_is_enter(int code)` | `int` | 是否回车 (K_ENTER 或换行字节 10) |
-| `key_poll` | `key_poll()` | `int` | 非阻塞轮询: 有键返回键码, 无键返回 -1 (不睡眠) |
-| `k_key_name` | `k_key_name(int code)` | `string` | 键码 -> 可读名称 (可打印 ASCII 返回该字符本身, 不认识的键返回 "") |
+| `key_poll` | `key_poll()` | `int` | 非阻塞轮询：有键返回键码，无键返回 `-1`，不睡眠 |
+| `k_key_name` | `k_key_name(int code)` | `string` | 键码 → 可读名称；可打印 ASCII 返回该字符本身，不认识的键返回 `""` |
 
 内部辅助函数（`_key_chr`）不是公开 API，后续版本可能调整。
 
@@ -1633,11 +1633,11 @@ import "net.cin"
 | `udp_recv_str` | `udp_recv_str(int fd, int[] buf, int max)` | `string` | 接收数据报并以字符串返回（遇 NUL 截断，不取源地址） |
 | `dns_resolve` | `dns_resolve(string host)` | `string` | 解析主机名 → IP 字符串（`dns_lookup` 的语义别名）；失败空串 |
 | `dns_ok` | `dns_ok(string host)` | `int` | 主机名是否可解析（`1`/`0`） |
-| `http_put` | `http_put(string url, string body, string headers)` | `string` | PUT (可带自定义头)。headers 形式同 http_get_headers ("Key: Value\n..."), 空串表示无。 |
-| `http_patch` | `http_patch(string url, string body, string headers)` | `string` | PATCH (可带自定义头)。 |
-| `http_delete` | `http_delete(string url, string headers)` | `string` | DELETE (可带自定义头; 无请求体)。 |
-| `http_post_json` | `http_post_json(string url, string json)` | `string` | 以 application/json 提交 (自动设置 Content-Type 头)。 |
-| `http_status_text` | `http_status_text(int code)` | `string` | HTTP 状态码 -> 常见英文短语 (不联网; 可与 http_code() 配合): print(http_status_text(http_code())) 未识别的码返回 "Unknown"; -1 (从未请求 / 请求失败) 返回 "No Response"。 |
+| `http_put` | `http_put(string url, string body, string headers)` | `string` | PUT 请求，可带自定义头；`headers` 形式同 `http_get_headers`，即 `"Key: Value\n..."`，空串表示无头。 |
+| `http_patch` | `http_patch(string url, string body, string headers)` | `string` | PATCH 请求，可带自定义头，`headers` 形式同 `http_put`。 |
+| `http_delete` | `http_delete(string url, string headers)` | `string` | DELETE 请求，可带自定义头，无请求体。 |
+| `http_post_json` | `http_post_json(string url, string json)` | `string` | 以 `application/json` 提交，自动设置 `Content-Type` 头。 |
+| `http_status_text` | `http_status_text(int code)` | `string` | HTTP 状态码 → 常见英文短语，不联网；未识别的码返回 `"Unknown"`，`-1`（从未请求或请求失败）返回 `"No Response"`。可与 `http_code()` 配合，例如 `print(http_status_text(http_code()))`。 |
 | `tcp_server_echo_once` | `tcp_server_echo_once(int lfd)` | `int` | 接受一个连接，收一行、回一行并关闭；返回回送的字节数，没有连接或收发出错返回 -1 |
 | `udp_recv_msg` | `udp_recv_msg(int fd, int[] buf, int max, int[] src, int srcmax)` | `string` | 接收一个数据报，正文以字符串返回；源地址 "ip:port" 写入调用方提供的 int[] 缓冲，srcmax 为缓冲容量（建议 >= 64） |
 
@@ -1698,22 +1698,22 @@ import "path.cin"
 | 函数名 | 签名 | 返回值 | 说明与边界行为 |
 | --- | --- | --- | --- |
 | `path_sep_posix` | `path_sep_posix()` | `string` | 返回 `"/"` |
-| `path_sep_win` | `path_sep_win()` | `string` | 返回 `"\\"` (单字节反斜杠, 编码 92) |
+| `path_sep_win` | `path_sep_win()` | `string` | 返回 `"\\"`，即单字节反斜杠，编码 92 |
 | `path_is_sep` | `path_is_sep(int ch)` | `int` | 该字节是否为分隔符 (`47` 或 `92`), 返回 `1`/`0` |
-| `path_max_parts` | `path_max_parts()` | `int` | 分段上限, 固定返回 `128` (`PATH_MAX_PARTS`) |
-| `path_split_count` | `path_split_count(string p)` | `int` | 路径分段个数; 连续分隔符与尾随分隔符都**不产生空段**; `""` / `"/"` / `"///"` 均为 `0` |
+| `path_max_parts` | `path_max_parts()` | `int` | 分段上限，固定返回 `128`（`PATH_MAX_PARTS`） |
+| `path_split_count` | `path_split_count(string p)` | `int` | 路径分段个数；连续分隔符与尾随分隔符都不产生空段，`""`、`"/"`、`"///"` 均为 0 |
 | `path_split_get` | `path_split_get(string p, int idx)` | `string` | 第 `idx` 段 (0 起); 越界与负数返回 `""`; 与 `path_split_count` 使用同一套分段规则 |
-| `path_str_basename` | `path_str_basename(string p)` | `string` | 最后一段 (文件名); `""` 与 `"/"` 返回 `""`, `"a/b/"` 返回 `"b"` (折叠尾随分隔符); 内建 `path_basename` 是宿主能力, 故用此名 |
-| `path_str_dirname` | `path_str_dirname(string p)` | `string` | 去掉最后一段, 结果**不带**尾随分隔符: `"/a/b/c.txt" -> "/a/b"`, `"a" -> ""`, `"/a" -> "/"`; 不做 `.` / `..` 折叠; 内建 `path_dirname` 是宿主能力, 故用此名 |
-| `path_ext` | `path_ext(string p)` | `string` | 最后一段的扩展名 (**含点**); 无扩展名返回 `""` (没有点、点在最前如 `.gitignore`、`.`、`..`); 只看最后一段 (`"dir.d/file"` 为 `""`); 点在最后 (`"a."`) 视为扩展名就是点本身, 返回 `"."` |
+| `path_str_basename` | `path_str_basename(string p)` | `string` | 最后一段（文件名）；`""` 与 `"/"` 返回 `""`，`"a/b/"` 返回 `"b"`，尾随分隔符会折叠；内建 `path_basename` 是宿主能力，故用此名 |
+| `path_str_dirname` | `path_str_dirname(string p)` | `string` | 去掉最后一段，结果不带尾随分隔符：`"/a/b/c.txt"` 为 `"/a/b"`，`"a"` 为 `""`，`"/a"` 为 `"/"`；不做 `.`/`..` 折叠；内建 `path_dirname` 是宿主能力，故用此名 |
+| `path_ext` | `path_ext(string p)` | `string` | 最后一段的扩展名，含点；无扩展名返回 `""`，包括没有点、点在最前如 `.gitignore`、`.`、`..`；只看最后一段，`"dir.d/file"` 为 `""`；点在最后如 `"a."` 时扩展名就是点本身，返回 `"."` |
 | `path_stem` | `path_stem(string p)` | `string` | 去掉扩展名的最后一段 (不含目录): `"a/b/c.txt" -> "c"`, `"a.tar.gz" -> "a.tar"`, `".gitignore" -> ".gitignore"`, `"a." -> "a"`; `"."` / `".."` 原样返回 |
-| `path_str_join` | `path_str_join(string a, string b)` | `string` | 拼接: `a` 为空返回 `b`, `b` 为空返回 `a`; `b` 是绝对路径时忽略 `a` 直接返回 `b`; 否则 `a` 末尾已有分隔符就不重复添加, 否则补 `'/'`; 两侧都空返回 `""`; 内建 `path_join` 是宿主能力 (用系统分隔符), 故用此名 |
+| `path_str_join` | `path_str_join(string a, string b)` | `string` | 拼接路径：`a` 为空返回 `b`，`b` 为空返回 `a`；`b` 是绝对路径时忽略 `a` 直接返回 `b`；否则 `a` 末尾已有分隔符就不重复添加，否则补 `/`；两侧都空返回 `""`；内建 `path_join` 是宿主能力，故用此名 |
 | `path_normalize` | `path_normalize(string p)` | `string` | 字符串层面规范化: 折叠重复分隔符、去掉 `.` 段、`..` 回退上一个段、保留前导分隔符、丢掉尾随分隔符、分隔符统一成 `/`; `"a/b/../c" -> "a/c"`, `"a/../../b" -> "../b"`, `"/../a" -> "/a"`, `"a/.." -> "."`; 空串 / `"."` / `"///"` 都得到 `"."`; 超过 `128` 段的部分被丢弃 |
 | `path_is_absolute` | `path_is_absolute(string p)` | `int` | `"/a"`、`"\\a"` 返回 `1`; `"C:\a"` / `"C:/a"` / `"C:"` (第二个字符是 `:`) 也返回 `1`; `""`、`"a/b"`、`"."`、`".."` 返回 `0` |
 | `path_trim_sep` | `path_trim_sep(string p)` | `string` | 去掉首尾分隔符: `"/a/b/" -> "a/b"`, `"/" -> ""`, `"///" -> ""`; 中间重复分隔符不折叠 |
-| `path_common_prefix` | `path_common_prefix(string a, string b)` | `string` | 最长公共**分段**前缀 (不把 `"foo"` 与 `"foobar"` 当公共前缀); `"/a/b/c"` 与 `"/a/b/d"` 得 `"/a/b"`; 一侧绝对一侧相对返回 `""` (即使分段相同); 盘符路径保留盘符段 (`"C:/a"`), 只有 POSIX 根形式才补前导 `/`; 根 `"/"` 没有分段, 与 `"/a"` 得 `""`; 无公共分段返回 `""` |
-| `path_within` | `path_within(string parent, string child)` | `int` | `child` 是否在 `parent` 之内, 按分段边界比较 (因此 `"/a/b"` **不**包含 `"/a/bc"`); 相等也算在内; `""` 作为 parent 返回 `0`; `"/"` 包含一切绝对路径, 但不包含相对路径; `"a/"` 与 `"a\b"` 视为 `a` 之下; 大小写敏感 |
-| `path_change_ext` | `path_change_ext(string p, string newext)` | `string` | 替换 / 补上最后一段的扩展名; `newext` 带点或不带点都行 (`"md"` 与 `".md"` 等价); `newext` 为空串则删除扩展名; 没有扩展名时补上; `""` / `"."` / `".."` 以及以分隔符结尾的目录形式 (`"/a/b/"`) 原样返回; 目录部分原样保留 (只丢掉尾随分隔符) |
+| `path_common_prefix` | `path_common_prefix(string a, string b)` | `string` | 最长公共分段前缀，不把 `"foo"` 与 `"foobar"` 当公共前缀；一侧绝对一侧相对返回 `""`，即使分段相同；盘符路径保留盘符段，只有 POSIX 根形式才补前导 `/`；根 `"/"` 没有分段，与 `"/a"` 得 `""`，无公共分段返回 `""` |
+| `path_within` | `path_within(string parent, string child)` | `int` | `child` 是否在 `parent` 之内，按分段边界比较，因此 `"/a/b"` 不包含 `"/a/bc"`；相等也算在内；`""` 作为 `parent` 返回 0，`"/"` 包含一切绝对路径但不包含相对路径；`"a/"` 与 `"a\\b"` 视为 `a` 之下；大小写敏感 |
+| `path_change_ext` | `path_change_ext(string p, string newext)` | `string` | 替换或补上最后一段的扩展名；`newext` 带点或不带点都行，`"md"` 与 `".md"` 等价；`newext` 为空串则删除扩展名；没有扩展名时补上；`""`、`"."`、`".."` 以及目录形式如 `"/a/b/"` 原样返回；目录部分原样保留，只丢掉尾随分隔符 |
 | `path_is_abs` | `path_is_abs(string p)` | `int` | 是否 POSIX 风格的绝对路径：首字节是 '/' 或 '\' 返回 1，盘符形式 `"C:\a"` 返回 0；只看字符串，不检查路径是否存在 |
 | `path_join3` | `path_join3(string a, string b, string c)` | `string` | 三段拼接: path_join3(a, b, c) 等价 path_str_join(path_str_join(a, b), c) 任一段为空按 path_str_join 规则跳过; c 为绝对路径时忽略 a/b |
 | `path_stem_full` | `path_stem_full(string p)` | `string` | 去掉扩展名后的完整路径（目录部分保留）：`"a/b/c.txt"` -> `"a/b/c"`；`""`、`"."`、`".."` 与目录形式 `"a/b/"` 按规则原样或去尾处理 |
@@ -1794,7 +1794,7 @@ import "queue.cin"
 | `queue_peek_at` | `queue_peek_at(int k)` | `int` | 队列中第 k 个元素 (k = 0 是队首); k 越界或队列为空返回 0 |
 | `queue_rotate` | `queue_rotate(int k)` | `int` | 循环左移 k 个位置 (k < 0 表示右移, \|k\| 按队列长度取模); 返回实际左移的元素个数 (0..queue_len-1), 空队列返回 0 |
 | `queue_reverse` | `queue_reverse()` | `void` | 反转队列 (队首与队尾互换); 空队列或单元素无操作 |
-| `queue_push_all` | `queue_push_all(int[] vals, int n)` | `int` | 批量入队: 依次压入 vals[0..n-1], 队列满即停止; 返回成功入队的个数 |
+| `queue_push_all` | `queue_push_all(int[] vals, int n)` | `int` | 批量入队：依次压入 `vals[0..n-1]`，队列满即停止；返回成功入队的个数 |
 | `stack_peek_at` | `stack_peek_at(int k)` | `int` | 第 k 个栈元素 (k = 0 是栈底, k = stack_size()-1 是栈顶); k 越界或栈为空返回 0 |
 | `stack_reverse` | `stack_reverse()` | `void` | 反转栈 (栈底变栈顶); 空栈或单元素无操作 |
 
@@ -1918,9 +1918,9 @@ import "set.cin"
 | `set_sym_diff_into` | `set_sym_diff_into(int dst, int a, int b)` | `int` | dst = a ^ b (对称差); 1 成功, 0 表示有非法槽 (dst 可与 a / b 为同一个槽) |
 | `set_is_disjoint` | `set_is_disjoint(int a, int b)` | `int` | a 与 b 是否不相交 (没有公共元素); 1/0; 有非法槽返回 0 |
 | `set_to_array` | `set_to_array(int which, int[] out)` | `int` | 把元素按升序写入 out (out 至少 128 个槽), 返回元素个数; which 非法返回 -1 |
-| `set_add_range` | `set_add_range(int which, int lo, int hi)` | `int` | 把闭区间 [lo, hi] 内尚不存在的元素加入; 返回新增个数。 lo/hi 自动钳制到 [0, 127]; 钳制后 hi < lo 返回 0; which 非法返回 -1 |
-| `set_remove_range` | `set_remove_range(int which, int lo, int hi)` | `int` | 把闭区间 [lo, hi] 内的元素全部删除; 返回真正删掉的个数 lo/hi 自动钳制到 [0, 127]; 钳制后 hi < lo 返回 0; which 非法返回 -1 |
-| `set_next` | `set_next(int which, int from)` | `int` | 大于等于 from 的最小元素; 没有返回 -1; which 非法返回 -1; from < 0 视为 0 |
+| `set_add_range` | `set_add_range(int which, int lo, int hi)` | `int` | 把闭区间 `[lo, hi]` 内尚不存在的元素加入，返回新增个数；`lo`/`hi` 自动钳制到 `[0, 127]`，钳制后 `hi < lo` 返回 0，`which` 非法返回 `-1` |
+| `set_remove_range` | `set_remove_range(int which, int lo, int hi)` | `int` | 把闭区间 `[lo, hi]` 内的元素全部删除，返回真正删掉的个数；`lo`/`hi` 自动钳制到 `[0, 127]`，钳制后 `hi < lo` 返回 0，`which` 非法返回 `-1` |
+| `set_next` | `set_next(int which, int from)` | `int` | 大于等于 `from` 的最小元素；没有返回 `-1`，`which` 非法返回 `-1`，`from < 0` 视为 0 |
 
 内部辅助函数（`set_valid` / `set_popcount64` / `set_raw_test`）不是公开 API，后续版本可能调整。
 
@@ -1977,10 +1977,10 @@ import "sort.cin"
 | `sort_quick` | `sort_quick(int[] a, int lo, int hi)` | `void` | 快速排序**闭区间** `[lo, hi]`；取中点值为枢轴，`lo >= hi` 直接返回 |
 | `sort_quick_all` | `sort_quick_all(int[] a, int n)` | `void` | 整体入口，等价于 `n > 1` 时调用 `sort_quick(a, 0, n - 1)` |
 | `bin_search` | `bin_search(int[] a, int n, int v)` | `int` | 二分查找，返回命中下标或 `-1`；**数组必须已升序**，重复元素返回其中某个位置（不保证是第一个） |
-| `sort_merge` | `sort_merge(int[] a, int n)` | `void` | 自底向上归并排序 (原地, 升序); n > 256 时退化为插入排序 |
-| `sort_heap` | `sort_heap(int[] a, int n)` | `void` | 堆排序 (原地, 升序); 不依赖 heap.cin |
-| `sort_desc` | `sort_desc(int[] a, int n)` | `void` | 降序排序 (先升序再整体反转, 原地) |
-| `sort_range` | `sort_range(int[] a, int lo, int hi)` | `void` | 对区间 [lo, hi) 升序排序 (原地, 越界下标自动钳制) |
+| `sort_merge` | `sort_merge(int[] a, int n)` | `void` | 自底向上归并排序，原地升序；`n > 256` 时退化为插入排序 |
+| `sort_heap` | `sort_heap(int[] a, int n)` | `void` | 堆排序，原地升序，不依赖 `heap.cin` |
+| `sort_desc` | `sort_desc(int[] a, int n)` | `void` | 降序排序，先升序再整体反转，原地修改 |
+| `sort_range` | `sort_range(int[] a, int lo, int hi)` | `void` | 对区间 `[lo, hi)` 升序排序，原地修改，越界下标自动钳制 |
 | `bin_lower_bound` | `bin_lower_bound(int[] a, int n, int v)` | `int` | 首个 >= v 的下标 (数组需升序); 全部 < v 时返回 n |
 | `bin_upper_bound` | `bin_upper_bound(int[] a, int n, int v)` | `int` | 首个 > v 的下标 (数组需升序); 全部 <= v 时返回 n |
 
@@ -2027,11 +2027,11 @@ import "stat.cin"
 | `stat_variance_x1000` | `stat_variance_x1000(int[] a, int n)` | `int` | 方差 ×1000（整数化，便于断言）；公式 `(n*sum(x^2) - sum(x)^2) / n^2` 再乘 1000；`n <= 0` 返回 0 |
 | `stat_stdev_x100` | `stat_stdev_x100(int[] a, int n)` | `int` | 标准差 ×100（整数化），实现为 `stat_variance_x1000(a, n) / 10` |
 | `stat_is_sorted` | `stat_is_sorted(int[] a, int n)` | `int` | 升序判定，`1`/`0`（与 `sort_is_sorted` 同语义） |
-| `stat_mad` | `stat_mad(int[] a, int n)` | `int` | 平均绝对偏差 (以整数均值为基准, 结果截断取整) |
-| `stat_covariance_x1000` | `stat_covariance_x1000(int[] a, int[] b, int n)` | `int` | 协方差 ×1000 (总体口径, 整数化) cov = (n*sum(xy) - sum(x)*sum(y)) / n^2 |
+| `stat_mad` | `stat_mad(int[] a, int n)` | `int` | 平均绝对偏差，以整数均值为基准，结果截断取整 |
+| `stat_covariance_x1000` | `stat_covariance_x1000(int[] a, int[] b, int n)` | `int` | 协方差 ×1000，总体口径，整数化；`cov = (n*sum(xy) - sum(x)*sum(y)) / n^2` |
 | `stat_linreg_slope_x1000` | `stat_linreg_slope_x1000(int[] x, int[] y, int n)` | `int` | 一元线性回归斜率 ×1000; 自变量方差为 0 时返回 0 |
-| `stat_zscore_x100` | `stat_zscore_x100(int[] a, int n, int v)` | `int` | 单点 z 分数 ×100 (以整数均值和总体标准差为基准, 截断取整) |
-| `stat_geomean_x1000` | `stat_geomean_x1000(int[] a, int n)` | `int` | 几何平均数 ×1000 (要求所有元素为正; 含非正元素或 n <= 0 返回 0) |
+| `stat_zscore_x100` | `stat_zscore_x100(int[] a, int n, int v)` | `int` | 单点 z 分数 ×100，以整数均值和总体标准差为基准，截断取整 |
+| `stat_geomean_x1000` | `stat_geomean_x1000(int[] a, int n)` | `int` | 几何平均数 ×1000，要求所有元素为正；含非正元素或 `n <= 0` 返回 0 |
 
 ```cin
 import "stat.cin"
@@ -2070,9 +2070,9 @@ import "str.cin"
 | `s_ends_with` | `s_ends_with(string s, string suffix)` | `int` | 是否以 `suffix` 结尾；`strlen(suffix) > strlen(s)` 返回 0，空 `suffix` 为 1 |
 | `s_count` | `s_count(string hay, string needle)` | `int` | 不重叠出现次数（如 `s_count("aaa","aa")` 为 1）；`needle` 为空串返回 0 |
 | `s_repeat` | `s_repeat(string ch, int n)` | `string` | 把 `ch` 重复 `n` 次；`n <= 0` 返回空串。参数名是 `ch` 但可传任意字符串 |
-| `s_split_count` | `s_split_count(string s, string delim)` | `int` | 与 token.cin 的 tok_* 语义一致: delim 按整串匹配, 保留空字段; 空串切分后是 1 个空字段, delim 为空串时整串是唯一字段。 所有下标与长度都是字节语义 (UTF-8 汉字算 3 字节)。 字段个数 = s_count(s, delim) + 1; 空串返回 1, delim 为空串返回 1 |
-| `s_split_get` | `s_split_get(string s, string delim, int idx)` | `string` | 第 idx 个字段 (0 起, 新堆块); idx 越界或为负返回 ""; delim 为空串时只有 idx == 0 有效 |
-| `s_join` | `s_join(string[] parts, int n, string sep)` | `string` | 用 sep 拼接 string[] 的前 n 个元素; n <= 0 返回 ""; sep 为空串时直接首尾相连 注意: 结果在堆上, 单次调用建议 n 与总长度都保持较小 (堆约 64 KiB 且不回收) |
+| `s_split_count` | `s_split_count(string s, string delim)` | `int` | 字段个数，等于 `s_count(s, delim) + 1`；空串返回 1，`delim` 为空串返回 1。语义与 `token.cin` 一致：`delim` 按整串匹配，保留空字段，下标与长度都是字节语义。 |
+| `s_split_get` | `s_split_get(string s, string delim, int idx)` | `string` | 第 `idx` 个字段，0 起，返回新堆块；`idx` 越界或为负返回 `""`，`delim` 为空串时只有 `idx == 0` 有效 |
+| `s_join` | `s_join(string[] parts, int n, string sep)` | `string` | 用 `sep` 拼接 `string[]` 的前 `n` 个元素；`n <= 0` 返回 `""`，`sep` 为空串时直接首尾相连。结果在堆上且不回收，单次调用建议控制 `n` 与总长度。 |
 | `s_replace` | `s_replace(string s, string from, string to)` | `string` | 全部替换 (不重叠); from 为空串时原样返回 s |
 | `s_last_index_of` | `s_last_index_of(string s, string needle)` | `int` | needle 最后一次出现的字节下标 (允许重叠匹配); 未找到 -1; 空 needle 返回 strlen(hay) |
 | `s_trim` | `s_trim(string s)` | `string` | 去掉首尾空白 (空格 / \t / \n / \r), 中间空白原样保留 |
@@ -2129,8 +2129,8 @@ import "termux.cin"
 | `tx_volume` | `tx_volume(string stream, int level)` | `int` | 设置音量: stream 为 "music" / "call" / "alarm" / "notification" / "ring" / "system" 等, level 为 0..15 (设备相关); 0 成功 / -1 不可用 |
 | `tx_brightness` | `tx_brightness(int level)` | `int` | 设置屏幕亮度: level 0..255; 0 成功 / -1 不可用 |
 | `tx_photo` | `tx_photo(string path)` | `int` | 用后置摄像头拍照并保存到 path; 0 成功 / -1 不可用 |
-| `tx_fingerprint` | `tx_fingerprint()` | `string` | 指纹验证 (原始 JSON 文本, 不可用为空串) |
-| `tx_sensor` | `tx_sensor(string name)` | `string` | 读取一次传感器数据 (原始 JSON 文本, 不可用为空串); name 如 "accelerometer" / "light" / "gyroscope" 等 |
+| `tx_fingerprint` | `tx_fingerprint()` | `string` | 指纹验证，返回原始 JSON 文本；不可用为空串 |
+| `tx_sensor` | `tx_sensor(string name)` | `string` | 读取一次传感器数据，返回原始 JSON 文本；不可用为空串。`name` 如 `"accelerometer"`、`"light"`、`"gyroscope"` 等 |
 | `tx_intent` | `tx_intent(string action, string uri)` | `int` | 发起系统 Intent: action 如 "android.intent.action.VIEW", uri 可空串 (如 "https://example.com"); 0 成功 / -1 不可用 |
 | `tx_wifi_ip` | `tx_wifi_ip()` | `string` | 当前 WiFi 的 IP 地址 (不可用为空串) |
 | `tx_battery_health` | `tx_battery_health()` | `string` | 电池健康状态字符串 (如 "GOOD" / "OVERHEAT"; 不可用为空串) |
@@ -2175,7 +2175,7 @@ import "test.cin"
 | `t_gt` | `t_gt(int got, int want, string label)` | `int` | 断言 got > want |
 | `t_lt` | `t_lt(int got, int want, string label)` | `int` | 断言 got < want |
 | `t_fail` | `t_fail(string label)` | `int` | 无条件失败 (用于尚未实现的占位断言) |
-| `t_case` | `t_case(string name)` | `void` | 输出分组标题 (只打印, 不计入通过/失败数) |
+| `t_case` | `t_case(string name)` | `void` | 输出分组标题，只打印，不计入通过/失败数 |
 
 ```cin
 import "test.cin"
@@ -2222,9 +2222,9 @@ import "text.cin"
 | `txt_word_count` | `txt_word_count(string s)` | `int` | 空白分隔的单词个数；连续空白算一个，忽略首尾，全空白为 0；空白 = 空格 / `\t` / `\n` / `\r`，非 ASCII 字节算词内字节 |
 | `txt_swap_case` | `txt_swap_case(string s)` | `string` | ASCII 大小写互换（`a`↔`A`），非 ASCII 字节原样保留；`""` 返回 `""` |
 | `txt_lines` | `txt_lines(string s)` | `int` | 行数：以单个 '\n' 分隔，空串返回 0；尾随 '\n' 只结束当前行，不额外产生空行；'\r' 不影响计数（`txt_line` 会去掉行尾单个 '\r'） |
-| `txt_line` | `txt_line(string s, int idx)` | `string` | 第 idx 行 (0 起, 不含行尾 '\n'; 行尾的单个 '\r' 会去掉); 越界或为负返回 "" |
-| `txt_truncate` | `txt_truncate(string s, int max_bytes)` | `string` | 截断到最多 max_bytes 字节; 超长时保留前 max_bytes - 3 字节并追加 "..."。 max_bytes <= 0 返回 ""; max_bytes <= 3 时不加省略号, 直接取前 max_bytes 字节。 字节截断可能把 UTF-8 多字节字符切开 (需要整字符请用 txt_slice) |
-| `txt_slug` | `txt_slug(string s)` | `string` | 简化成 slug: ASCII 字母转小写, 连续的非字母数字字节折叠成一个 '-', 去掉首尾 '-'。只保留 ASCII 字母/数字, 其余字节 (含 UTF-8 中文) 都当分隔符。 txt_slug("Hello, World!") == "hello-world"; txt_slug(" --A__b ") == "a-b" |
+| `txt_line` | `txt_line(string s, int idx)` | `string` | 第 `idx` 行，0 起，不含行尾 `\n`，行尾的单个 `\r` 会去掉；越界或为负返回 `""` |
+| `txt_truncate` | `txt_truncate(string s, int max_bytes)` | `string` | 截断到最多 `max_bytes` 字节；超长时保留前 `max_bytes - 3` 字节并追加 `"..."`。`max_bytes <= 0` 返回 `""`，`max_bytes <= 3` 时不加省略号、直接取前 `max_bytes` 字节；字节截断可能把 UTF-8 多字节字符切开，需要整字符请用 `txt_slice` |
+| `txt_slug` | `txt_slug(string s)` | `string` | 简化成 slug：ASCII 字母转小写，连续的其它字节折叠成一个 `-`，去掉首尾 `-`；只保留 ASCII 字母/数字，其余字节（含 UTF-8 中文）都当分隔符。`txt_slug("Hello, World!")` 为 `"hello-world"`，`txt_slug(" --A__b ")` 为 `"a-b"` |
 | `txt_trim` | `txt_trim(string s)` | `string` | 去掉首尾空白 (空格 / \t / \n / \r); 中间空白原样保留 |
 
 内部辅助函数（`txt_case_range` / `txt_match_at` / `txt_is_alpha_byte` / `txt_is_alnum_byte` / `txt_is_space_byte` / `txt_lower_byte`）不是公开 API，后续版本可能调整。
@@ -2323,8 +2323,8 @@ import "token.cin"
 | `tok_slice` | `tok_slice(string s, string delim, int start, int end)` | `string` | 把第 `[start, end)` 号 token 用 `delim` 重新拼回（保留空 token 与原顺序）；`start < 0` 视为 0，`end > tok_count` 收紧到 `tok_count`，`end <= start` 返回 `""`；逐段拼接会产生多个堆块，区间不宜过大 |
 | `tok_join` | `tok_join(string[] parts, int n, string delim)` | `string` | 用 delim 拼接 string[] 的前 n 个元素; n <= 0 返回 "" |
 | `tok_is_quoted` | `tok_is_quoted(string t)` | `int` | token 是否被一对双引号包住 (长度 >= 2 且首尾都是 '"') |
-| `tok_unescape` | `tok_unescape(string t)` | `string` | 反转义: 若整串被一对 '"' 包住先剥掉一层; 然后 \\ -> \, \" -> ", \n -> 换行, \t -> 制表, \r -> 回车, "" -> " (CSV 风格), 其余 \x 原样保留 x (丢弃反斜杠)。 未加引号的输入同样做反转义; 空串返回 "" |
-| `tok_split_count` | `tok_split_count(string s, string delim)` | `int` | token 个数; 与 tok_count 等价 (命名更贴近 "split 后有几个字段") |
+| `tok_unescape` | `tok_unescape(string t)` | `string` | 反转义：整串被一对 `"` 包住时先剥掉一层，然后把 `\\` 还原为 `\`，`\"` 还原为 `"`，`\n`/`\t`/`\r` 还原为换行/制表/回车，`""` 还原为 `"`（CSV 风格），其余 `\x` 原样保留 `x` 并丢弃反斜杠；未加引号的输入同样处理，空串返回 `""` |
+| `tok_split_count` | `tok_split_count(string s, string delim)` | `int` | token 个数；与 `tok_count` 等价，命名更贴近 split 后有几个字段 |
 | `tok_contains` | `tok_contains(string s, string delim, string t)` | `int` | 是否存在与 t 逐字节相同 (区分大小写) 的 token; 1/0 |
 
 内部辅助函数（`tok_match_at` / `tok_is_space_byte`）不是公开 API，后续版本可能调整。
@@ -2377,8 +2377,8 @@ import "tree.cin"
 | `tree_inorder_str` | `tree_inorder_str()` | `string` | 中序遍历（即升序键序列），空格分隔；空树返回 `""` |
 | `tree_preorder_str` | `tree_preorder_str()` | `string` | 前序遍历（根-左-右），空格分隔；空树返回 `""` |
 | `tree_postorder_str` | `tree_postorder_str()` | `string` | 后序遍历（左-右-根），空格分隔；空树返回 `""` |
-| `tree_sum` | `tree_sum()` | `int` | 所有键之和; 空树返回 0 |
-| `tree_count_range` | `tree_count_range(int lo, int hi)` | `int` | 键落在闭区间 [lo, hi] 内的节点个数; 空树返回 0 |
+| `tree_sum` | `tree_sum()` | `int` | 所有键之和；空树返回 0 |
+| `tree_count_range` | `tree_count_range(int lo, int hi)` | `int` | 键落在闭区间 `[lo, hi]` 内的节点个数；空树返回 0 |
 | `tree_depth_of` | `tree_depth_of(int k)` | `int` | 键 k 的深度 (根为 0, 每下一层加 1); 不在树中返回 -1 |
 | `tree_count_internal` | `tree_count_internal()` | `int` | 内部节点个数 (至少有一个孩子); 空树返回 0 |
 | `tree_is_bst` | `tree_is_bst()` | `int` | 二叉搜索树性质校验 (中序必须严格递增); 空树返回 1 |
@@ -2439,11 +2439,11 @@ import "unionfind.cin"
 | `uf_rank` | `uf_rank(int x)` | `int` | `x` 所在集合的秩（合并启发式用）；**`x` 越界返回 `-1`**，合法根节点的秩可以是 `0` |
 | `uf_connected` | `uf_connected(int a, int b)` | `int` | `a`、`b` 是否属于同一集合，`1`/`0`；**任一编号越界返回 `0`** |
 | `uf_union` | `uf_union(int a, int b)` | `int` | 合并 `a`、`b` 所在集合；**真正合并返回 1，已在同一集合返回 0，任一编号越界返回 0** |
-| `uf_group_count` | `uf_group_count()` | `int` | 重新扫描所有元素得到的不同根数量 (不依赖 uf_comps 计数)。 正常情况下与 uf_count 相等; uf_n == 0 返回 0 |
-| `uf_largest_group` | `uf_largest_group()` | `int` | 最大集合的大小; uf_n == 0 返回 0 |
-| `uf_compress_all` | `uf_compress_all()` | `int` | 对所有元素做一次路径压缩 (uf_find 会把路径压平), 返回压缩后的根个数 |
-| `uf_root_list` | `uf_root_list(int[] out)` | `int` | 把每个集合的代表元 (升序) 写入 out; out 至少要有 uf_n 个槽。 返回根个数; uf_n == 0 返回 0 且不写 out |
-| `uf_is_root` | `uf_is_root(int x)` | `int` | x 是否为其所在集合的代表元; 非法元素返回 0 |
+| `uf_group_count` | `uf_group_count()` | `int` | 重新扫描所有元素得到的不同根数量，不依赖 `uf_comps` 计数；正常情况下与 `uf_count` 相等，`uf_n == 0` 返回 0 |
+| `uf_largest_group` | `uf_largest_group()` | `int` | 最大集合的大小；`uf_n == 0` 返回 0 |
+| `uf_compress_all` | `uf_compress_all()` | `int` | 对所有元素做一次路径压缩，返回压缩后的根个数 |
+| `uf_root_list` | `uf_root_list(int[] out)` | `int` | 把每个集合的代表元按升序写入 `out`，`out` 至少要有 `uf_n` 个槽；返回根个数，`uf_n == 0` 返回 0 且不写 `out` |
+| `uf_is_root` | `uf_is_root(int x)` | `int` | `x` 是否为其所在集合的代表元；非法元素返回 0 |
 
 ```cin
 import "unionfind.cin"
@@ -2495,9 +2495,9 @@ import "validate.cin"
 | `val_is_hex_color` | `val_is_hex_color(string s)` | `int` | 是否 3 位或 6 位十六进制颜色，可带 `#`：`"#ABC"` / `"A1B2C3"` 通过，`"#AB"` / `"#XYZ"` 不通过 |
 | `val_is_email` | `val_is_email(string s)` | `int` | 简化 ASCII 邮箱校验：恰好一个 '@'，local 1..64 字节（字母数字与 `. _ - +`），domain 1..253 字节、至少一个 '.'，标签非空且首尾不能是 '-'；总长 1..254，不做 DNS 检查 |
 | `val_is_url` | `val_is_url(string s)` | `int` | 简化 URL 校验：必须含 `://`，scheme 首字符为字母、其余为字母数字或 `+ - .`；整串只允许可打印 ASCII（33..126）；`://` 之后到 `/ ? #` 之前必须有非空 authority；不校验端口范围与百分号转义 |
-| `val_is_ipv4` | `val_is_ipv4(string s)` | `int` | IPv4 点分十进制: 恰好 4 段, 每段 0..255 的十进制数字; 不接受前导 0 的多位数字 ("01"), 不接受空段与尾随 '.' |
-| `val_is_date` | `val_is_date(string s)` | `int` | 日期 "YYYY-MM-DD" (公历, 年份 0001..9999), 含闰年判断: 能被 4 整除且不能被 100 整除, 或能被 400 整除的年份二月有 29 天 |
-| `val_is_uuid` | `val_is_uuid(string s)` | `int` | UUID: 36 字节, 连字符固定在第 8/13/18/23 位 (4-4-4-4-12 十六进制分组), 其余必须是十六进制字符 |
+| `val_is_ipv4` | `val_is_ipv4(string s)` | `int` | IPv4 点分十进制：恰好 4 段，每段是 0..255 的十进制数字；不接受前导 0 的多位数字如 `"01"`，不接受空段与尾随 `.` |
+| `val_is_date` | `val_is_date(string s)` | `int` | 日期 `"YYYY-MM-DD"`，公历，年份 `0001..9999`，含闰年判断：能被 4 整除且不能被 100 整除，或能被 400 整除的年份二月有 29 天 |
+| `val_is_uuid` | `val_is_uuid(string s)` | `int` | UUID：36 字节，连字符固定在第 8/13/18/23 位，按 4-4-4-4-12 十六进制分组，其余字符必须是十六进制 |
 | `val_is_port` | `val_is_port(string s)` | `int` | TCP/UDP 端口: 纯十进制数字, 1..65535; 不接受空串、符号、前导 0 ("080") 与 0 |
 
 ```cin
@@ -2543,7 +2543,7 @@ import "vec.cin"
 | `v_sub` | `v_sub(float[] a, float[] b, float[] dst, int n)` | `void` | 逐元素相减 (结果写入 dst) |
 | `v_negate` | `v_negate(float[] a, float[] dst, int n)` | `void` | 逐元素取负 (结果写入 dst) |
 | `v_distance` | `v_distance(float[] a, float[] b, int n)` | `float` | 欧几里得距离 sqrt(sum((a[i]-b[i])^2)) |
-| `v_cosine_sim` | `v_cosine_sim(float[] a, float[] b, int n)` | `float` | 余弦相似度; 任一向量为零向量时返回 0.0 |
+| `v_cosine_sim` | `v_cosine_sim(float[] a, float[] b, int n)` | `float` | 余弦相似度；任一向量为零向量时返回 0.0 |
 | `v_clamp_element` | `v_clamp_element(float[] a, int i, float lo, float hi)` | `void` | 把下标 i 处的元素原地夹取到 [lo, hi] |
 
 ```cin

@@ -26,7 +26,7 @@ app.cvm (zip)
 format = 2
 engine = "codecin-native"
 abi = 2
-generator = "cvm 7.22.10"
+generator = "cvm 8.0.0"
 code_format = "sdgcc"
 mode = "multi"
 

@@ -45,8 +45,8 @@ entry = "src/main.cin"
 
 [build]
 optimize = 0          # 0..3
-backend = "vm"        # vm / native / auto (AOT 时使用)
 mem_size = 1073741824
+bounds_check = false  # 数组越界检查
 
 [dependencies]
 libx = "0.1.0"        # 版本约束
@@ -70,7 +70,7 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 | `mkn run -- <args>` | 编译并运行 |
 | `mkn test` | 运行 `src/test/**/*.cin` 与 `tests/**/*.cin`；`--filter` 按路径子串筛选 |
 | `mkn package` | 生成 `target/<name>-<version>.mkn` |
-| `mkn install` | 安装到 `$MKN_HOME/repository/<name>/<version>` |
+| `mkn install` | 安装到 `$MKN_HOME/repository/<name>/<version>`（`MKN_HOME` 默认 `~/.mkn`） |
 | `mkn deploy --repo <git-url>` | 安装后调用 `pic publish`；`--push` 推送标签 |
 | `mkn add <name> --version ...` | 添加依赖并解析；也支持 `--local-path`、`--git`、`--tag`、`--rev`、`--no-resolve` |
 | `mkn tree` | 打印传递依赖树；`--depth N` 限制层数 |
@@ -78,14 +78,17 @@ tag = "v2.1.0"        # 或 rev = "<commit>"
 | `mkn doctor` | 检查 Go 工具链、cincc、原生库与网络等环境项 |
 | `mkn clean [--deps]` | 删除 `target/`（可选 `pic_modules/`） |
 
-构建相关命令共用以下选项：
+`--path <dir>` / `--manifest <mkn.toml>` 是全局选项，写在子命令之前，例如
+`mkn --path demo build`。其余选项按子命令提供：
 
-- `--path <dir>` / `--manifest <mkn.toml>`：项目目录或显式清单；
-- `-o` / `--output`：产物路径，可显式写成 `.bin`、`.co`；
-- `--release`：优化级别至少为 2；
-- `--optimize {0,1,2,3}`、`--mem-size <字节>`、`--bounds-check`；
-- `--no-deps`：跳过依赖解析；
-- `--clean`：构建前清理 `target/`；`--package`：构建后同时打包。
+- `build` / `compile`：`-o` / `--output`（可显式写成 `.bin`、`.co`）、`--release`
+  （优化级别至少为 2）、`--optimize {0,1,2,3}`、`--mem-size <字节>`、
+  `--bounds-check`、`--no-deps`、`--native`、`--clean`（构建前清理 `target/`）、
+  `--package`（构建后同时打包）；
+- `run`：`--release`、`--optimize`、`--mem-size`、`--no-deps`；
+- `test`：`--filter`、`--optimize`、`--mem-size`；
+- `package` / `install` / `deploy`：`--release`、`--optimize`、`--no-deps`；
+  `package` 另有 `-o` / `--output`。
 
 ## 依赖解析顺序
 
