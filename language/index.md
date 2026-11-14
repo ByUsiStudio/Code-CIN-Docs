@@ -131,8 +131,9 @@ function main() -> int {           // 入口函数
 hello 25
 ```
 
-执行顺序：**先按源码顺序执行全部全局初始化，再进入函数**。约定入口是 `main`；不写 `main`
-时程序从第一条指令开始顺序执行（`docs/CIN_GUIDE.md` 第 1 节）。
+执行顺序：**先按源码顺序执行全部全局初始化，再进入 `main`**。编译器固定 `CALL main`，
+所以直接运行的源文件必须定义 `main`；没有 `main` 时链接阶段报
+`Undefined label: main`（这类文件只能作为库被 `import`，或用 `--emit-object` 编译成对象）。
 
 ### 语句与换行
 
