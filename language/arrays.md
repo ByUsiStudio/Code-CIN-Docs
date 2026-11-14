@@ -136,7 +136,19 @@ max = 9
 ```
 
 更多函数 (查找、反转、复制、切片求和、二分) 见 [标准库参考](/stdlib/reference)。
-需要循环移位时用 `a_rotate(a, n, k)`, 它把数组左旋 `k` 位, 原地修改。
+需要循环移位时用 `a_rotate(a, n, k)`, 它把数组左旋 `k` 位, 原地修改:
+
+```cin
+import "array.cin"
+
+function main() -> int {
+    int a[5] = {1, 2, 3, 4, 5}
+    a_rotate(a, 5, 2)          // 左旋 2 位
+    println(int_to_str(a[0]) + int_to_str(a[1]) + int_to_str(a[2])
+            + int_to_str(a[3]) + int_to_str(a[4]))   // 34512
+    return 0
+}
+```
 
 ## 与字符串
 

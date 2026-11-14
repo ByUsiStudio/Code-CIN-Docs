@@ -246,6 +246,28 @@ function main() -> int {
 `download` 把非 2xx 视为失败。请求超时 15 秒、响应体上限 8 MiB, 下载上限 256 MiB。
 :::
 
+`net.cin` 额外提供状态码转文字的小工具 `http_status_text(code)`, 不用联网就能试:
+
+```cin
+import "net.cin"
+
+function main() -> int {
+    println(http_status_text(200))        // OK
+    println(http_status_text(404))        // Not Found
+    println(http_status_text(-1))         // No Response
+    return 0
+}
+```
+
+```text
+OK
+Not Found
+No Response
+```
+
+`http_get` / `http_post` 之后可以用内建 `http_code()` 取最近一次请求的状态码,
+再把数字交给 `http_status_text`。
+
 ## 11.6 编码与哈希
 
 | 函数 | 作用 |
