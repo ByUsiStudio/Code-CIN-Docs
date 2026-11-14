@@ -291,10 +291,14 @@ function dirty() -> void {
     a[3] = 444
 }
 
+function peek() -> void {
+    int b[4]
+    println(int_to_str(b[0] + b[1] + b[2] + b[3]))   // 1110, 不是 0
+}
+
 function main() -> int {
     dirty()
-    int b[4]
-    println(int_to_str(b[0] + b[1] + b[2] + b[3]))   // 不是 0 (实测 1110)
+    peek()                     // 两次调用的栈帧落在同一块栈区
     return 0
 }
 ```

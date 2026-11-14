@@ -200,17 +200,22 @@ python -m pytest ../tests/test_no_go_cli.py
 
 `.github/workflows/ci.yml` 在 `push`(`master`/`main`)、`pull_request` 与手动
 触发时运行, 权限只有 `contents: read`, 并有 concurrency 取消同分支旧运行。
-所有作业都 `submodules: recursive` 检出 (文档一致性检查依赖文档站子仓库)。
+所有作业都不检出子模块: 文档站已迁至独立仓库 Code-CIN-Docs。
 
 | 作业 | 名称 | Runner / 超时 | 做什么 |
 |------|------|---------------|--------|
-| `test` | <span v-pre>`pytest (py${{ matrix.python-version }})`</span> | ubuntu-latest / 30 min | Python **3.9 / 3.11 / 3.13** 矩阵: 装 `requirements-dev.txt` → `gen_isa_docs.py --check` → `gen_native_isa.py --check` → `python -m pytest` → 检查是否有源码被 `.gitignore` 意外吞掉 |
-| `integration` | `原生/Go 集成 (真实跑原生路径)` | ubuntu-latest / 45 min | Python 3.11 + `setup-go` (版本取自 `codecin/native/go.mod`) → `go build -buildmode=c-shared -o ../libcodecin_native.so .` → **断言 `native.get_engine() is not None`** → `python -m pytest -rs --cov=codecin --cov-report=term-missing --cov-fail-under=70`, 环境变量 `CODECIN_AOT_TESTS=1` |
-| `dist` | `打包 (wheel/sdist 必须含内置标准库)` | ubuntu-latest / 30 min | `CODECIN_SKIP_NATIVE=1 python -m build` → 断言 wheel/sdist 各含 ≥19 个 `codecin/lib/*/src/*.cin` 且**不含** `.so/.dylib/.dll` → 装 wheel 后跑一个 `import "str.cin"` 的冒烟程序 |
-| `lint` | `ruff` | ubuntu-latest / 15 min | `ruff check codecin cpu.py script tests` |
-| `native` | `Go native (build check)` | ubuntu-latest / 30 min | `go build ./...`、`go vet ./...`、`gofmt -l .` 门禁、`go test ./... -race -count=1`、断言 Go 侧无额外用户 CLI (`package main` 仅 main.go + cmd/cincc)、五次交叉编译自检、Linux c-shared 构建 |
+| `test` | <span v-pre>`pytest (py${{ matrix.python-version }})`</span> | ubuntu-latest / 30 min | Python **3.9 / 3.11 / 3.13** 矩阵: 装 `requirements-dev.txt` → `gen_native_isa.py --check` → `sync_stdlib_packages.py --check` → `python -m pytest` → 检查是否有源码被 `.gitignore` 意外吞掉 |
+| `integration` | `原生/Go 集成 (真实跑原生路径)` | ubuntu-latest / 45 min | Python 3.11 + `setup-go` (版本取自 `codecin/native/go.mod`) → `go build -buildmode=c-shared -o ../libcodecin_native.so .` → 断言 `native.get_engine() is not None` → `python -m pytest -rs --cov=codecin --cov-report=term-missing --cov-fail-under=70`, 环境变量 `CODECIN_AOT_TESTS=1` |
+| `registry` | `pic registry (Python)` | ubuntu-latest / 20 min | Python 3.11: 在 `registry/` 下 `python -m pytest -q` 与 `python -m ruff check .` |
+| `lint` | `ruff` | ubuntu-latest / 15 min | `ruff check codecin cpu.py script tests registry` |
+| `native` | `Go native (build check)` | ubuntu-latest / 30 min | `go build ./...`、`go vet ./...`、`gofmt -l .` 门禁、`go test ./... -race -count=1`、断言 `package main` 仅 `main.go`、五次交叉编译自检 (`./engine ./ir ./compiler ./aot`)、Linux c-shared 构建 |
 
-`test` 作业的最后一步值得一提: 它用
+`dist` 作业在 `ci.yml` 中整段注释, 不再执行。它的原步骤是
+`CODECIN_SKIP_NATIVE=1 python -m build` → 断言 wheel/sdist 各含 ≥19 个
+`codecin/lib/*/src/*.cin` 且不含 `.so/.dylib/.dll` → 装 wheel 后跑
+`import "str.cin"` 的冒烟程序; 同样流程保留在 Release 的 `python-dist` 作业。
+
+`test` 作业的最后一步用
 `git ls-files --others --ignored --exclude-standard -- '*.py' '*.go' '*.cin' '*.asm'`
 列出被忽略的源码文件, 防止新文件因为 `.gitignore` 规则而根本没被提交。
 
